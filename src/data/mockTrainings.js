@@ -1,0 +1,175 @@
+export const mockTrainings = [
+  {
+    id: 'PGSL-TRN-001',
+    training: 'BOSIET',
+    provider: 'SGS Nigeria',
+    providerType: 'External',
+    duration: '3 Days',
+    validityPeriod: '2 Years',
+    participantsCount: 24,
+    status: 'Scheduled',
+    startDate: '24/10/26',
+    endDate: '26/10/26',
+    startTime: '8:00 AM',
+    endTime: '4:00 PM',
+    trainingType: 'Virtual',
+    location: 'Google Meet',
+    description: 'Mandatory safety training for employees performing work above ground level. Covers fall protection, rescue procedures, hazard identification, and safe work practices.',
+    renewalRequirements: 'Employees must renew this certification every 2 years.',
+  },
+  {
+    id: 'PGSL-TRN-002',
+    training: 'Advanced Safety Cert for Rigging Operations',
+    provider: 'NDCMB',
+    providerType: 'External',
+    duration: '2 Days',
+    validityPeriod: '2 Years',
+    participantsCount: 32,
+    status: 'Active',
+    startDate: '24/10/26',
+    endDate: '25/10/26',
+    startTime: '8:00 AM',
+    endTime: '4:00 PM',
+    trainingType: 'In-person',
+    location: 'NDCMB Training Center',
+    description: 'Advanced rigging safety and best practices.',
+    renewalRequirements: 'Employees must renew this certification every 2 years.',
+  },
+  {
+    id: 'PGSL-TRN-003',
+    training: 'ABS Welding 6G',
+    provider: 'Internal Training',
+    providerType: 'Internal',
+    duration: '1 Day',
+    validityPeriod: '1 Year',
+    participantsCount: 12,
+    status: 'Completed',
+    startDate: '10/05/26',
+    endDate: '10/05/26',
+    startTime: '9:00 AM',
+    endTime: '5:00 PM',
+    trainingType: 'In-person',
+    location: 'Workshop A',
+    description: 'Internal 6G welding qualification.',
+    renewalRequirements: 'Annual renewal required.',
+  },
+  {
+    id: 'PGSL-TRN-004',
+    training: 'CSWIP 3.1',
+    provider: 'SGS Nigeria',
+    providerType: 'External',
+    duration: '4 Days',
+    validityPeriod: '1 Year',
+    participantsCount: 8,
+    status: 'Scheduled',
+    startDate: '12/11/26',
+    endDate: '15/11/26',
+    startTime: '8:00 AM',
+    endTime: '5:00 PM',
+    trainingType: 'In-person',
+    location: 'SGS Facility',
+    description: 'Welding inspection certification.',
+    renewalRequirements: 'Annual renewal required.',
+  },
+  {
+    id: 'PGSL-TRN-005',
+    training: 'Scaffold Certification',
+    provider: 'SGS Nigeria',
+    providerType: 'External',
+    duration: '3 Days',
+    validityPeriod: '1 Year',
+    participantsCount: 45,
+    status: 'Active',
+    startDate: '24/10/26',
+    endDate: '26/10/26',
+    startTime: '8:00 AM',
+    endTime: '4:00 PM',
+    trainingType: 'In-person',
+    location: 'Onsite',
+    description: 'Safe scaffolding erection and dismantling.',
+    renewalRequirements: 'Annual renewal required.',
+  },
+  {
+    id: 'PGSL-TRN-006',
+    training: 'Fire Safety Training',
+    provider: 'NDCMB',
+    providerType: 'External',
+    duration: '1 Day',
+    validityPeriod: '1 Year',
+    participantsCount: 16,
+    status: 'Evaluation',
+    startDate: '01/09/26',
+    endDate: '01/09/26',
+    startTime: '9:00 AM',
+    endTime: '2:00 PM',
+    trainingType: 'In-person',
+    location: 'HQ',
+    description: 'Basic fire safety and extinguisher usage.',
+    renewalRequirements: 'Annual renewal required.',
+  },
+  {
+    id: 'PGSL-TRN-007',
+    training: 'Leadership Workshop',
+    provider: 'Internal Training',
+    providerType: 'Internal',
+    duration: '1 Day',
+    validityPeriod: 'No Expiry',
+    participantsCount: 8,
+    status: 'Scheduled',
+    startDate: '05/12/26',
+    endDate: '05/12/26',
+    startTime: '10:00 AM',
+    endTime: '4:00 PM',
+    trainingType: 'Virtual',
+    location: 'Zoom',
+    description: 'Leadership principles for new managers.',
+    renewalRequirements: 'None',
+  },
+  {
+    id: 'PGSL-TRN-008',
+    training: 'Fire Safety Training',
+    provider: 'Internal Training',
+    providerType: 'Internal',
+    duration: '1 Day',
+    validityPeriod: '1 Year',
+    participantsCount: 16,
+    status: 'Completed',
+    startDate: '10/01/26',
+    endDate: '10/01/26',
+    startTime: '9:00 AM',
+    endTime: '2:00 PM',
+    trainingType: 'In-person',
+    location: 'HQ',
+    description: 'Basic fire safety and extinguisher usage.',
+    renewalRequirements: 'Annual renewal required.',
+  }
+];
+
+export const getStatusStyle = (status) => {
+  switch (status) {
+    case 'Scheduled':
+      return { bg: '#FFF7E6', color: '#FF8A00' };
+    case 'Active':
+      return { bg: '#E6F0FF', color: '#1D4ED8' };
+    case 'Completed':
+      return { bg: '#E6FFE6', color: '#00C853' };
+    case 'Evaluation':
+      return { bg: '#F4E6FF', color: '#9D00FF' };
+    case 'Value Created':
+      return { bg: '#E6FFE6', color: '#00C853' };
+    case 'Under Evaluation':
+      return { bg: '#FFF7E6', color: '#FF8A00' };
+    default:
+      return { bg: '#F3F4F6', color: '#6B7280' };
+  }
+};
+
+export const mockParticipants = [
+  { id: 'PGSL-0421', name: 'Nafisat Abubakar', department: 'Engineering', position: 'Senior Mechanical Engineer', attendance: true, outcomeStatus: 'Value Created' },
+  { id: 'PGSL-0422', name: 'Gregory Eke', department: 'HSE', position: 'HSE Officer', attendance: true, outcomeStatus: 'Under Evaluation' },
+  { id: 'PGSL-0423', name: 'Chioma Benjamin', department: 'Operations', position: 'Operations Manager', attendance: false, outcomeStatus: null },
+  { id: 'PGSL-0424', name: 'Ali Nuhu', department: 'Administration', position: 'Admin Officer', attendance: true, outcomeStatus: 'Value Not Yet Observed' },
+  { id: 'PGSL-0425', name: 'Abdullahi Shittu', department: 'Technical', position: 'Instrumentation Engineer', attendance: true, outcomeStatus: 'Value Created' },
+  { id: 'PGSL-0426', name: 'Alfred Anita', department: 'HSE', position: 'Safety Officer', attendance: false, outcomeStatus: null },
+  { id: 'PGSL-0427', name: 'Adebayo Musa', department: 'Administration', position: 'Admin Officer', attendance: true, outcomeStatus: 'Under Evaluation' }
+];
