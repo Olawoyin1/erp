@@ -28,13 +28,11 @@ import HSEDocuments from './pages/hse/HSEDocuments';
 import HSEReports from './pages/hse/HSEReports';
 import TechnicalProjects from './pages/technical/TechnicalProjects';
 import ProjectDetail from './pages/technical/ProjectDetail';
-import {
-  EngineeringDocsPage,
-  CalibrationRecordsPage,
-  ResourceAllocationPage,
-  TechnicalTasksPage,
-  TechnicalReportsPage
-} from './pages/technical/PlaceholderTechnicalPage';
+import EngineeringDocuments from './pages/technical/EngineeringDocuments';
+import CalibrationRecords from './pages/technical/CalibrationRecords';
+import ResourceAllocation from './pages/technical/ResourceAllocation';
+import TechnicalTasks from './pages/technical/TechnicalTasks';
+import TechnicalReports from './pages/technical/TechnicalReports';
 
 export default function App() {
   return (
@@ -77,11 +75,11 @@ export default function App() {
           <Route index element={<Navigate to="/technical/projects" replace />} />
           <Route path="projects" element={<TechnicalProjects />} />
           <Route path="projects/:id" element={<ProjectDetail />} />
-          <Route path="engineering-docs" element={<EngineeringDocsPage />} />
-          <Route path="calibration" element={<CalibrationRecordsPage />} />
-          <Route path="resources" element={<ResourceAllocationPage />} />
-          <Route path="tasks" element={<TechnicalTasksPage />} />
-          <Route path="reports" element={<TechnicalReportsPage />} />
+          <Route path="engineering-docs" element={<EngineeringDocuments />} />
+          <Route path="calibration" element={<CalibrationRecords />} />
+          <Route path="resources" element={<ResourceAllocation />} />
+          <Route path="tasks" element={<TechnicalTasks />} />
+          <Route path="reports" element={<TechnicalReports />} />
         </Route>
 
         {/* Fallback route */}
