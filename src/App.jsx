@@ -21,6 +21,11 @@ import HRDocuments from './pages/hr/documents/HRDocuments';
 import Tasks from './pages/hr/tasks/Tasks';
 import Reports from './pages/hr/reports/Reports';
 import Requests from './pages/hr/requests/Requests';
+import OffshoreTravelDocuments from './pages/hse/OffshoreTravelDocuments';
+import EmergencyPreparedness from './pages/hse/EmergencyPreparedness';
+import HSETasks from './pages/hse/HSETasks';
+import HSEDocuments from './pages/hse/HSEDocuments';
+import HSEReports from './pages/hse/HSEReports';
 
 export default function App() {
   return (
@@ -46,6 +51,16 @@ export default function App() {
           <Route path="tasks" element={<Tasks />} />
           <Route path="documents" element={<HRDocuments />} />
           <Route path="reports" element={<Reports />} />
+        </Route>
+
+        {/* HSE Module Routes */}
+        <Route path="hse">
+          <Route index element={<Navigate to="/hse/offshore-travel" replace />} />
+          <Route path="offshore-travel" element={<OffshoreTravelDocuments />} />
+          <Route path="emergency" element={<EmergencyPreparedness />} />
+          <Route path="tasks" element={<HSETasks />} />
+          <Route path="documents" element={<HSEDocuments />} />
+          <Route path="reports" element={<HSEReports />} />
         </Route>
 
         {/* Fallback route */}

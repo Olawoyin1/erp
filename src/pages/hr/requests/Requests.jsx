@@ -65,83 +65,75 @@ function RequestModal({ isOpen, onClose, onSubmit }) {
   if (!isOpen) return null;
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15,23,42,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', width: '500px', maxWidth: '90vw', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #E2E8F0' }}>
-          <div>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#0F172A', margin: 0 }}>New Request</h2>
-            <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748B' }}>Submit a request for review and approval</p>
-          </div>
-          <button className="icon-btn" onClick={onClose}><FiX size={20} /></button>
-        </div>
-
-        <div style={{ padding: '24px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <FormField label="REQUEST" required>
-            <Input placeholder="e.g. A4 Printing Paper" />
-          </FormField>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px' }}>
-            <FormField label="REQUEST CATEGORY" required>
-              <Select>
-                <option>Office Supplies</option>
-                <option>IT Equipment</option>
-                <option>Furniture</option>
-              </Select>
-            </FormField>
-            <FormField label="QUANTITY" required>
-              <Input type="number" defaultValue={0} />
-            </FormField>
-            <FormField label="UNIT" required>
-              <Select>
-                <option>Units</option>
-                <option>Packs</option>
-                <option>Boxes</option>
-              </Select>
-            </FormField>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <FormField label="REQUESTED BY">
-              <Input defaultValue="Nafisat Abubakar" readOnly style={{ backgroundColor: '#F8FAFC' }} />
-            </FormField>
-            <FormField label="REQUIRED DATE" required>
-              <Input type="date" />
-            </FormField>
-          </div>
-
-          <FormField label="URGENCY" required>
+    <Drawer isOpen={isOpen} onClose={onClose} title="New Request" width="500px">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+        <p style={{ margin: '-10px 0 10px 0', fontSize: '0.85rem', color: '#64748B' }}>Submit a request for review and approval</p>
+        
+        <FormField label="REQUEST" required>
+          <Input placeholder="e.g. A4 Printing Paper" />
+        </FormField>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px' }}>
+          <FormField label="REQUEST CATEGORY" required>
             <Select>
-              <option>Routine</option>
-              <option>Urgent</option>
-              <option>Critical</option>
+              <option>Office Supplies</option>
+              <option>IT Equipment</option>
+              <option>Furniture</option>
             </Select>
           </FormField>
-
-          <FormField label="PURPOSE" required>
-            <textarea 
-              rows={4} 
-              style={{ width: '100%', padding: '10px 12px', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '0.875rem', fontFamily: 'inherit', resize: 'vertical' }}
-              placeholder="e.g. Current stationery stock is insufficient..."
-            />
+          <FormField label="QUANTITY" required>
+            <Input type="number" defaultValue={0} />
           </FormField>
-
-          <FormField label="ATTACH DOCUMENT (OPTIONAL)">
-            <FileUpload onFileSelect={() => {}} />
+          <FormField label="UNIT" required>
+            <Select>
+              <option>Units</option>
+              <option>Packs</option>
+              <option>Boxes</option>
+            </Select>
           </FormField>
         </div>
 
-        <div style={{ padding: '16px 24px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600 }} onClick={onSubmit}>
-            Submit Request
-          </button>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <FormField label="REQUESTED BY">
+            <Input defaultValue="Nafisat Abubakar" readOnly style={{ backgroundColor: '#F8FAFC' }} />
+          </FormField>
+          <FormField label="REQUIRED DATE" required>
+            <Input type="date" />
+          </FormField>
         </div>
+
+        <FormField label="URGENCY" required>
+          <Select>
+            <option>Routine</option>
+            <option>Urgent</option>
+            <option>Critical</option>
+          </Select>
+        </FormField>
+
+        <FormField label="PURPOSE" required>
+          <textarea 
+            rows={4} 
+            style={{ width: '100%', padding: '10px 12px', border: '1px solid #E2E8F0', borderRadius: '6px', fontSize: '0.875rem', fontFamily: 'inherit', resize: 'vertical' }}
+            placeholder="e.g. Current stationery stock is insufficient..."
+          />
+        </FormField>
+
+        <FormField label="ATTACH DOCUMENT (OPTIONAL)">
+          <FileUpload onFileSelect={() => {}} />
+        </FormField>
       </div>
-    </div>
+
+      <div style={{ padding: '16px 0 0 0', marginTop: '20px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+        <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600 }} onClick={onSubmit}>
+          Submit Request
+        </button>
+      </div>
+    </Drawer>
   );
 }
 
-function ViewRequestDrawer({ isOpen, onClose, record }) {
+function ViewRequestDrawer({ isOpen, onClose, record, onApprove, onReject }) {
   const [activeTab, setActiveTab] = useState('details');
 
   if (!record) return null;
@@ -166,10 +158,10 @@ function ViewRequestDrawer({ isOpen, onClose, record }) {
           <Badge status={record.status} />
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#10B981', color: '#fff', borderRadius: '6px', border: 'none' }}>
+          <button className="btn" onClick={() => onApprove(record)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#10B981', color: '#fff', borderRadius: '6px', border: 'none' }}>
             <FiCheck size={14} /> Approve
           </button>
-          <button className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '6px', border: '1px solid #FECACA' }}>
+          <button className="btn" onClick={() => onReject(record)} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: '6px', border: '1px solid #FECACA' }}>
             <FiX size={14} /> Reject
           </button>
         </div>
@@ -249,6 +241,32 @@ function ViewRequestDrawer({ isOpen, onClose, record }) {
               </div>
               <button className="icon-btn" title="Download"><FiDownload size={15} /></button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'history' && (
+        <div style={{ padding: '8px' }}>
+          <div style={{ position: 'relative', borderLeft: '2px solid #E2E8F0', paddingLeft: '16px', marginLeft: '8px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            
+            <div style={{ position: 'relative' }}>
+              <div style={{ position: 'absolute', left: '-25px', top: '0', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: '#10B981', border: '3px solid #fff' }}></div>
+              <div style={{ fontSize: '0.85rem', color: '#0F172A', fontWeight: 600 }}>Request Submitted</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748B' }}>By {record.requestedBy}</div>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>{record.requestDate} 10:30 AM</div>
+            </div>
+
+            <div style={{ position: 'relative' }}>
+              <div style={{ position: 'absolute', left: '-25px', top: '0', width: '16px', height: '16px', borderRadius: '50%', backgroundColor: record.status.includes('Approved') || record.status === 'Issued' ? '#10B981' : '#F59E0B', border: '3px solid #fff' }}></div>
+              <div style={{ fontSize: '0.85rem', color: '#0F172A', fontWeight: 600 }}>HOD Review</div>
+              <div style={{ fontSize: '0.75rem', color: '#64748B' }}>
+                {record.status.includes('Approved') || record.status === 'Issued' ? 'Approved by HOD' : 'Currently under review by Head of Department'}
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: '4px' }}>
+                {record.status.includes('Approved') || record.status === 'Issued' ? '29/05/25 09:15 AM' : 'Pending'}
+              </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -381,6 +399,14 @@ export default function Requests() {
         isOpen={!!viewDrawerRecord} 
         onClose={() => setViewDrawerRecord(null)} 
         record={viewDrawerRecord} 
+        onApprove={(rec) => {
+          showToast(`Request ${rec.id} approved successfully`, 'success');
+          setViewDrawerRecord(null);
+        }}
+        onReject={(rec) => {
+          showToast(`Request ${rec.id} rejected`, 'error');
+          setViewDrawerRecord(null);
+        }}
       />
     </div>
   );

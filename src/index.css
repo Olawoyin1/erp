@@ -663,9 +663,31 @@ ul, ol {
 .badge-inactive { background: var(--status-inactive-bg); color: var(--status-inactive-text); }
 .badge-valid { background: var(--status-active-bg); color: var(--status-active-text); }
 .badge-expired { background: var(--error-bg); color: var(--error); }
+.badge-expiring { background: #FEF9C3; color: #854D0E; }
 .badge-approved { background: var(--status-active-bg); color: var(--status-active-text); }
 .badge-rejected { background: var(--error-bg); color: var(--error); }
 .badge-pending { background: var(--status-probation-bg); color: var(--status-probation-text); }
+
+/* Document workflow badges */
+.badge-draft { background: #F1F5F9; color: #475569; }
+.badge-under-review { background: #FEF3C7; color: #92400E; }
+.badge-checked-out { background: #EEF2FF; color: #4338CA; }
+.badge-archived { background: #F1F5F9; color: #64748B; }
+.badge-completed { background: #D1FAE5; color: #065F46; }
+
+/* Task status badges */
+.badge-todo { background: #F1F5F9; color: #475569; }
+.badge-in-progress { background: #DBEAFE; color: #1E40AF; }
+.badge-done { background: #D1FAE5; color: #065F46; }
+.badge-overdue { background: #FEE2E2; color: #991B1B; }
+.badge-open { background: #FEF3C7; color: #92400E; }
+
+/* HR Requests workflow badges */
+.badge-issued { background: #DBEAFE; color: #1E40AF; }
+.badge-hod-reviewing { background: #FEF3C7; color: #92400E; }
+.badge-hod-approved { background: #D1FAE5; color: #065F46; }
+.badge-store-reviewing { background: #EDE9FE; color: #5B21B6; }
+.badge-returned { background: #FEE2E2; color: #991B1B; }
 
 .tag {
   display: inline-flex;
