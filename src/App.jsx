@@ -26,6 +26,15 @@ import EmergencyPreparedness from './pages/hse/EmergencyPreparedness';
 import HSETasks from './pages/hse/HSETasks';
 import HSEDocuments from './pages/hse/HSEDocuments';
 import HSEReports from './pages/hse/HSEReports';
+import TechnicalProjects from './pages/technical/TechnicalProjects';
+import ProjectDetail from './pages/technical/ProjectDetail';
+import {
+  EngineeringDocsPage,
+  CalibrationRecordsPage,
+  ResourceAllocationPage,
+  TechnicalTasksPage,
+  TechnicalReportsPage
+} from './pages/technical/PlaceholderTechnicalPage';
 
 export default function App() {
   return (
@@ -61,6 +70,18 @@ export default function App() {
           <Route path="tasks" element={<HSETasks />} />
           <Route path="documents" element={<HSEDocuments />} />
           <Route path="reports" element={<HSEReports />} />
+        </Route>
+
+        {/* Technical Module Routes */}
+        <Route path="technical">
+          <Route index element={<Navigate to="/technical/projects" replace />} />
+          <Route path="projects" element={<TechnicalProjects />} />
+          <Route path="projects/:id" element={<ProjectDetail />} />
+          <Route path="engineering-docs" element={<EngineeringDocsPage />} />
+          <Route path="calibration" element={<CalibrationRecordsPage />} />
+          <Route path="resources" element={<ResourceAllocationPage />} />
+          <Route path="tasks" element={<TechnicalTasksPage />} />
+          <Route path="reports" element={<TechnicalReportsPage />} />
         </Route>
 
         {/* Fallback route */}
