@@ -599,8 +599,8 @@ function JobPostingsTab({ showToast }) {
   return (
     <>
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1', minWidth: '200px', maxWidth: '320px' }}>
+      <div className="table-toolbar" style={{ marginBottom: '16px' }}>
+        <div className="table-toolbar-search">
           <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
           <input
             value={search}
@@ -609,7 +609,7 @@ function JobPostingsTab({ showToast }) {
             style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.84rem', fontFamily: 'var(--font)', backgroundColor: '#F8FAFC', color: '#1E293B', outline: 'none', boxSizing: 'border-box' }}
           />
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+        <div className="table-toolbar-actions">
           <button style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 16px', borderRadius: '8px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', color: '#374151', fontSize: '0.84rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font)' }}>
             <FiFilter size={14} /> Filter
           </button>
@@ -757,8 +757,8 @@ function CandidatesTab({ showToast }) {
   return (
     <>
       {/* Toolbar */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1', minWidth: '200px', maxWidth: '320px' }}>
+      <div className="table-toolbar" style={{ marginBottom: '16px' }}>
+        <div className="table-toolbar-search">
           <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
           <input
             value={search}
@@ -767,7 +767,7 @@ function CandidatesTab({ showToast }) {
             style={{ width: '100%', padding: '9px 12px 9px 36px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '0.84rem', fontFamily: 'var(--font)', backgroundColor: '#F8FAFC', color: '#1E293B', outline: 'none', boxSizing: 'border-box' }}
           />
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px' }}>
+        <div className="table-toolbar-actions">
           <button style={{ display: 'flex', alignItems: 'center', gap: '7px', padding: '9px 16px', borderRadius: '8px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', color: '#374151', fontSize: '0.84rem', fontWeight: 500, cursor: 'pointer', fontFamily: 'var(--font)' }}>
             <FiFilter size={14} /> Filter
           </button>
@@ -829,7 +829,7 @@ export default function Recruitment() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Recruitment</h1>
           <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: '2px', margin: 0 }}>
@@ -846,7 +846,7 @@ export default function Recruitment() {
       </div>
 
       {/* Main Content Card */}
-      <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', gap: '8px' }}>
           {[

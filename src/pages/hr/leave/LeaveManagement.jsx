@@ -835,7 +835,7 @@ export default function LeaveManagement() {
       )}
 
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Leave Management</h1>
           <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: '2px', margin: 0 }}>
@@ -850,16 +850,16 @@ export default function LeaveManagement() {
         </button>
       </div>
 
-      <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
         {/* Toolbar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+        <div className="table-toolbar">
           {/* Search */}
-          <div style={{ position: 'relative', width: '320px' }}>
+          <div className="table-toolbar-search">
             <Input
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               placeholder="Search employee, type, status..."
-              style={{ paddingLeft: '36px' }}
+              style={{ paddingLeft: '36px', width: '100%' }}
             />
             <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
               <FiSearch size={15} />
@@ -867,7 +867,7 @@ export default function LeaveManagement() {
           </div>
 
           {/* Action Buttons */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="table-toolbar-actions">
             <button className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}>
               <FiFilter size={14} /> Filter
             </button>

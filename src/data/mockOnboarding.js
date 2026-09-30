@@ -1,0 +1,77 @@
+export const mockOnboarding = [
+  {
+    id: 'PGSL-0421',
+    name: 'Nafisat Abubakar',
+    position: 'ABS Certified Welder',
+    department: 'Engineering',
+    dateJoined: '28/05/25',
+    status: 'Pending',
+    completion: 0,
+    documents: [
+      { name: 'International_Passport.pdf', type: 'Passport', status: 'Pending Verification' },
+      { name: 'Birth_Certificate.pdf', type: 'Certificate', status: 'Pending Verification' },
+    ],
+    checklist: [
+      { task: 'General yard safety training', completed: false },
+      { task: 'Medical clearance verification', completed: false },
+      { task: 'Equipment Allocation', completed: false },
+      { task: 'PPE usage protocols', completed: false },
+    ],
+  },
+  {
+    id: 'PGSL-0422',
+    name: 'Gregory Eke',
+    position: 'HSE Officer',
+    department: 'HSE',
+    dateJoined: '28/05/25',
+    status: 'Completed',
+    completion: 100,
+    documents: [
+      { name: 'International_Passport.pdf', type: 'Passport', status: 'Verified' },
+      { name: 'Opito_bioset.pdf', type: 'Certificate', status: 'Verified' },
+    ],
+    checklist: [
+      { task: 'General yard safety training', completed: true },
+      { task: 'Medical clearance verification', completed: true },
+      { task: 'Equipment Allocation', completed: true },
+      { task: 'PPE usage protocols', completed: true },
+    ],
+  },
+  {
+    id: 'PGSL-0423',
+    name: 'Chioma Benjamin',
+    position: 'ABS Certified Welder',
+    department: 'Operations',
+    dateJoined: '28/05/25',
+    status: 'In Progress',
+    completion: 50,
+    documents: [
+      { name: 'International_Passport.pdf', type: 'Passport', status: 'Verified' },
+      { name: 'Birth_Certificate.pdf', type: 'Certificate', status: 'Pending Verification' },
+    ],
+    checklist: [
+      { task: 'General yard safety training', completed: true },
+      { task: 'Medical clearance verification', completed: true },
+      { task: 'Equipment Allocation', completed: false },
+      { task: 'PPE usage protocols', completed: false },
+    ],
+  },
+  {
+    id: 'PGSL-0424',
+    name: 'Ali Nuhu',
+    position: 'HR Officer',
+    department: 'Administration',
+    dateJoined: '28/05/25',
+    status: 'Pending',
+    completion: 25,
+    documents: [
+      { name: 'International_Passport.pdf', type: 'Passport', status: 'Pending Verification' },
+    ],
+    checklist: [
+      { task: 'General yard safety training', completed: true },
+      { task: 'Medical clearance verification', completed: false },
+      { task: 'Equipment Allocation', completed: false },
+      { task: 'PPE usage protocols', completed: false },
+    ],
+  },
+];

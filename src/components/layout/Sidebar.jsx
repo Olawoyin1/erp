@@ -11,6 +11,7 @@ import {
   FiAlertTriangle,
   FiChevronDown,
   FiMenu,
+  FiX,
   FiArrowUp,
   FiBarChart2,
 } from 'react-icons/fi';
@@ -128,7 +129,7 @@ const navConfig = [
   },
 ];
 
-export default function Sidebar({ collapsed, onToggle }) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [openSections, setOpenSections] = useState({ '/hr': true });
@@ -140,79 +141,91 @@ export default function Sidebar({ collapsed, onToggle }) {
   const isActive = (path) => location.pathname === path;
   const isChildActive = (children) => children.some((c) => location.pathname.startsWith(c.path));
 
+  const handleItemClick = (item) => {
+    if (item.collapsible) {
+      toggleSection(item.path);
+    } else {
+      navigate(item.path);
+      if (onMobileClose) onMobileClose();
+    }
+  };
+
+  const handleChildClick = (path) => {
+    navigate(path);
+    if (onMobileClose) onMobileClose();
+  };
+
   return (
-    <aside className={`sidebar${collapsed ? ' collapsed' : ''}`}>
-      <div className="sidebar-logo">
-        {!collapsed && <span className="sidebar-logo-text">PGSL ERP</span>}
-        <button className="sidebar-collapse-btn" onClick={onToggle} title="Toggle sidebar">
-          <FiMenu size={15} />
-        </button>
-      </div>
+    <>
+      {mobileOpen && (
+        <div className="sidebar-overlay" onClick={onMobileClose} title="Close sidebar" />
+      )}
+      <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
+        <div className="sidebar-logo">
+          <span className="sidebar-logo-text">PGSL ERP</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <button className="sidebar-collapse-btn desktop-only-btn" onClick={onToggle} title="Toggle sidebar">
+              <FiMenu size={15} />
+            </button>
+            <button className="sidebar-collapse-btn mobile-only-btn" onClick={onMobileClose} title="Close sidebar">
+              <FiX size={16} />
+            </button>
+          </div>
+        </div>
 
-      <nav className="sidebar-nav">
-        {navConfig.map((section) => (
-          <div key={section.section}>
-            {!collapsed && <div className="sidebar-section-label">{section.section}</div>}
-            {section.items.map((item) => {
-              const isItemActive = isActive(item.path) || (item.children?.length && isChildActive(item.children));
-              const isOpen = !!openSections[item.path];
+        <nav className="sidebar-nav">
+          {navConfig.map((section) => (
+            <div key={section.section}>
+              <div className="sidebar-section-label">{section.section}</div>
+              {section.items.map((item) => {
+                const isItemActive = isActive(item.path) || (item.children?.length && isChildActive(item.children));
+                const isOpen = !!openSections[item.path];
 
-              return (
-                <div key={item.path}>
-                  <div
-                    className={`sidebar-item ${isItemActive ? 'active' : ''}`}
-                    onClick={() => {
-                      if (item.collapsible) {
-                        toggleSection(item.path);
-                      } else {
-                        navigate(item.path);
-                      }
-                    }}
-                    title={collapsed ? item.label : ''}
-                  >
-                    <span className="sidebar-item-icon">{item.icon}</span>
-                    {!collapsed && (
-                      <>
-                        <span className="sidebar-item-label">{item.label}</span>
-                        {item.collapsible && (
-                          <span className={`sidebar-chevron ${isOpen ? 'open' : ''}`}>
-                            <FiChevronDown size={14} />
-                          </span>
-                        )}
-                      </>
+                return (
+                  <div key={item.path}>
+                    <div
+                      className={`sidebar-item ${isItemActive ? 'active' : ''}`}
+                      onClick={() => handleItemClick(item)}
+                      title={collapsed ? item.label : ''}
+                    >
+                      <span className="sidebar-item-icon">{item.icon}</span>
+                      <span className="sidebar-item-label">{item.label}</span>
+                      {item.collapsible && (
+                        <span className={`sidebar-chevron ${isOpen ? 'open' : ''}`}>
+                          <FiChevronDown size={14} />
+                        </span>
+                      )}
+                    </div>
+
+                    {item.children?.length > 0 && (
+                      <div className={`sidebar-sub ${isOpen ? 'open' : ''}`}>
+                        <div className="sidebar-sub-content">
+                          {item.children.map((child) => (
+                            <div
+                              key={child.path}
+                              className={`sidebar-sub-item ${isActive(child.path) || location.pathname === child.path ? 'active' : ''}`}
+                              onClick={() => handleChildClick(child.path)}
+                            >
+                              {child.label}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     )}
                   </div>
+                );
+              })}
+            </div>
+          ))}
+        </nav>
 
-                  {!collapsed && item.children?.length > 0 && (
-                    <div className={`sidebar-sub ${isOpen ? 'open' : ''}`}>
-                      <div className="sidebar-sub-content">
-                        {item.children.map((child) => (
-                          <div
-                            key={child.path}
-                            className={`sidebar-sub-item ${isActive(child.path) || location.pathname === child.path ? 'active' : ''}`}
-                            onClick={() => navigate(child.path)}
-                          >
-                            {child.label}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
-      </nav>
-
-      {!collapsed && (
         <div className="sidebar-footer">
           <div className="sidebar-upgrade-btn">
             <FiArrowUp size={14} />
             <span>Upgrade Plan</span>
           </div>
         </div>
-      )}
-    </aside>
+      </aside>
+    </>
   );
 }

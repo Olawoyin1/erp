@@ -1,0 +1,38 @@
+export const mockAttendance = [
+  {
+    id: 'PGSL-0421',
+    name: 'Nafisat Abubakar',
+    location: 'Lagos Head Office',
+    clockIn: '07:55 AM',
+    clockOut: '05:15 PM',
+    hoursWorked: '9h 20m',
+    status: 'Present',
+  },
+  {
+    id: 'PGSL-0422',
+    name: 'Gregory Eke',
+    location: 'Warri Yard',
+    clockIn: '08:23 AM',
+    clockOut: '05:00 PM',
+    hoursWorked: '8h 37m',
+    status: 'Late',
+  },
+  {
+    id: 'PGSL-0423',
+    name: 'Chioma Benjamin',
+    location: 'Lagos Head Office',
+    clockIn: '08:23 AM',
+    clockOut: '05:00 PM',
+    hoursWorked: '8h 37m',
+    status: 'Completed',
+  },
+  {
+    id: 'PGSL-0424',
+    name: 'Ali Nuhu',
+    location: 'Lagos Head Office',
+    clockIn: '08:23 AM',
+    clockOut: '05:00 PM',
+    hoursWorked: '8h 37m',
+    status: 'Late',
+  },
+];

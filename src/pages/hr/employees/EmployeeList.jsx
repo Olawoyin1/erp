@@ -387,7 +387,7 @@ export default function EmployeeList() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Employees</h1>
           <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: '2px', margin: 0 }}>
@@ -404,10 +404,10 @@ export default function EmployeeList() {
       </div>
 
       {/* Table Action Bar */}
-      <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+      <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
+        <div className="table-toolbar">
           {/* Search Box */}
-          <div style={{ position: 'relative', width: '320px' }}>
+          <div className="table-toolbar-search">
             <Input
               value={search}
               onChange={(e) => {
@@ -415,7 +415,7 @@ export default function EmployeeList() {
                 setCurrentPage(1);
               }}
               placeholder="Search employees, ID, position..."
-              style={{ paddingLeft: '36px' }}
+              style={{ paddingLeft: '36px', width: '100%' }}
             />
             <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
               <FiSearch size={15} />
@@ -423,7 +423,7 @@ export default function EmployeeList() {
           </div>
 
           {/* Action Toolbar */}
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <div className="table-toolbar-actions">
             <button
               className="btn btn-secondary"
               onClick={() => setFilterOpen(true)}

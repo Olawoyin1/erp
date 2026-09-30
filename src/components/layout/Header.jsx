@@ -1,9 +1,17 @@
 import React from 'react';
-import { FiSearch, FiBell, FiChevronDown, FiPlus } from 'react-icons/fi';
+import { FiSearch, FiBell, FiChevronDown, FiPlus, FiMenu } from 'react-icons/fi';
 
-export default function Header() {
+export default function Header({ onMobileToggle }) {
   return (
     <header className="header">
+      <button 
+        className="header-mobile-toggle"
+        onClick={onMobileToggle}
+        title="Open navigation menu"
+      >
+        <FiMenu size={18} />
+      </button>
+
       <div className="header-search">
         <span className="header-search-icon">
           <FiSearch size={15} />
