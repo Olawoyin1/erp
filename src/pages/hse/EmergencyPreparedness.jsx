@@ -1,13 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FiSearch, FiFilter, FiDownload, FiPlus, FiEye, FiMoreVertical, FiCheck, FiRefreshCw, FiArchive, FiX } from 'react-icons/fi';
-import DataTable from '../../../components/ui/DataTable';
-import Pagination from '../../../components/ui/Pagination';
-import Badge from '../../../components/ui/Badge';
-import { Input, FormField, Select } from '../../../components/ui/FormField';
-import Toast, { useToast } from '../../../components/ui/Toast';
-import Drawer from '../../../components/ui/Drawer';
-import FileUpload from '../../../components/ui/FileUpload';
-import { mockEmergencyPlans } from '../../../data/mockHSE';
+import DataTable from '../../components/ui/DataTable';
+import Pagination from '../../components/ui/Pagination';
+import Badge from '../../components/ui/Badge';
+import { Input, FormField, Select } from '../../components/ui/FormField';
+import Toast, { useToast } from '../../components/ui/Toast';
+import Drawer from '../../components/ui/Drawer';
+import FileUpload from '../../components/ui/FileUpload';
+import { mockEmergencyPlans } from '../../data/mockHSE';
 
 const ITEMS_PER_PAGE = 10;
 

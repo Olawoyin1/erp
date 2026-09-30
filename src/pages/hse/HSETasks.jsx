@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { FiSearch, FiFilter, FiDownload, FiPlus, FiEye, FiMoreVertical } from 'react-icons/fi';
-import DataTable from '../../../components/ui/DataTable';
-import Pagination from '../../../components/ui/Pagination';
-import Badge from '../../../components/ui/Badge';
-import { Input } from '../../../components/ui/FormField';
-import Toast, { useToast } from '../../../components/ui/Toast';
-import { mockHSETasks } from '../../../data/mockHSE';
+import DataTable from '../../components/ui/DataTable';
+import Pagination from '../../components/ui/Pagination';
+import Badge from '../../components/ui/Badge';
+import { Input } from '../../components/ui/FormField';
+import Toast, { useToast } from '../../components/ui/Toast';
+import { mockHSETasks } from '../../data/mockHSE';
 
 const ITEMS_PER_PAGE = 10;
 
