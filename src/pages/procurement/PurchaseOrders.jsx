@@ -278,8 +278,4 @@ export default function PurchaseOrders() {
   );
 }
 
-const payStatusStyle = {
-  'Paid':    { bg: '#DCFCE7', color: '#14532D' },
-  'Partial': { bg: '#FEF3C7', color: '#92400E' },
-  'Unpaid':  { bg: '#FEE2E2', color: '#991B1B' },
-};
+
