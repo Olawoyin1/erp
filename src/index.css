@@ -2266,5 +2266,12 @@ input[type="checkbox"] {
   font-weight: 500;
 }
 
-
-
+/* ═══════════════════════════════════════════
+   ADMINISTRATION MODULE UTILITIES
+═══════════════════════════════════════════ */
+.menu-item-hover {
+  transition: background-color 120ms ease;
+}
+.menu-item-hover:hover {
+  background-color: #F8FAFC;
+}

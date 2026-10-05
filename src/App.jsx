@@ -33,6 +33,19 @@ import CalibrationRecords from './pages/technical/CalibrationRecords';
 import ResourceAllocation from './pages/technical/ResourceAllocation';
 import TechnicalTasks from './pages/technical/TechnicalTasks';
 import TechnicalReports from './pages/technical/TechnicalReports';
+import GeneralAdmin from './pages/administration/GeneralAdmin';
+import FacilitiesAssets from './pages/administration/FacilitiesAssets';
+import CompanyFleet from './pages/administration/CompanyFleet';
+import VisitorLogs from './pages/administration/VisitorLogs';
+import ClientPipeline from './pages/bizdev/ClientPipeline';
+import RFQsTenders from './pages/bizdev/RFQsTenders';
+import Proposals from './pages/bizdev/Proposals';
+import CRMContacts from './pages/bizdev/CRMContacts';
+import PurchaseRequests from './pages/procurement/PurchaseRequests';
+import PurchaseOrders from './pages/procurement/PurchaseOrders';
+import VendorManagement from './pages/procurement/VendorManagement';
+import InventoryStore from './pages/procurement/InventoryStore';
+import ProcurementReports from './pages/procurement/ProcurementReports';
 
 export default function App() {
   return (
@@ -80,6 +93,34 @@ export default function App() {
           <Route path="resources" element={<ResourceAllocation />} />
           <Route path="tasks" element={<TechnicalTasks />} />
           <Route path="reports" element={<TechnicalReports />} />
+        </Route>
+
+        {/* Administration Module Routes */}
+        <Route path="admin">
+          <Route index element={<Navigate to="/admin/general" replace />} />
+          <Route path="general" element={<GeneralAdmin />} />
+          <Route path="facilities" element={<FacilitiesAssets />} />
+          <Route path="fleet" element={<CompanyFleet />} />
+          <Route path="visitors" element={<VisitorLogs />} />
+        </Route>
+
+        {/* Business Development Module Routes */}
+        <Route path="bizdev">
+          <Route index element={<Navigate to="/bizdev/pipeline" replace />} />
+          <Route path="pipeline" element={<ClientPipeline />} />
+          <Route path="tenders" element={<RFQsTenders />} />
+          <Route path="proposals" element={<Proposals />} />
+          <Route path="crm" element={<CRMContacts />} />
+        </Route>
+
+        {/* Procurement Module Routes */}
+        <Route path="procurement">
+          <Route index element={<Navigate to="/procurement/requests" replace />} />
+          <Route path="requests" element={<PurchaseRequests />} />
+          <Route path="orders" element={<PurchaseOrders />} />
+          <Route path="vendors" element={<VendorManagement />} />
+          <Route path="inventory" element={<InventoryStore />} />
+          <Route path="reports" element={<ProcurementReports />} />
         </Route>
 
         {/* Fallback route */}

@@ -59,6 +59,29 @@ const statusMap = {
 
   // Offshore / HSE
   'Pending Verification': 'pending',
+
+  // Fleet
+  'Available': 'active',
+  'In Use': 'in-progress',
+  'Under Maintenance': 'expiring',
+  'Overdue Service': 'overdue',
+
+  // Correspondence / Meeting
+  'Sent': 'completed',
+  'Distributed': 'completed',
+  'Reviewed': 'completed',
+  'Scheduled': 'pending',
+  'Archived': 'archived',
+
+  // Visitors
+  'On Premises': 'hod-approved',
+  'Checked Out': 'inactive',
+  'Expected': 'issued',
+
+  // Facilities
+  'Operational': 'active',
+  'Overdue': 'overdue',
+  'In Progress': 'in-progress',
 };
 
 export default function Badge({ status, text }) {

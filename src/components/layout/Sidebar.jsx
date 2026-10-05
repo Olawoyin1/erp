@@ -14,6 +14,7 @@ import {
   FiX,
   FiArrowUp,
   FiBarChart2,
+  FiShoppingCart,
 } from 'react-icons/fi';
 
 const navConfig = [
@@ -82,6 +83,19 @@ const navConfig = [
           { label: 'RFQs & Tenders', path: '/bizdev/tenders' },
           { label: 'Proposals', path: '/bizdev/proposals' },
           { label: 'CRM Contacts', path: '/bizdev/crm' },
+        ],
+      },
+      {
+        label: 'Procurement',
+        icon: <FiShoppingCart size={17} />,
+        path: '/procurement',
+        collapsible: true,
+        children: [
+          { label: 'Purchase Requests', path: '/procurement/requests' },
+          { label: 'Purchase Orders', path: '/procurement/orders' },
+          { label: 'Vendor Management', path: '/procurement/vendors' },
+          { label: 'Inventory & Store', path: '/procurement/inventory' },
+          { label: 'Procurement Reports', path: '/procurement/reports' },
         ],
       },
       {
