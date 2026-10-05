@@ -83,5 +83,31 @@ export const mockVisitors = [
   { id: 'VIS-007', name: 'Kenneth Obi', company: 'NUPRC', purpose: 'Compliance Review', host: 'CEO', hostDept: 'Management', checkIn: '09:30 AM', checkOut: '01:00 PM', date: '2026-10-03', badge: 'VB-0448', status: 'Checked Out' },
   { id: 'VIS-008', name: 'Hauwa Yusuf', company: 'Dangote Industries', purpose: 'Supply Chain Meeting', host: 'Procurement Manager', hostDept: 'Procurement', checkIn: '10:00 AM', checkOut: null, date: '2026-10-05', badge: 'VB-0454', status: 'Expected' },
   { id: 'VIS-009', name: 'Emeka Okafor', company: 'NAOC Nigeria', purpose: 'Technical Assessment', host: 'Project Manager', hostDept: 'Technical', checkIn: '01:00 PM', checkOut: null, date: '2026-10-05', badge: 'VB-0455', status: 'Expected' },
-  { id: 'VIS-010', name: 'Yetunde Lawson', company: 'Access Bank Plc', purpose: 'Credit Facility Discussion', host: 'CFO', hostDept: 'Finance', checkIn: '03:00 PM', checkOut: '04:15 PM', date: '2026-10-02', badge: 'VB-0446', status: 'Checked Out' },
+];
+
+// ── Additional Mock Data for new Admin pages ────────────────────────────────
+
+export const mockAdminRequests = [
+  { id: 'AR-001', title: 'Office Chair Replacement', requester: 'John Doe', dept: 'IT', date: '2026-10-01', status: 'Pending' },
+  { id: 'AR-002', title: 'New AC Installation', requester: 'Jane Smith', dept: 'HR', date: '2026-09-28', status: 'Approved' },
+];
+
+export const mockAdminDocuments = [
+  { id: 'DOC-001', name: 'Company Policy 2026.pdf', type: 'Policy', size: '2.4 MB', uploadedBy: 'Admin', date: '2026-01-15' },
+  { id: 'DOC-002', name: 'Health & Safety Guidelines.docx', type: 'Guideline', size: '1.1 MB', uploadedBy: 'HSE', date: '2026-03-22' },
+];
+
+export const mockEDMS = [
+  { id: 'EDMS-001', filename: 'Vendor_Contracts_Q1.zip', category: 'Contracts', accessLevel: 'Restricted', date: '2026-04-10' },
+  { id: 'EDMS-002', filename: 'Board_Meeting_Minutes_2025.pdf', category: 'Minutes', accessLevel: 'Confidential', date: '2025-12-20' },
+];
+
+export const mockAdminTasks = [
+  { id: 'TSK-001', title: 'Renew Fleet Insurance', assignee: 'Fleet Manager', dueDate: '2026-11-01', status: 'In Progress', priority: 'High' },
+  { id: 'TSK-002', title: 'Prepare Q3 Admin Report', assignee: 'Admin Head', dueDate: '2026-10-15', status: 'Pending', priority: 'Medium' },
+];
+
+export const mockWasteDisposal = [
+  { id: 'WST-001', type: 'Electronic Waste', quantity: '150 kg', contractor: 'EcoDispose Ltd', pickupDate: '2026-09-30', status: 'Completed' },
+  { id: 'WST-002', type: 'General Office Waste', quantity: '500 kg', contractor: 'City Waste Management', pickupDate: '2026-10-06', status: 'Scheduled' },
 ];

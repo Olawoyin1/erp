@@ -33,10 +33,17 @@ import CalibrationRecords from './pages/technical/CalibrationRecords';
 import ResourceAllocation from './pages/technical/ResourceAllocation';
 import TechnicalTasks from './pages/technical/TechnicalTasks';
 import TechnicalReports from './pages/technical/TechnicalReports';
-import GeneralAdmin from './pages/administration/GeneralAdmin';
-import FacilitiesAssets from './pages/administration/FacilitiesAssets';
-import CompanyFleet from './pages/administration/CompanyFleet';
-import VisitorLogs from './pages/administration/VisitorLogs';
+import AdministrativeRequests from './pages/administration/AdministrativeRequests';
+import AssetSupplies from './pages/administration/AssetSupplies';
+import Documents from './pages/administration/Documents';
+import EDMS from './pages/administration/EDMS';
+import FacilityMaintenance from './pages/administration/FacilityMaintenance';
+import Memos from './pages/administration/Memos';
+import AdminReports from './pages/administration/AdminReports';
+import AdminTasks from './pages/administration/AdminTasks';
+import TravelsLogistics from './pages/administration/TravelsLogistics';
+import WasteDisposal from './pages/administration/WasteDisposal';
+
 import ClientPipeline from './pages/bizdev/ClientPipeline';
 import RFQsTenders from './pages/bizdev/RFQsTenders';
 import Proposals from './pages/bizdev/Proposals';
@@ -96,12 +103,18 @@ export default function App() {
         </Route>
 
         {/* Administration Module Routes */}
-        <Route path="admin">
-          <Route index element={<Navigate to="/admin/general" replace />} />
-          <Route path="general" element={<GeneralAdmin />} />
-          <Route path="facilities" element={<FacilitiesAssets />} />
-          <Route path="fleet" element={<CompanyFleet />} />
-          <Route path="visitors" element={<VisitorLogs />} />
+        <Route path="administration">
+          <Route index element={<Navigate to="/administration/requests" replace />} />
+          <Route path="requests" element={<AdministrativeRequests />} />
+          <Route path="assets" element={<AssetSupplies />} />
+          <Route path="documents" element={<Documents />} />
+          <Route path="edms" element={<EDMS />} />
+          <Route path="maintenance" element={<FacilityMaintenance />} />
+          <Route path="memos" element={<Memos />} />
+          <Route path="reports" element={<AdminReports />} />
+          <Route path="tasks" element={<AdminTasks />} />
+          <Route path="travels" element={<TravelsLogistics />} />
+          <Route path="waste" element={<WasteDisposal />} />
         </Route>
 
         {/* Business Development Module Routes */}
