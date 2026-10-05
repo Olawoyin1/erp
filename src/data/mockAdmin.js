@@ -1,113 +1,223 @@
-// ─── Mock Data: Administration Module ────────────────────────────────────────
+// ─── Mock Data: Administration Module ───────────────────────────────────────
 
-// ── General Admin ────────────────────────────────────────────────────────────
-export const mockNotices = [
-  { id: 'NOT-001', title: 'Office Closure – Public Holiday', category: 'General', issuedBy: 'Admin Office', date: '2026-09-25', priority: 'High', status: 'Active' },
-  { id: 'NOT-002', title: 'Updated Dress Code Policy', category: 'Policy', issuedBy: 'HR Department', date: '2026-09-18', priority: 'Medium', status: 'Active' },
-  { id: 'NOT-003', title: 'Fire Drill – Block A', category: 'Safety', issuedBy: 'HSE Unit', date: '2026-09-10', priority: 'High', status: 'Archived' },
-  { id: 'NOT-004', title: 'Canteen Menu Update', category: 'Facilities', issuedBy: 'Admin Office', date: '2026-08-30', priority: 'Low', status: 'Active' },
-  { id: 'NOT-005', title: 'New Visitor Registration System', category: 'Policy', issuedBy: 'Admin Office', date: '2026-08-15', priority: 'Medium', status: 'Active' },
-  { id: 'NOT-006', title: 'Staff ID Renewal Notice', category: 'General', issuedBy: 'HR Department', date: '2026-07-20', priority: 'Medium', status: 'Archived' },
-];
-
-export const mockCorrespondence = [
-  { id: 'COR-001', subject: 'Q3 Operational Review – DPR Request', from: 'Department of Petroleum Resources', to: 'Management', date: '2026-09-28', type: 'Incoming', status: 'Pending' },
-  { id: 'COR-002', subject: 'Response to Site Inspection Report', from: 'PGSL Admin', to: 'Total Energies', date: '2026-09-22', type: 'Outgoing', status: 'Sent' },
-  { id: 'COR-003', subject: 'Contract Amendment – Project Echo', from: 'Chevron Nigeria Ltd', to: 'Business Development', date: '2026-09-14', type: 'Incoming', status: 'Reviewed' },
-  { id: 'COR-004', subject: 'Staff Welfare Fund Contribution', from: 'PGSL Finance', to: 'Staff Association', date: '2026-09-08', type: 'Outgoing', status: 'Sent' },
-  { id: 'COR-005', subject: 'Annual General Meeting – Agenda', from: 'Management', to: 'All Departments', date: '2026-08-29', type: 'Internal', status: 'Distributed' },
-  { id: 'COR-006', subject: 'NIS Certificate Renewal', from: 'Nigerian Insurance Agency', to: 'Admin Office', date: '2026-08-19', type: 'Incoming', status: 'Pending' },
-];
-
-export const mockMeetings = [
-  { id: 'MTG-001', title: 'Board Strategy Meeting', organizer: 'CEO Office', date: '2026-10-10', time: '10:00 AM', venue: 'Board Room A', attendees: 12, status: 'Scheduled' },
-  { id: 'MTG-002', title: 'Q3 Departmental Review', organizer: 'Helen Okoye', date: '2026-10-07', time: '09:00 AM', venue: 'Conference Hall B', attendees: 25, status: 'Scheduled' },
-  { id: 'MTG-003', title: 'HSE Monthly Stand-down', organizer: 'HSE Manager', date: '2026-09-29', time: '08:00 AM', venue: 'Training Room 1', attendees: 40, status: 'Completed' },
-  { id: 'MTG-004', title: 'Technical Projects Update', organizer: 'Chief Engineer', date: '2026-09-15', time: '02:00 PM', venue: 'Ops Room', attendees: 8, status: 'Completed' },
-  { id: 'MTG-005', title: 'Client Engagement – ExxonMobil', organizer: 'BD Manager', date: '2026-10-15', time: '11:00 AM', venue: 'Executive Lounge', attendees: 6, status: 'Scheduled' },
-];
-
-// ── Facilities & Assets ───────────────────────────────────────────────────────
-export const mockAssets = [
-  { id: 'AST-001', name: 'Dell OptiPlex 7090 Desktop', category: 'IT Equipment', location: 'Admin Block – Office 12', assignedTo: 'Helen Okoye', purchaseDate: '2024-01-15', condition: 'Good', status: 'In Use' },
-  { id: 'AST-002', name: 'HP LaserJet Pro M404', category: 'IT Equipment', location: 'Finance Office', assignedTo: 'Finance Dept', purchaseDate: '2023-07-20', condition: 'Good', status: 'In Use' },
-  { id: 'AST-003', name: 'Office Generator – 500KVA', category: 'Electrical', location: 'Generator House', assignedTo: 'Facilities Team', purchaseDate: '2022-03-05', condition: 'Fair', status: 'In Use' },
-  { id: 'AST-004', name: 'Conference Table Set (12-seater)', category: 'Furniture', location: 'Board Room A', assignedTo: 'Board Room', purchaseDate: '2021-11-10', condition: 'Good', status: 'In Use' },
-  { id: 'AST-005', name: 'Samsung 85" Smart Board', category: 'AV Equipment', location: 'Training Room 1', assignedTo: 'HR Dept', purchaseDate: '2024-06-01', condition: 'Excellent', status: 'In Use' },
-  { id: 'AST-006', name: 'Air Conditioning Unit – Daikin 3HP', category: 'HVAC', location: 'Executive Suite', assignedTo: 'Admin', purchaseDate: '2023-02-14', condition: 'Good', status: 'In Use' },
-  { id: 'AST-007', name: 'Fire Extinguisher – CO2 9KG', category: 'Safety Equipment', location: 'Server Room', assignedTo: 'HSE', purchaseDate: '2025-01-08', condition: 'Excellent', status: 'In Use' },
-  { id: 'AST-008', name: 'Lenovo ThinkPad E15', category: 'IT Equipment', location: 'IT Storage', assignedTo: 'Unassigned', purchaseDate: '2024-09-12', condition: 'Good', status: 'Available' },
-  { id: 'AST-009', name: 'Water Dispenser – Midea 20L', category: 'Appliances', location: 'Canteen', assignedTo: 'Admin', purchaseDate: '2023-08-30', condition: 'Fair', status: 'Under Maintenance' },
-  { id: 'AST-010', name: 'CCTV DVR System – 16CH', category: 'Security', location: 'Security Post', assignedTo: 'Security Team', purchaseDate: '2022-12-01', condition: 'Good', status: 'In Use' },
-  { id: 'AST-011', name: 'Projector – Epson EB-X51', category: 'AV Equipment', location: 'Conference Hall B', assignedTo: 'Admin', purchaseDate: '2023-05-22', condition: 'Fair', status: 'Under Maintenance' },
-  { id: 'AST-012', name: 'Server Rack – Dell PowerEdge R740', category: 'IT Equipment', location: 'Server Room', assignedTo: 'IT Dept', purchaseDate: '2021-09-18', condition: 'Good', status: 'In Use' },
-];
-
-export const mockFacilities = [
-  { id: 'FAC-001', name: 'Admin Block – Ground Floor', type: 'Office Space', capacity: 45, manager: 'Admin Office', lastInspection: '2026-09-01', nextInspection: '2026-12-01', status: 'Operational' },
-  { id: 'FAC-002', name: 'Board Room A', type: 'Conference Room', capacity: 12, manager: 'Admin Office', lastInspection: '2026-08-15', nextInspection: '2026-11-15', status: 'Operational' },
-  { id: 'FAC-003', name: 'Training Room 1', type: 'Training Facility', capacity: 40, manager: 'HR Dept', lastInspection: '2026-07-20', nextInspection: '2026-10-20', status: 'Operational' },
-  { id: 'FAC-004', name: 'Generator House', type: 'Utility', capacity: null, manager: 'Facilities Team', lastInspection: '2026-09-10', nextInspection: '2026-10-10', status: 'Under Maintenance' },
-  { id: 'FAC-005', name: 'Staff Canteen', type: 'Welfare Facility', capacity: 80, manager: 'Admin Office', lastInspection: '2026-08-05', nextInspection: '2026-11-05', status: 'Operational' },
-  { id: 'FAC-006', name: 'Car Park – Zone A', type: 'Parking', capacity: 60, manager: 'Security', lastInspection: '2026-06-30', nextInspection: '2026-12-30', status: 'Operational' },
-];
-
-// ── Company Fleet ─────────────────────────────────────────────────────────────
-export const mockFleet = [
-  { id: 'FLT-001', plateNo: 'ABJ-001-GH', make: 'Toyota', model: 'Land Cruiser V8', year: 2022, type: 'SUV', assignedTo: 'Executive', driver: 'Musa Aliyu', lastService: '2026-08-01', nextService: '2026-11-01', status: 'Available', mileage: '48,200 km', insExpiry: '2027-01-15' },
-  { id: 'FLT-002', plateNo: 'ABJ-002-GH', make: 'Toyota', model: 'Hiace Bus', year: 2021, type: 'Bus', assignedTo: 'Staff Shuttle', driver: 'Emeka Nwosu', lastService: '2026-07-15', nextService: '2026-10-15', status: 'In Use', mileage: '102,450 km', insExpiry: '2026-12-31' },
-  { id: 'FLT-003', plateNo: 'ABJ-003-GH', make: 'Ford', model: 'Ranger Pickup', year: 2023, type: 'Pickup', assignedTo: 'Logistics', driver: 'Ibrahim Suleiman', lastService: '2026-09-01', nextService: '2026-12-01', status: 'In Use', mileage: '29,600 km', insExpiry: '2027-03-20' },
-  { id: 'FLT-004', plateNo: 'ABJ-004-GH', make: 'Toyota', model: 'Corolla Sedan', year: 2020, type: 'Sedan', assignedTo: 'Admin Pool', driver: 'Unassigned', lastService: '2026-06-10', nextService: '2026-09-10', status: 'Under Maintenance', mileage: '76,300 km', insExpiry: '2026-11-05' },
-  { id: 'FLT-005', plateNo: 'ABJ-005-GH', make: 'Mitsubishi', model: 'Pajero Sport', year: 2022, type: 'SUV', assignedTo: 'Technical', driver: 'Chukwuemeka Eze', lastService: '2026-09-18', nextService: '2026-12-18', status: 'In Use', mileage: '41,800 km', insExpiry: '2027-02-10' },
-  { id: 'FLT-006', plateNo: 'ABJ-006-GH', make: 'Isuzu', model: 'NPR Truck', year: 2019, type: 'Truck', assignedTo: 'Site Operations', driver: 'Abubakar Garba', lastService: '2026-05-20', nextService: '2026-08-20', status: 'Overdue Service', mileage: '189,000 km', insExpiry: '2026-10-30' },
-  { id: 'FLT-007', plateNo: 'ABJ-007-GH', make: 'Toyota', model: 'Fortuner', year: 2024, type: 'SUV', assignedTo: 'BD Manager', driver: 'Taiwo Adewale', lastService: '2026-09-25', nextService: '2026-12-25', status: 'Available', mileage: '12,100 km', insExpiry: '2027-06-30' },
-  { id: 'FLT-008', plateNo: 'ABJ-008-GH', make: 'Toyota', model: 'Hiace Bus', year: 2020, type: 'Bus', assignedTo: 'Site Shuttle', driver: 'Nuhu Danjuma', lastService: '2026-08-28', nextService: '2026-11-28', status: 'In Use', mileage: '134,700 km', insExpiry: '2026-12-15' },
-];
-
-export const mockMaintenanceLog = [
-  { id: 'MNT-001', vehicle: 'ABJ-004-GH', type: 'Engine Overhaul', date: '2026-09-15', cost: '₦450,000', mechanic: 'AutoFix Garage', status: 'In Progress' },
-  { id: 'MNT-002', vehicle: 'ABJ-006-GH', type: 'Scheduled Service', date: '2026-08-20', cost: '₦85,000', mechanic: 'Toyota Nigeria Ltd', status: 'Overdue' },
-  { id: 'MNT-003', vehicle: 'ABJ-001-GH', type: 'Oil Change + Filters', date: '2026-08-01', cost: '₦32,000', mechanic: 'Quick Lube Center', status: 'Completed' },
-  { id: 'MNT-004', vehicle: 'ABJ-003-GH', type: 'Tyre Replacement (4)', date: '2026-09-01', cost: '₦120,000', mechanic: 'Michelin Tyres NG', status: 'Completed' },
-  { id: 'MNT-005', vehicle: 'ABJ-002-GH', type: 'Brake Pad + Rotors', date: '2026-07-15', cost: '₦68,000', mechanic: 'Fleet Tech Services', status: 'Completed' },
-];
-
-// ── Visitor Logs ──────────────────────────────────────────────────────────────
-export const mockVisitors = [
-  { id: 'VIS-001', name: 'Adewale Ogunleye', company: 'ExxonMobil Nigeria', purpose: 'Contract Discussion', host: 'BD Manager', hostDept: 'Business Development', checkIn: '08:45 AM', checkOut: '10:30 AM', date: '2026-10-05', badge: 'VB-0451', status: 'Checked Out' },
-  { id: 'VIS-002', name: 'Chidinma Nwofor', company: 'DPR – Lagos Office', purpose: 'Regulatory Inspection', host: 'Compliance Officer', hostDept: 'Quality System', checkIn: '10:15 AM', checkOut: null, date: '2026-10-05', badge: 'VB-0452', status: 'On Premises' },
-  { id: 'VIS-003', name: 'Samuel Adeyemi', company: 'AutoFix Garage', purpose: 'Vehicle Maintenance', host: 'Fleet Coordinator', hostDept: 'Administration', checkIn: '11:00 AM', checkOut: null, date: '2026-10-05', badge: 'VB-0453', status: 'On Premises' },
-  { id: 'VIS-004', name: 'Ngozi Eze', company: 'Total Energies', purpose: 'Project Briefing', host: 'Chief Engineer', hostDept: 'Technical', checkIn: '09:00 AM', checkOut: '12:45 PM', date: '2026-10-04', badge: 'VB-0449', status: 'Checked Out' },
-  { id: 'VIS-005', name: 'Bayo Adeleke', company: 'Oracle Nigeria Ltd', purpose: 'ERP System Demo', host: 'IT Manager', hostDept: 'Administration', checkIn: '02:00 PM', checkOut: '04:30 PM', date: '2026-10-04', badge: 'VB-0450', status: 'Checked Out' },
-  { id: 'VIS-006', name: 'Fatima Al-Hassan', company: 'Shell Nigeria', purpose: 'HSE Audit Support', host: 'HSE Manager', hostDept: 'HSE', checkIn: '08:00 AM', checkOut: '05:00 PM', date: '2026-10-03', badge: 'VB-0447', status: 'Checked Out' },
-  { id: 'VIS-007', name: 'Kenneth Obi', company: 'NUPRC', purpose: 'Compliance Review', host: 'CEO', hostDept: 'Management', checkIn: '09:30 AM', checkOut: '01:00 PM', date: '2026-10-03', badge: 'VB-0448', status: 'Checked Out' },
-  { id: 'VIS-008', name: 'Hauwa Yusuf', company: 'Dangote Industries', purpose: 'Supply Chain Meeting', host: 'Procurement Manager', hostDept: 'Procurement', checkIn: '10:00 AM', checkOut: null, date: '2026-10-05', badge: 'VB-0454', status: 'Expected' },
-  { id: 'VIS-009', name: 'Emeka Okafor', company: 'NAOC Nigeria', purpose: 'Technical Assessment', host: 'Project Manager', hostDept: 'Technical', checkIn: '01:00 PM', checkOut: null, date: '2026-10-05', badge: 'VB-0455', status: 'Expected' },
-];
-
-// ── Additional Mock Data for new Admin pages ────────────────────────────────
-
-export const mockAdminRequests = [
-  { id: 'AR-001', title: 'Office Chair Replacement', requester: 'John Doe', dept: 'IT', date: '2026-10-01', status: 'Pending' },
-  { id: 'AR-002', title: 'New AC Installation', requester: 'Jane Smith', dept: 'HR', date: '2026-09-28', status: 'Approved' },
-];
-
-export const mockAdminDocuments = [
-  { id: 'DOC-001', name: 'Company Policy 2026.pdf', type: 'Policy', size: '2.4 MB', uploadedBy: 'Admin', date: '2026-01-15' },
-  { id: 'DOC-002', name: 'Health & Safety Guidelines.docx', type: 'Guideline', size: '1.1 MB', uploadedBy: 'HSE', date: '2026-03-22' },
-];
-
+// ── EDMS ─────────────────────────────────────────────────────────────────────
 export const mockEDMS = [
-  { id: 'EDMS-001', filename: 'Vendor_Contracts_Q1.zip', category: 'Contracts', accessLevel: 'Restricted', date: '2026-04-10' },
-  { id: 'EDMS-002', filename: 'Board_Meeting_Minutes_2025.pdf', category: 'Minutes', accessLevel: 'Confidential', date: '2025-12-20' },
+  { id: 'HSE-001', title: 'Emergency Response Procedure', department: 'HSE', version: 'V1.0', status: 'Checked Out', lastModified: '28/05/25', owner: 'Nafisat Abubakar' },
+  { id: 'HSE-002', title: 'Permit to Work Procedure', department: 'HSE', version: 'V2.0', status: 'Approved', lastModified: '28/05/25', owner: 'Oluwaseun Adebayo' },
+  { id: 'QSM-001', title: 'Quality Management Manual', department: 'Quality', version: 'V1.0', status: 'Checked Out', lastModified: '28/05/25', owner: 'Nafisat Abubakar' },
+  { id: 'PRO-001', title: 'Procurement Evaluation Form', department: 'Procurement', version: 'V1.0', status: 'Approved', lastModified: '28/05/25', owner: 'Ifeanyi Uche' },
+  { id: 'ADM-001', title: 'Company Travel Policy', department: 'Administration', version: 'V1.0', status: 'Approved', lastModified: '28/05/25', owner: 'Tunde Adeyemi' },
+  { id: 'ADM-002', title: 'Company Travel Policy', department: 'Administration', version: 'V1.0', status: 'Checked Out', lastModified: '28/05/25', owner: 'Zainab Mohammed' },
+  { id: 'ADM-003', title: 'Company Travel Policy', department: 'Administration', version: 'V1.0', status: 'Approved', lastModified: '28/05/25', owner: 'Amina Bello' },
+  { id: 'ADM-004', title: 'Company Travel Policy', department: 'Administration', version: 'V1.0', status: 'Approved', lastModified: '28/05/25', owner: 'Chijioke Okafor' },
+  { id: 'ADM-005', title: 'Company Travel Policy', department: 'Administration', version: 'V1.0', status: 'Checked Out', lastModified: '28/05/25', owner: 'Temitope Alabi' },
+  { id: 'ADM-006', title: 'Company Travel Policy', department: 'Administration', version: 'V1.0', status: 'Archived', lastModified: '28/05/25', owner: 'Ngozi Eze' },
 ];
 
-export const mockAdminTasks = [
-  { id: 'TSK-001', title: 'Renew Fleet Insurance', assignee: 'Fleet Manager', dueDate: '2026-11-01', status: 'In Progress', priority: 'High' },
-  { id: 'TSK-002', title: 'Prepare Q3 Admin Report', assignee: 'Admin Head', dueDate: '2026-10-15', status: 'Pending', priority: 'Medium' },
+// ── Assets & Supplies ─────────────────────────────────────────────────────────
+export const mockFixedAssets = [
+  { id: 'AST-001', name: 'Dell Latitude Laptop (i7, 16GB)', category: 'IT Equipment', custodian: 'Nafisat Abubakar', location: 'Lagos Head Office', condition: 'Good', status: 'In Maintenance' },
+  { id: 'AST-002', name: 'Toyota Hilux Double Cab (LOS-001-AA)', category: 'Vehicle & Transport', custodian: 'Chioma Daniels', location: 'Warri Yard', condition: 'Fair', status: 'On Loan' },
+  { id: 'AST-003', name: 'Dell Latitude Laptop (i7, 16GB)', category: 'IT Equipment', custodian: 'Ali Nuhu', location: 'Lagos Head Office', condition: 'Fair', status: 'Active' },
+  { id: 'AST-004', name: 'Dell Latitude Laptop (i7, 16GB)', category: 'IT Equipment', custodian: 'Gregory Eze', location: 'Lagos Head Office', condition: 'Good', status: 'Active' },
+  { id: 'AST-005', name: 'Dell Latitude Laptop (i7, 16GB)', category: 'IT Equipment', custodian: 'Nafisat Abubakar', location: 'Lagos Head Office', condition: 'Fair', status: 'In Maintenance' },
+  { id: 'AST-006', name: 'Toyota Hilux Double Cab (LOS-001-AA)', category: 'Vehicle & Transport', custodian: 'Nafisat Abubakar', location: 'Warri Yard', condition: 'Poor', status: 'In Maintenance' },
+  { id: 'AST-007', name: 'Toyota Hilux Double Cab (LOS-001-AA)', category: 'Vehicle & Transport', custodian: 'Nafisat Abubakar', location: 'Warri Yard', condition: 'Good', status: 'On Loan' },
+  { id: 'AST-008', name: 'Toyota Hilux Double Cab (LOS-001-AA)', category: 'Vehicle & Transport', custodian: 'Nafisat Abubakar', location: 'Warri Yard', condition: 'Fair', status: 'Active' },
+  { id: 'AST-009', name: 'Toyota Hilux Double Cab (LOS-001-AA)', category: 'Vehicle & Transport', custodian: 'Nafisat Abubakar', location: 'Warri Yard', condition: 'Poor', status: 'Retired' },
 ];
+
+export const mockOfficeSupplies = [
+  { id: 'SUP-001', name: 'A4 Paper Ream (80gsm)', category: 'Stationery', unit: 'Ream', qty: 42, reorderLevel: 20, location: 'Lagos Head Office', lastRestocked: '28/05/25', status: 'In Stock' },
+  { id: 'SUP-002', name: 'Ballpoint Pens (Box of 50)', category: 'Printing Supply', unit: 'Box', qty: 7, reorderLevel: 2, location: 'Warri Yard', lastRestocked: '28/05/25', status: 'Low Stock' },
+  { id: 'SUP-003', name: 'Hand Sanitizer 500ml', category: 'Hygiene & Cleaning', unit: 'Unit', qty: 56, reorderLevel: 15, location: 'Lagos Head Office', lastRestocked: '28/05/25', status: 'In Stock' },
+  { id: 'SUP-004', name: 'A4 Paper Ream (80gsm)', category: 'IT Equipment', unit: 'Box', qty: 42, reorderLevel: 20, location: 'Lagos Head Office', lastRestocked: '28/05/25', status: 'In Stock' },
+  { id: 'SUP-005', name: 'A4 Paper Ream (80gsm)', category: 'IT Equipment', unit: 'Box', qty: 42, reorderLevel: 20, location: 'Lagos Head Office', lastRestocked: '28/05/25', status: 'Out of Stock' },
+  { id: 'SUP-006', name: 'A4 Paper Ream (80gsm)', category: 'Vehicle & Transport', unit: 'Box', qty: 42, reorderLevel: 20, location: 'Warri Yard', lastRestocked: '28/05/25', status: 'Low Stock' },
+  { id: 'SUP-007', name: 'A4 Paper Ream (80gsm)', category: 'Vehicle & Transport', unit: 'Unit', qty: 42, reorderLevel: 20, location: 'Warri Yard', lastRestocked: '28/05/25', status: 'Low Stock' },
+  { id: 'SUP-008', name: 'A4 Paper Ream (80gsm)', category: 'Vehicle & Transport', unit: 'Ream', qty: 42, reorderLevel: 20, location: 'Warri Yard', lastRestocked: '28/05/25', status: 'In Stock' },
+  { id: 'SUP-009', name: 'A4 Paper Ream (80gsm)', category: 'Vehicle & Transport', unit: 'Ream', qty: 42, reorderLevel: 20, location: 'Warri Yard', lastRestocked: '28/05/25', status: 'Out of Stock' },
+];
+
+// ── Administrative Requests ───────────────────────────────────────────────────
+export const mockAdminRequests = [
+  { id: 'ADM-REQ-001', type: 'Office Supplies', request: 'A4 Printing Paper', qty: '10 Reams', requestedBy: 'Chidi Okafor', date: '28/05/25', urgency: 'Routine', status: 'Issued' },
+  { id: 'ADM-REQ-002', type: 'Furniture', request: 'Office Chairs — Replacement', qty: '3 Pieces', requestedBy: 'Zainab Mohammed', date: '28/05/25', urgency: 'Urgent', status: 'HOD Reviewing' },
+  { id: 'ADM-REQ-003', type: 'Office Supplies', request: 'Extension Cables', qty: '5 Pieces', requestedBy: 'Obinna Nwosu', date: '28/05/25', urgency: 'Critical', status: 'HOD Approved' },
+  { id: 'ADM-REQ-004', type: 'Office Supplies', request: 'Printer Toner', qty: '12 Pieces', requestedBy: 'Adaobi Udo', date: '28/05/25', urgency: 'Routine', status: 'Store Reviewing' },
+  { id: 'ADM-REQ-005', type: 'Cleaning Supplies', request: 'Multipurpose Cleaner', qty: '1 Bottle', requestedBy: 'Tunde Adebayo', date: '28/05/25', urgency: 'Routine', status: 'Store Reviewing' },
+  { id: 'ADM-REQ-006', type: 'Cleaning Supplies', request: 'Refuse Bags', qty: '5 Packs', requestedBy: 'Ngozi Eze', date: '28/05/25', urgency: 'Urgent', status: 'Returned' },
+  { id: 'ADM-REQ-007', type: 'Office Equipment', request: 'Desktop Monitor', qty: '5 Rolls', requestedBy: 'Femi Balogun', date: '28/05/25', urgency: 'Urgent', status: 'HOD Reviewing' },
+  { id: 'ADM-REQ-008', type: 'IT Equipment', request: 'Wireless Keyboard', qty: '5 Rolls', requestedBy: 'Yejide Ogunleye', date: '28/05/25', urgency: 'Routine', status: 'Unavailable' },
+  { id: 'ADM-REQ-009', type: 'Stationery', request: 'Ballpoint Pens', qty: '5 Boxes', requestedBy: 'Ifeoma Nnaji', date: '28/05/25', urgency: 'Critical', status: 'Cancelled' },
+  { id: 'ADM-REQ-010', type: 'Stationery', request: 'Ballpoint Pens', qty: '5 Boxes', requestedBy: 'Sola Oladipo', date: '28/05/25', urgency: 'Urgent', status: 'Rejected by HOD' },
+];
+
+// ── Facility Maintenance ──────────────────────────────────────────────────────
+export const mockFacilityMaintenance = [
+  { id: 'FAC-25-001', facility: 'Lagos Head Office — Generator', type: 'Preventive', description: 'Monthly servicing and oil change', assignedTo: 'PGSL Facility Team', frequency: 'Monthly', dueDate: '28/05/25', status: 'Scheduled' },
+  { id: 'FAC-25-002', facility: 'Warri Yard — Borehole Pump', type: 'Corrective', description: 'Pump vibration, pressure loss — repair and test', assignedTo: 'External Vendor (AquaTech Services)', frequency: 'One-time', dueDate: '28/05/25', status: 'In Progress' },
+  { id: 'FAC-25-003', facility: 'Lagos Head Office — Generator', type: 'Preventive', description: 'Monthly servicing and oil change', assignedTo: 'Electrical Contractor', frequency: 'Quarterly', dueDate: '28/05/25', status: 'Completed' },
+  { id: 'FAC-25-004', facility: 'Lagos Head Office — Generator', type: 'Corrective', description: 'Monthly servicing and oil change', assignedTo: 'PGSL Facility Team', frequency: 'Quarterly', dueDate: '28/05/25', status: 'Completed' },
+  { id: 'FAC-25-005', facility: 'Lagos Head Office — Generator', type: 'Preventive', description: 'Monthly servicing and oil change', assignedTo: 'PGSL Facility Team', frequency: 'Quarterly', dueDate: '28/05/25', status: 'Scheduled' },
+  { id: 'FAC-25-006', facility: 'Lagos Head Office — Generator', type: 'Preventive', description: 'Pump vibration, pressure loss — repair and test', assignedTo: 'PGSL Facility Team', frequency: 'Monthly', dueDate: '28/05/25', status: 'Scheduled' },
+  { id: 'FAC-25-007', facility: 'Lagos Head Office — Generator', type: 'Corrective', description: 'Pump vibration, pressure loss — repair and test', assignedTo: 'PGSL Facility Team', frequency: 'Monthly', dueDate: '28/05/25', status: 'In Progress' },
+  { id: 'FAC-25-008', facility: 'Warri Yard — Borehole Pump', type: 'Preventive', description: 'Pump vibration, pressure loss — repair and test', assignedTo: 'PGSL Facility Team', frequency: 'Monthly', dueDate: '28/05/25', status: 'Completed' },
+  { id: 'FAC-25-009', facility: 'Warri Yard — Borehole Pump', type: 'Preventive', description: 'Pump vibration, pressure loss — repair and test', assignedTo: 'PGSL Facility Team', frequency: 'Bi-annually', dueDate: '28/05/25', status: 'Overdue' },
+  { id: 'FAC-25-010', facility: 'Warri Yard — Borehole Pump', type: 'Preventive', description: 'Pump vibration, pressure loss — repair and test', assignedTo: 'PGSL Facility Team', frequency: 'Monthly', dueDate: '28/05/25', status: 'Cancelled' },
+];
+
+// ── Travel & Logistics ────────────────────────────────────────────────────────
+export const mockTravelRequests = [
+  { id: 'TRV-25-031', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Warri Yard', departure: '28/05/25', returnDate: '28/05/25', mode: 'Company Vehicle', accommodation: 'Yes (2 nights)', status: 'Approved' },
+  { id: 'TRV-25-032', traveler: 'Aisha Suleiman', from: 'Lagos Head Office', to: 'Client Site (Seplat — Warri)', departure: '28/05/25', returnDate: '28/05/25', mode: 'Domestic Flight', accommodation: 'No', status: 'Pending' },
+  { id: 'TRV-25-033', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Abuja', departure: '28/05/25', returnDate: '28/05/25', mode: 'Hired Vehicle', accommodation: 'Yes (2 nights)', status: 'Approved' },
+  { id: 'TRV-25-034', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Abuja', departure: '28/05/25', returnDate: '28/05/25', mode: 'Boat', accommodation: 'Yes (2 nights)', status: 'Rejected' },
+  { id: 'TRV-25-035', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Abuja', departure: '28/05/25', returnDate: '28/05/25', mode: 'Domestic Flight', accommodation: 'Yes (2 nights)', status: 'Approved' },
+  { id: 'TRV-25-036', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Abuja', departure: '28/05/25', returnDate: '28/05/25', mode: 'Domestic Flight', accommodation: 'No', status: 'Draft' },
+  { id: 'TRV-25-037', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Abuja', departure: '28/05/25', returnDate: '28/05/25', mode: 'Domestic Flight', accommodation: 'No', status: 'Pending' },
+  { id: 'TRV-25-038', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Abuja', departure: '28/05/25', returnDate: '28/05/25', mode: 'Domestic Flight', accommodation: 'No', status: 'Pending' },
+  { id: 'TRV-25-039', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Abuja', departure: '28/05/25', returnDate: '28/05/25', mode: 'Domestic Flight', accommodation: 'Yes (2 nights)', status: 'Approved' },
+  { id: 'TRV-25-040', traveler: 'Tunde Fashola', from: 'Lagos Head Office', to: 'Abuja', departure: '28/05/25', returnDate: '28/05/25', mode: 'Domestic Flight', accommodation: 'No', status: 'Approved' },
+];
+
+// ── Memos ─────────────────────────────────────────────────────────────────────
+export const mockMemos = [
+  {
+    id: 'MEM-2025-0412',
+    subject: 'Site Safety Compliance — Tower Block C, Level 14',
+    from: 'Nafisat Abubakar',
+    fromRole: 'HSE Manager',
+    to: ['Project Leads', 'Safety Officers', 'Site Supervisors'],
+    date: '04 Jul 2025 - 09:14',
+    department: 'Health & Safety',
+    tags: ['Health & Safety'],
+    priority: 'High',
+    attachments: 2,
+    body: `Following yesterday's unannounced inspection of Tower Block C, Level 14, several non-conformances were identified that require immediate corrective action before work may resume on that floor.\n\nNon-conformances identified:\n• Incomplete edge protection along the north façade (Sections N-4 through N-7)\n• Missing fall-arrest anchorage points at curtain wall installation zone\n• Two operatives observed without appropriate PPE (harnesses not worn)\n• Housekeeping: excessive debris accumulation in stairwell B exit\n\nA stop-work notice has been issued for Level 14 activities until all items are remediated and a re-inspection is completed by the HSE team. Please ensure your teams are briefed by 11:00 today.\n\nCorrective action plans must be submitted to this office by 16:00 on 04 Jul 2025. Failure to comply will be escalated to the client's representative.`,
+    status: 'Unread',
+    folder: 'Inbox',
+  },
+  {
+    id: 'MEM-2025-0411',
+    subject: 'Q3 Budget Review — Finance Summary',
+    from: 'Chioma Daniels',
+    fromRole: 'CFO',
+    to: ['Department Heads'],
+    date: '03 Jul 2025 - 14:30',
+    department: 'Finance',
+    tags: ['Finance'],
+    priority: 'Medium',
+    attachments: 1,
+    body: `Please find attached the Q3 budget summary for review. All HODs are required to respond with their departmental comments by end of week.`,
+    status: 'Read',
+    folder: 'Inbox',
+  },
+  {
+    id: 'MEM-2025-0410',
+    subject: 'New Office Procedure — Visitor Management',
+    from: 'Admin Office',
+    fromRole: 'Admin Manager',
+    to: ['All Staff'],
+    date: '02 Jul 2025 - 10:00',
+    department: 'Administration',
+    tags: ['General'],
+    priority: 'Low',
+    attachments: 0,
+    body: `Effective immediately, all visitors must be registered at the front desk upon arrival. The new QR code badge system is now active.`,
+    status: 'Read',
+    folder: 'Inbox',
+  },
+];
+
+export const mockMemosDrafts = [
+  { id: 'DFT-001', subject: 'Updated HSE Procedures', to: 'All Staff', date: '05 Jul 2025', status: 'Draft' },
+];
+
+// ── Waste & Disposal ──────────────────────────────────────────────────────────
+export const mockWasteStats = {
+  totalGenerated: '245 Tons',
+  totalDisposed: '198 Tons',
+  awaitingManifest: 8,
+  complianceRate: '88%',
+};
 
 export const mockWasteDisposal = [
-  { id: 'WST-001', type: 'Electronic Waste', quantity: '150 kg', contractor: 'EcoDispose Ltd', pickupDate: '2026-09-30', status: 'Completed' },
-  { id: 'WST-002', type: 'General Office Waste', quantity: '500 kg', contractor: 'City Waste Management', pickupDate: '2026-10-06', status: 'Scheduled' },
+  { id: 'DSP-25-018', description: 'Old laptops — end of life (x4)', type: 'IT Equipment', qty: '4 units', method: 'Vendor Collection', date: '28/05/25', disposedBy: 'Tunde Fashola', vendor: 'GreenIT Recyclers Ltd', status: 'Completed' },
+  { id: 'DSP-25-019', description: 'Cardboard and paper waste — May batch', type: 'Paper & Cardboard', qty: '~80kg', method: 'Recycling', date: '28/05/25', disposedBy: 'Aisha Suleiman', vendor: 'GreenIT Recyclers Ltd', status: 'Pending' },
+  { id: 'DSP-25-020', description: 'Old laptops — end of life (x4)', type: 'IT Equipment', qty: '4 units', method: 'Vendor Collection', date: '28/05/25', disposedBy: 'Tunde Fashola', vendor: 'GreenIT Recyclers Ltd', status: 'Completed' },
+  { id: 'DSP-25-021', description: 'Old laptops — end of life (x4)', type: 'General Waste', qty: '4 units', method: 'Vendor Collection', date: '28/05/25', disposedBy: 'Tunde Fashola', vendor: 'GreenIT Recyclers Ltd', status: 'Completed' },
+  { id: 'DSP-25-022', description: 'Old laptops — end of life (x4)', type: 'IT Equipment', qty: '4 units', method: 'Vendor Collection', date: '28/05/25', disposedBy: 'Tunde Fashola', vendor: 'GreenIT Recyclers Ltd', status: 'Pending' },
+  { id: 'DSP-25-023', description: 'Old laptops — end of life (x4)', type: 'IT Equipment', qty: '4 units', method: 'Vendor Collection', date: '28/05/25', disposedBy: 'Tunde Fashola', vendor: 'GreenIT Recyclers Ltd', status: 'Completed' },
+  { id: 'DSP-25-024', description: 'Old laptops — end of life (x4)', type: 'IT Equipment', qty: '4 units', method: 'Vendor Collection', date: '28/05/25', disposedBy: 'Tunde Fashola', vendor: 'GreenIT Recyclers Ltd', status: 'Completed' },
+  { id: 'DSP-25-025', description: 'Old laptops — end of life (x4)', type: 'IT Equipment', qty: '4 units', method: 'Vendor Collection', date: '28/05/25', disposedBy: 'Tunde Fashola', vendor: 'GreenIT Recyclers Ltd', status: 'Pending' },
+];
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+export const mockAdminTaskStats = {
+  total: 128, inProgress: 32, dueThisWeek: 65, overdue: 25,
+};
+
+export const mockAdminTasks = [
+  { id: 'ADM-TSK-001', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'High', dueDate: '28/05/25', status: 'To Do' },
+  { id: 'ADM-TSK-002', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Waste Management', priority: 'Medium', dueDate: '28/05/25', status: 'To Do' },
+  { id: 'ADM-TSK-003', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'Medium', dueDate: '28/05/25', status: 'In Progress' },
+  { id: 'ADM-TSK-004', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'High', dueDate: '28/05/25', status: 'In Progress' },
+  { id: 'ADM-TSK-005', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'Low', dueDate: '28/05/25', status: 'In Progress' },
+  { id: 'ADM-TSK-006', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'Hot', dueDate: '28/05/25', status: 'Done' },
+  { id: 'ADM-TSK-007', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'High', dueDate: '28/05/25', status: 'Done' },
+  { id: 'ADM-TSK-008', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'Low', dueDate: '28/05/25', status: 'Done' },
+  { id: 'ADM-TSK-009', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'High', dueDate: '28/05/25', status: 'Overdue' },
+  { id: 'ADM-TSK-010', task: 'Resolve pending COC documents — DSP-2025-015 and DSP-2025-012', assignedTo: 'Nafisat Abubakar', relatedTo: 'Asset Management', priority: 'Medium', dueDate: '28/05/25', status: 'Overdue' },
+];
+
+// ── Admin Documents ───────────────────────────────────────────────────────────
+export const mockAdminDocuments = [
+  { id: 'ADM-001', title: 'Company Travel Policy', category: 'Travel & Logistics', version: 'V1.0', uploadedBy: 'Chinonso Okafor', status: 'Approved', lastUpdated: '28/05/25' },
+  { id: 'ADM-002', title: 'Visitor Management Procedure', category: 'Facility Maintenance', version: 'V1.0', uploadedBy: 'Fatima Ibrahim', status: 'Under Review', lastUpdated: '28/05/25' },
+  { id: 'ADM-003', title: 'Office Asset Management Policy', category: 'Office Assets', version: 'V1.0', uploadedBy: 'Emmanuel Eze', status: 'Under Review', lastUpdated: '28/05/25' },
+  { id: 'ADM-004', title: 'Administrative Request Form', category: 'Administrative Requests', version: 'V1.0', uploadedBy: 'Zainab Mohammed', status: 'Approved', lastUpdated: '28/05/25' },
+  { id: 'ADM-005', title: 'Office Circular Template', category: 'Internal Communications', version: 'V1.0', uploadedBy: 'Adeola Olatunji', status: 'Draft', lastUpdated: '28/05/25' },
+  { id: 'ADM-006', title: 'Office Circular Template', category: 'Internal Communications', version: 'V1.0', uploadedBy: 'Tunde Bakare', status: 'Under Review', lastUpdated: '28/05/25' },
+  { id: 'ADM-007', title: 'Office Circular Template', category: 'Internal Communications', version: 'V1.0', uploadedBy: 'Amaka Ugochukwu', status: 'Approved', lastUpdated: '28/05/25' },
+  { id: 'ADM-008', title: 'Office Circular Template', category: 'Internal Communications', version: 'V1.0', uploadedBy: 'Damilola Adebayo', status: 'Checked Out', lastUpdated: '28/05/25' },
+  { id: 'ADM-009', title: 'Office Circular Template', category: 'Internal Communications', version: 'V1.0', uploadedBy: 'Chidera Nwosu', status: 'Draft', lastUpdated: '28/05/25' },
+  { id: 'ADM-010', title: 'Office Circular Template', category: 'Internal Communications', version: 'V1.0', uploadedBy: 'Ijeoma Chukwuma', status: 'Archived', lastUpdated: '28/05/25' },
+];
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+export const mockAdminReportStats = [
+  { label: 'Total Pipeline Value', value: '₦2.62B', trend: '+8% vs last year', icon: 'pipeline' },
+  { label: 'Opportunity Conversion', value: '61%', trend: '+4.2% vs Q1 average', icon: 'conversion' },
+  { label: 'RFQ Proposal Success', value: '57%', trend: '+1.5% higher drawing precision', icon: 'rfq' },
+  { label: 'Team Tasks Resolved', value: '12/20', trend: '1 critical bidding delays', icon: 'tasks' },
+];
+
+export const mockMonthlyRevenue = [
+  { month: 'Jan', awarded: 55, pipeline: 80 },
+  { month: 'Feb', awarded: 90, pipeline: 120 },
+  { month: 'Mar', awarded: 110, pipeline: 160 },
+  { month: 'Apr', awarded: 175, pipeline: 190 },
+  { month: 'May', awarded: 140, pipeline: 140 },
+  { month: 'Jun', awarded: 155, pipeline: 80 },
+];
+
+export const mockRFQPerformance = {
+  submittedRFQs: 42,
+  rfqValueYTD: '₦52.6M',
+  distribution: [
+    { label: 'Pending Assessment', rfqs: 1, value: '#12M' },
+    { label: 'In Formulation', rfqs: 2, value: '#12M' },
+    { label: 'Under Review', rfqs: 3, value: '#12M' },
+    { label: 'Submitted & Active', rfqs: 1, value: '#12M' },
+  ],
+};
+
+export const mockPipelineFunnel = [
+  { stage: 'Lead Intake (100%)', count: 32, percent: 100 },
+  { stage: 'Qualified (75%)', count: 24, percent: 75 },
+  { stage: 'Proposal Sent (45%)', count: 14, percent: 45 },
+  { stage: 'Negotiation (27%)', count: 9, percent: 27 },
+  { stage: 'Won (16%)', count: 5, percent: 16 },
+  { stage: 'Lost (2%)', count: 1, percent: 2 },
 ];
