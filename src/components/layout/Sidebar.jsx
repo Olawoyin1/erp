@@ -16,6 +16,8 @@ import {
   FiArrowUp,
   FiBarChart2,
   FiShoppingCart,
+  FiShield,
+  FiLock,
 } from 'react-icons/fi';
 
 const navConfig = [
@@ -42,6 +44,7 @@ const navConfig = [
           { label: 'Travel & Logistics', path: '/administration/travels' },
           { label: 'Memos', path: '/administration/memos' },
           { label: 'Waste & Disposal', path: '/administration/waste' },
+          { label: 'Requests', path: '/administration/admin-requests' },
           { label: 'Tasks', path: '/administration/tasks' },
           { label: 'Admin Documents', path: '/administration/documents' },
           { label: 'Reports', path: '/administration/reports' },
@@ -107,19 +110,6 @@ const navConfig = [
           { label: 'Technical Reports', path: '/technical/reports' },
         ],
       },
-      {
-        label: 'Procurement',
-        icon: <FiShoppingCart size={17} />,
-        path: '/procurement',
-        collapsible: true,
-        children: [
-          { label: 'Purchase Requests', path: '/procurement/requests' },
-          { label: 'Purchase Orders', path: '/procurement/orders' },
-          { label: 'Vendor Management', path: '/procurement/vendors' },
-          { label: 'Inventory & Store', path: '/procurement/inventory' },
-          { label: 'Procurement Reports', path: '/procurement/reports' },
-        ],
-      },
     ],
   },
   {
@@ -143,18 +133,40 @@ const navConfig = [
         path: '/hse',
         collapsible: true,
         children: [
-          { label: 'Off-Shore Travel Docs', path: '/hse/offshore-travel' },
-          { label: 'Emergency Preparedness', path: '/hse/emergency' },
-          { label: 'Tasks', path: '/hse/tasks' },
-          { label: 'HSE Documents', path: '/hse/documents' },
+          { label: 'Training & Certificates', path: '/hse/training' },
+          { label: 'Safety Drills', path: '/hse/safety-drills' },
+          { label: 'Requests', path: '/hse/requests' },
           { label: 'Reports', path: '/hse/reports' },
+          { label: 'HSE Documents', path: '/hse/documents' },
+          { label: 'Reports', path: '/hse/hse-reports' },
         ],
       },
     ],
   },
   {
     section: 'Supply Chain',
-    items: [],
+    items: [
+      {
+        label: 'Procurement',
+        icon: <FiShoppingCart size={17} />,
+        path: '/procurement',
+        collapsible: true,
+        children: [
+          { label: 'Purchase Requests', path: '/procurement/requests' },
+          { label: 'Purchase Orders', path: '/procurement/orders' },
+          { label: 'Vendor Management', path: '/procurement/vendors' },
+          { label: 'Inventory & Store', path: '/procurement/inventory' },
+          { label: 'Procurement Reports', path: '/procurement/reports' },
+        ],
+      },
+    ],
+  },
+  {
+    section: 'User Management',
+    items: [
+      { label: 'Users', icon: <FiUsers size={17} />, path: '/users' },
+      { label: 'Roles & Permissions', icon: <FiLock size={17} />, path: '/roles' },
+    ],
   },
 ];
 
