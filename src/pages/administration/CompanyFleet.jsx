@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  FiSearch, FiFilter, FiDownload, FiPlus, FiEye, FiMoreVertical,
+  FiSearch, FiFilter, FiDownload, FiPlus, FiEye,
   FiTruck, FiTool, FiAlertTriangle, FiCheckCircle, FiMapPin,
   FiCalendar, FiEdit2, FiNavigation,
 } from 'react-icons/fi';
@@ -9,36 +9,13 @@ import Pagination from '../../components/ui/Pagination';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
 import Drawer from '../../components/ui/Drawer';
-import { Input, FormField, Textarea } from '../../components/ui/FormField';
+import RowMenu from '../../components/ui/RowMenu';
+import { Input, FormField, Select, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { mockFleet, mockMaintenanceLog } from '../../data/mockAdmin';
 
 const ITEMS_PER_PAGE = 8;
 
-function RowMenu({ items }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef();
-  useEffect(() => {
-    const h = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-  return (
-    <div style={{ position: 'relative' }} ref={ref}>
-      <button className="icon-btn" onClick={() => setOpen(v => !v)}><FiMoreVertical size={16} /></button>
-      {open && (
-        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: '4px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0', padding: '6px 0', zIndex: 50, width: '170px' }}>
-          {items.map((item, i) => (
-            <div key={i} onClick={() => { item.action(); setOpen(false); }} className="menu-item-hover"
-              style={{ padding: '8px 14px', fontSize: '0.813rem', color: item.color || '#334155', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              {item.icon} {item.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 function StatCard({ icon, label, value, sub, accent }) {
   return (
@@ -314,9 +291,7 @@ export default function CompanyFleet() {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <FormField label="Year"><Input type="number" placeholder="2024" /></FormField>
             <FormField label="Vehicle Type">
-              <select className="form-input">
-                {['SUV', 'Sedan', 'Bus', 'Pickup', 'Truck', 'Van'].map(o => <option key={o}>{o}</option>)}
-              </select>
+              <Select options={['SUV', 'Sedan', 'Bus', 'Pickup', 'Truck', 'Van']} />
             </FormField>
           </div>
           <FormField label="Plate Number"><Input placeholder="e.g. ABJ-009-GH" /></FormField>

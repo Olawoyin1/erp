@@ -8,7 +8,7 @@ import Toast, { useToast } from '../../../components/ui/Toast';
 import { FormField, Input, Select } from '../../../components/ui/FormField';
 import AddEmployeeModal from './AddEmployeeModal';
 import EditEmployeeModal from './EditEmployeeModal';
-import AssignManagerModal from './AssignManagerModal';
+import AssignManagerDrawer from './AssignManagerDrawer';
 import DeactivateModal from './DeactivateModal';
 import { mockEmployees } from '../../../data/mockEmployees';
 
@@ -488,13 +488,12 @@ export default function EmployeeList() {
         />
       )}
 
-      {assignTarget && (
-        <AssignManagerModal
-          employee={assignTarget}
-          onClose={() => setAssignTarget(null)}
-          onAssign={handleAssign}
-        />
-      )}
+      <AssignManagerDrawer
+        isOpen={!!assignTarget}
+        employee={assignTarget}
+        onClose={() => setAssignTarget(null)}
+        onAssign={handleAssign}
+      />
 
       {deactivateTarget && (
         <DeactivateModal

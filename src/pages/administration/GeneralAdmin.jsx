@@ -1,6 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  FiSearch, FiFilter, FiDownload, FiPlus, FiEye, FiMoreVertical,
+  FiSearch, FiFilter, FiDownload, FiPlus, FiEye,
   FiBell, FiMail, FiCalendar, FiClock, FiUsers, FiFileText,
   FiMessageSquare, FiAlertCircle, FiEdit2, FiTrash2, FiSend,
 } from 'react-icons/fi';
@@ -8,37 +8,13 @@ import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Badge from '../../components/ui/Badge';
 import Modal from '../../components/ui/Modal';
+import RowMenu from '../../components/ui/RowMenu';
 import { Input, FormField, Select, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { mockNotices, mockCorrespondence, mockMeetings } from '../../data/mockAdmin';
 
 const ITEMS_PER_PAGE = 8;
 
-// ─── Row Menu ────────────────────────────────────────────────────────────────
-function RowMenu({ items }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef();
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-  return (
-    <div style={{ position: 'relative' }} ref={ref}>
-      <button className="icon-btn" onClick={() => setOpen(v => !v)}><FiMoreVertical size={16} /></button>
-      {open && (
-        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: '4px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0', padding: '6px 0', zIndex: 50, width: '160px' }}>
-          {items.map((item, i) => (
-            <div key={i} onClick={() => { item.action(); setOpen(false); }} className="menu-item-hover"
-              style={{ padding: '8px 14px', fontSize: '0.813rem', color: item.color || '#334155', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              {item.icon} {item.label}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
 function StatCard({ icon, label, value, sub, accent }) {
@@ -255,14 +231,10 @@ export default function GeneralAdmin() {
           </FormField>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <FormField label="Category">
-              <select className="form-input">
-                {['General', 'Policy', 'Safety', 'Facilities', 'HR'].map(o => <option key={o}>{o}</option>)}
-              </select>
+              <Select options={['General', 'Policy', 'Safety', 'Facilities', 'HR']} />
             </FormField>
             <FormField label="Priority">
-              <select className="form-input">
-                {['High', 'Medium', 'Low'].map(o => <option key={o}>{o}</option>)}
-              </select>
+              <Select options={['High', 'Medium', 'Low']} />
             </FormField>
           </div>
           <FormField label="Issued By">

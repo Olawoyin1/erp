@@ -343,8 +343,8 @@ function InfoItem({ label, value }) {
   );
 }
 
-// ─── Create / Edit Job Opening Modal ─────────────────────────────────────────
-function JobOpeningModal({ isOpen, onClose, onSave, editJob }) {
+// ─── Create / Edit Job Opening Drawer ────────────────────────────────────────
+function JobOpeningDrawer({ isOpen, onClose, onSave, editJob }) {
   const isEdit = !!editJob;
   const [form, setForm] = useState({
     position: '', department: '', hiringSupervisor: '',
@@ -382,7 +382,7 @@ function JobOpeningModal({ isOpen, onClose, onSave, editJob }) {
   );
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={isEdit ? 'Edit Job Opening' : 'Create Job Opening'} maxWidth="620px" footer={footer}>
+    <Drawer isOpen={isOpen} onClose={onClose} title={isEdit ? 'Edit Job Opening' : 'Create Job Opening'} subtitle={isEdit ? "Update job opening details" : "Set up requirements and details"} width="540px" footer={footer}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <FormField label="Position" required>
           <Input value={form.position} onChange={set('position')} placeholder="" />
@@ -443,7 +443,7 @@ function JobOpeningModal({ isOpen, onClose, onSave, editJob }) {
           <Textarea value={form.mandatoryRequirements} onChange={set('mandatoryRequirements')} placeholder="Enter requirements for this position..." rows={4} />
         </FormField>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -649,8 +649,8 @@ function JobPostingsTab({ showToast }) {
         />
       )}
 
-      {/* Create/Edit Modal */}
-      <JobOpeningModal
+      {/* Create/Edit Drawer */}
+      <JobOpeningDrawer
         isOpen={showCreateModal || !!editJob}
         onClose={() => { setShowCreateModal(false); setEditJob(null); }}
         editJob={editJob}

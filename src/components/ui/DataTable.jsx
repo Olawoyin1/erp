@@ -27,7 +27,7 @@ export default function DataTable({
   const allSelected = data.length > 0 && data.every((row) => selectedIds.includes(row[keyField]));
 
   return (
-    <div style={{ width: '100%', overflowX: 'auto', borderRadius: '8px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
+    <div style={{ width: '100%', overflow: 'visible', borderRadius: '8px', border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.813rem', fontFamily: 'var(--font)' }}>
         <thead>
           <tr style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', textAlign: 'left' }}>

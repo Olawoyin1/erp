@@ -10,7 +10,8 @@ import {
   FiCheckCircle,
   FiAlertTriangle,
   FiChevronDown,
-  FiMenu,
+  FiChevronLeft,
+  FiChevronRight,
   FiX,
   FiArrowUp,
   FiBarChart2,
@@ -29,6 +30,24 @@ const navConfig = [
     section: 'Operations',
     items: [
       {
+        label: 'Administration',
+        icon: <FiSettings size={17} />,
+        path: '/administration',
+        collapsible: true,
+        children: [
+          { label: 'EDMS', path: '/administration/edms' },
+          { label: 'Assets & Supplies', path: '/administration/assets' },
+          { label: 'Administrative Requests', path: '/administration/requests' },
+          { label: 'Facility Maintenance', path: '/administration/maintenance' },
+          { label: 'Travel & Logistics', path: '/administration/travels' },
+          { label: 'Memos', path: '/administration/memos' },
+          { label: 'Waste & Disposal', path: '/administration/waste' },
+          { label: 'Tasks', path: '/administration/tasks' },
+          { label: 'Admin Documents', path: '/administration/documents' },
+          { label: 'Reports', path: '/administration/reports' },
+        ],
+      },
+      {
         label: 'Human Resources',
         icon: <FiUsers size={17} />,
         path: '/hr',
@@ -45,26 +64,9 @@ const navConfig = [
           { label: 'Grievances & Discipline', path: '/hr/grievances' },
           { label: 'Requests', path: '/hr/requests' },
           { label: 'Tasks', path: '/hr/tasks' },
-          { label: 'HR Documents', path: '/hr/documents' },
           { label: 'Reports', path: '/hr/reports' },
-        ],
-      },
-      {
-        label: 'Administration',
-        icon: <FiSettings size={17} />,
-        path: '/administration',
-        collapsible: true,
-        children: [
-          { label: 'EDMS', path: '/administration/edms' },
-          { label: 'Assets & Supplies', path: '/administration/assets' },
-          { label: 'Administrative Requests', path: '/administration/requests' },
-          { label: 'Facility Maintenance', path: '/administration/maintenance' },
-          { label: 'Travel & Logistics', path: '/administration/travels' },
-          { label: 'Memos', path: '/administration/memos' },
-          { label: 'Waste & Disposal', path: '/administration/waste' },
-          { label: 'Tasks', path: '/administration/tasks' },
-          { label: 'Admin Documents', path: '/administration/documents' },
-          { label: 'Reports', path: '/administration/reports' },
+          { label: 'HR Documents', path: '/hr/documents' },
+          { label: 'Reports', path: '/hr/hr-reports' },
         ],
       },
       {
@@ -92,19 +94,6 @@ const navConfig = [
         ],
       },
       {
-        label: 'Procurement',
-        icon: <FiShoppingCart size={17} />,
-        path: '/procurement',
-        collapsible: true,
-        children: [
-          { label: 'Purchase Requests', path: '/procurement/requests' },
-          { label: 'Purchase Orders', path: '/procurement/orders' },
-          { label: 'Vendor Management', path: '/procurement/vendors' },
-          { label: 'Inventory & Store', path: '/procurement/inventory' },
-          { label: 'Procurement Reports', path: '/procurement/reports' },
-        ],
-      },
-      {
         label: 'Technical',
         icon: <FiTool size={17} />,
         path: '/technical',
@@ -116,6 +105,19 @@ const navConfig = [
           { label: 'Resource Allocation', path: '/technical/resources' },
           { label: 'Tasks', path: '/technical/tasks' },
           { label: 'Technical Reports', path: '/technical/reports' },
+        ],
+      },
+      {
+        label: 'Procurement',
+        icon: <FiShoppingCart size={17} />,
+        path: '/procurement',
+        collapsible: true,
+        children: [
+          { label: 'Purchase Requests', path: '/procurement/requests' },
+          { label: 'Purchase Orders', path: '/procurement/orders' },
+          { label: 'Vendor Management', path: '/procurement/vendors' },
+          { label: 'Inventory & Store', path: '/procurement/inventory' },
+          { label: 'Procurement Reports', path: '/procurement/reports' },
         ],
       },
     ],
@@ -150,6 +152,10 @@ const navConfig = [
       },
     ],
   },
+  {
+    section: 'Supply Chain',
+    items: [],
+  },
 ];
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
@@ -165,6 +171,18 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
   const isChildActive = (children) => children.some((c) => location.pathname.startsWith(c.path));
 
   const handleItemClick = (item) => {
+    if (collapsed) {
+      onToggle();
+      if (item.collapsible && !openSections[item.path]) {
+        setOpenSections((prev) => ({ ...prev, [item.path]: true }));
+      }
+      if (!item.collapsible) {
+        navigate(item.path);
+        if (onMobileClose) onMobileClose();
+      }
+      return;
+    }
+
     if (item.collapsible) {
       toggleSection(item.path);
     } else {
@@ -188,7 +206,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
           <span className="sidebar-logo-text">PGSL ERP</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button className="sidebar-collapse-btn desktop-only-btn" onClick={onToggle} title="Toggle sidebar">
-              <FiMenu size={15} />
+              {collapsed ? <FiChevronRight size={16} /> : <FiChevronLeft size={16} />}
             </button>
             <button className="sidebar-collapse-btn mobile-only-btn" onClick={onMobileClose} title="Close sidebar">
               <FiX size={16} />
