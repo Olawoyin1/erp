@@ -1,132 +1,261 @@
 import React, { useState } from 'react';
 import {
-  FiDownload, FiFilter, FiCalendar, FiPieChart, FiBarChart2, FiTrendingUp, FiDollarSign
+  FiDownload, FiPieChart, FiBarChart2, FiTrendingUp, FiTarget,
+  FiFileText, FiCheckCircle, FiDollarSign, FiAward, FiAlertCircle
 } from 'react-icons/fi';
-import { mockProcurementSummary } from '../../data/mockProcurement';
-
-const fmt = n => '₦' + (n >= 1_000_000 ? (n / 1_000_000).toFixed(1) + 'M' : (n / 1_000).toFixed(0) + 'K');
-
-function StatCard({ icon, label, value, sub, accent }) {
-  return (
-    <div className="card" style={{ padding: '20px', display: 'flex', alignItems: 'flex-start', gap: '16px' }}>
-      <div style={{ width: 44, height: 44, borderRadius: '10px', backgroundColor: accent + '20', display: 'flex', alignItems: 'center', justifyContent: 'center', color: accent, flexShrink: 0 }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>{label}</div>
-        <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0F172A', lineHeight: 1 }}>{value}</div>
-        {sub && <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>{sub}</div>}
-      </div>
-    </div>
-  );
-}
+import Toast, { useToast } from '../../components/ui/Toast';
+import { mockProcurementAnalytics } from '../../data/mockProcurement';
 
 export default function ProcurementReports() {
-  const [period, setPeriod] = useState('YTD'); // 'Month', 'QTR', 'YTD'
-  
-  const totalSpend = mockProcurementSummary.monthlySpend.reduce((acc, curr) => acc + curr.spend, 0);
+  const { kpis, monthlyRevenueWon, rfqPerformance, commercialConversion, tenderOutcome } = mockProcurementAnalytics;
+  const { toast, showToast, hideToast } = useToast();
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+
+      {/* Top Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Procurement Reports & Analytics</h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>Overview of spending, category breakdown, and vendor performance</p>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Reports — Procurement</h1>
+          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
+            Monitor procurement performance through operational reports and procurement analytics
+          </p>
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <div style={{ display: 'flex', backgroundColor: '#F1F5F9', borderRadius: '8px', padding: '3px' }}>
-            {['Month', 'QTR', 'YTD'].map(p => (
-              <button key={p} onClick={() => setPeriod(p)}
-                style={{ padding: '5px 12px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 600, transition: 'all 0.15s',
-                  backgroundColor: period === p ? '#fff' : 'transparent', color: period === p ? '#0F172A' : '#64748B',
-                  boxShadow: period === p ? '0 1px 4px rgba(0,0,0,0.08)' : 'none' }}>
-                {p}
-              </button>
-            ))}
-          </div>
-          <button className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}>
-            <FiDownload size={14} /> Export Report
+        <div>
+          <button
+            className="btn btn-secondary"
+            onClick={() => showToast('Exporting executive report...', 'success')}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', borderRadius: '8px' }}
+          >
+            <FiDownload size={15} /> Export
           </button>
         </div>
       </div>
 
+      {/* Top 4 KPI Cards matching exact screenshot */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        <StatCard icon={<FiDollarSign size={20} />} label="Total Spend (YTD)" value={fmt(totalSpend)} sub="Up 12% vs last year" accent="#1D4ED8" />
-        <StatCard icon={<FiPieChart size={20} />} label="Top Category" value="Tech Equip." sub="25% of total spend" accent="#7C3AED" />
-        <StatCard icon={<FiTrendingUp size={20} />} label="Total POs" value="128" sub="Completed orders" accent="#16A34A" />
-        <StatCard icon={<FiBarChart2 size={20} />} label="Avg. Order Value" value={fmt(totalSpend/128)} sub="Across all categories" accent="#0891B2" />
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px' }}>
-        
-        {/* Spend Trend Placeholder */}
-        <div className="card" style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><FiBarChart2 color="#94A3B8"/> Monthly Spend Trend</h3>
-          
-          <div style={{ height: '240px', display: 'flex', alignItems: 'flex-end', gap: '16px', paddingTop: '20px', borderBottom: '1px solid #E2E8F0', paddingBottom: '8px' }}>
-             {mockProcurementSummary.monthlySpend.map((m, i) => {
-               const max = Math.max(...mockProcurementSummary.monthlySpend.map(s => s.spend));
-               const heightPct = (m.spend / max) * 100;
-               return (
-                 <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                   <div style={{ fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>{fmt(m.spend)}</div>
-                   <div style={{ width: '100%', backgroundColor: '#DBEAFE', borderRadius: '4px 4px 0 0', height: `${heightPct}%`, minHeight: '10px', transition: 'height 0.5s ease', position: 'relative' }}>
-                     <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#1D4ED8', height: '60%', borderRadius: '0', opacity: 0.8 }} />
-                   </div>
-                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569' }}>{m.month}</div>
-                 </div>
-               )
-             })}
+        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>TOTAL PIPELINE VALUE</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{kpis.totalPipelineValue}</div>
+            <div style={{ fontSize: '0.75rem', color: '#16A34A', marginTop: '4px', fontWeight: 600 }}>↗ {kpis.pipelineGrowth}</div>
+          </div>
+          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
+            <FiDollarSign size={18} />
           </div>
         </div>
 
-        {/* Spend by Category */}
-        <div className="card" style={{ padding: '24px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginTop: 0, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}><FiPieChart color="#94A3B8"/> Spend by Category</h3>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {mockProcurementSummary.categorySpend.map((cat, i) => {
-              const colors = ['#1D4ED8', '#7C3AED', '#0891B2', '#16A34A', '#D97706', '#94A3B8'];
-              const color = colors[i % colors.length];
-              return (
-                <div key={cat.category}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '0.8rem' }}>
-                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{cat.category}</span>
-                    <span style={{ color: '#64748B', fontWeight: 600 }}>{cat.pct}% <span style={{ color: '#CBD5E1', margin: '0 4px' }}>|</span> {fmt(cat.amount)}</span>
-                  </div>
-                  <div style={{ height: '6px', backgroundColor: '#F1F5F9', borderRadius: '999px', overflow: 'hidden' }}>
-                    <div style={{ height: '100%', width: `${cat.pct}%`, backgroundColor: color, borderRadius: '999px' }} />
-                  </div>
+        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>OPPORTUNITY CONVERSION</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{kpis.opportunityConversion}</div>
+            <div style={{ fontSize: '0.75rem', color: '#16A34A', marginTop: '4px', fontWeight: 600 }}>↗ {kpis.conversionGrowth}</div>
+          </div>
+          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#FAF5FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED' }}>
+            <FiTarget size={18} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>RFQ PROPOSAL SUCCESS</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{kpis.rfqProposalSuccess}</div>
+            <div style={{ fontSize: '0.75rem', color: '#16A34A', marginTop: '4px', fontWeight: 600 }}>↗ {kpis.proposalPrecision}</div>
+          </div>
+          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+            <FiCheckCircle size={18} />
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div>
+            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>TEAM TASKS RESOLVED</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{kpis.teamTasksResolved}</div>
+            <div style={{ fontSize: '0.75rem', color: '#DC2626', marginTop: '4px', fontWeight: 600 }}>⚠ {kpis.taskAlert}</div>
+          </div>
+          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706' }}>
+            <FiFileText size={18} />
+          </div>
+        </div>
+      </div>
+
+      {/* Row 1 Charts: Monthly Revenue Won & RFQ Performance */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px' }}>
+        {/* Monthly Revenue Won Bar Chart */}
+        <div className="card" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Monthly Revenue Won</h3>
+            <span style={{ fontSize: '0.75rem', backgroundColor: '#F1F5F9', padding: '3px 10px', borderRadius: '12px', color: '#64748B', fontWeight: 600 }}>
+              Contracts YTD
+            </span>
+          </div>
+          <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '0 0 20px 0' }}>
+            Total volume of awarded & pipeline projects
+          </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '16px', fontSize: '0.8rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: 12, height: 12, backgroundColor: '#EF4444', borderRadius: '2px' }} />
+              <span style={{ color: '#475569', fontWeight: 500 }}>Awarded</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ width: 12, height: 12, backgroundColor: '#1E40AF', borderRadius: '2px' }} />
+              <span style={{ color: '#475569', fontWeight: 500 }}>Pipeline</span>
+            </div>
+          </div>
+
+          {/* Bar Chart Visualization */}
+          <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '18px', borderBottom: '1px solid #E2E8F0', paddingBottom: '10px' }}>
+            {monthlyRevenueWon.map((m, i) => (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '160px', width: '100%', justifyContent: 'center' }}>
+                  <div
+                    style={{
+                      width: '40%',
+                      backgroundColor: '#EF4444',
+                      height: `${(m.awarded / 200) * 100}%`,
+                      borderRadius: '4px 4px 0 0',
+                      transition: 'height 0.4s'
+                    }}
+                    title={`Awarded: ₦${m.awarded}M`}
+                  />
+                  <div
+                    style={{
+                      width: '40%',
+                      backgroundColor: '#1E40AF',
+                      height: `${(m.pipeline / 200) * 100}%`,
+                      borderRadius: '4px 4px 0 0',
+                      transition: 'height 0.4s'
+                    }}
+                    title={`Pipeline: ₦${m.pipeline}M`}
+                  />
                 </div>
-              );
-            })}
+                <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, marginTop: '8px' }}>{m.month}</div>
+              </div>
+            ))}
           </div>
         </div>
 
-      </div>
-      
-      {/* Top Vendors Table */}
-      <div className="card" style={{ padding: '24px' }}>
-        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginTop: 0, marginBottom: '20px' }}>Top Vendors by Spend</h3>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-          <thead>
-            <tr>
-              <th style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', color: '#64748B', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Vendor Name</th>
-              <th style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', color: '#64748B', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>Total Spend</th>
-              <th style={{ padding: '12px 16px', borderBottom: '1px solid #E2E8F0', color: '#64748B', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase' }}>% of Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {mockProcurementSummary.topVendors.map((v, i) => (
-              <tr key={v.name} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                <td style={{ padding: '14px 16px', fontSize: '0.85rem', fontWeight: 600, color: '#0F172A' }}>{v.name}</td>
-                <td style={{ padding: '14px 16px', fontSize: '0.85rem', fontWeight: 700, color: '#1D4ED8' }}>{fmt(v.amount)}</td>
-                <td style={{ padding: '14px 16px', fontSize: '0.85rem', color: '#64748B', fontWeight: 500 }}>{((v.amount / totalSpend) * 100).toFixed(1)}%</td>
-              </tr>
+        {/* RFQ Performance */}
+        <div className="card" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>RFQ Performance</h3>
+          <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '4px 0 20px 0' }}>
+            RFQ feedback speed & accuracy analysis pipeline
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+            <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>SUBMITTED RFQS</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>{rfqPerformance.submittedRfqs}</div>
+              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Estimations completed directly</div>
+            </div>
+            <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>RFQ VALUE YTD</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>{rfqPerformance.rfqValueYtd}</div>
+              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Estimations completed directly</div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '10px' }}>
+            STATUS DISTRIBUTION VOLUME
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {rfqPerformance.statusDistribution.map((s, idx) => (
+              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.813rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#2563EB' }} />
+                  <span style={{ color: '#334155' }}>{s.label}</span>
+                </div>
+                <div style={{ fontWeight: 600, color: '#0F172A' }}>
+                  {s.count} RFQ <span style={{ color: '#94A3B8', fontWeight: 400 }}>({s.value})</span>
+                </div>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
 
+      {/* Row 2 Charts: Commercial Conversion Pipeline Funnel & Tender Outcome Analysis */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px' }}>
+        {/* Commercial Conversion Pipeline Funnel */}
+        <div className="card" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Commercial Conversion Pipeline Funnel</h3>
+            <span style={{ fontSize: '0.75rem', backgroundColor: '#F1F5F9', padding: '3px 10px', borderRadius: '12px', color: '#64748B', fontWeight: 600 }}>
+              32 cases
+            </span>
+          </div>
+          <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '0 0 20px 0' }}>
+            Survival rates of opportunities from registration to close sign-off
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {commercialConversion.map((item, idx) => (
+              <div key={idx}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.813rem', marginBottom: '6px' }}>
+                  <span style={{ color: '#334155', fontWeight: 500 }}>{item.stage}</span>
+                  <span style={{ color: '#0F172A', fontWeight: 700 }}>{item.count}</span>
+                </div>
+                <div style={{ width: '100%', height: '8px', backgroundColor: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${item.pct}%`,
+                      height: '100%',
+                      backgroundColor: item.color,
+                      borderRadius: '4px',
+                      transition: 'width 0.5s'
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tender Outcome Analysis */}
+        <div className="card" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
+          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Tender Outcome Analysis</h3>
+          <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '4px 0 20px 0' }}>
+            Win ratio breakdown & procurement bidding outcome metrics
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
+            <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>OVERALL BIDS WON</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>{tenderOutcome.overallBidsWon}</div>
+              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Out of {tenderOutcome.totalBidsTracked} tracked</div>
+            </div>
+            <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0', textAlign: 'center' }}>
+              <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>AWAITING DECISION</div>
+              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{tenderOutcome.awaitingDecision}</div>
+              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Bids submitted</div>
+            </div>
+          </div>
+
+          {/* Outcome breakdown bars */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {tenderOutcome.categories.map((cat, idx) => (
+              <div key={idx}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.813rem', marginBottom: '4px' }}>
+                  <span style={{ color: '#334155' }}>{cat.label}</span>
+                  <span style={{ fontWeight: 700, color: '#0F172A' }}>{cat.amount}</span>
+                </div>
+                <div style={{ width: '100%', height: '6px', backgroundColor: '#F1F5F9', borderRadius: '3px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${(parseFloat(cat.amount.replace(/[^0-9.]/g, '')) / 60) * 100}%`,
+                      height: '100%',
+                      backgroundColor: cat.color,
+                      borderRadius: '3px'
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

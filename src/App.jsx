@@ -49,10 +49,33 @@ import RFQsTenders from './pages/bizdev/RFQsTenders';
 import Proposals from './pages/bizdev/Proposals';
 import CRMContacts from './pages/bizdev/CRMContacts';
 import PurchaseRequests from './pages/procurement/PurchaseRequests';
+import RFQManagement from './pages/procurement/RFQManagement';
 import PurchaseOrders from './pages/procurement/PurchaseOrders';
+import ExpeditingDelivery from './pages/procurement/ExpeditingDelivery';
 import VendorManagement from './pages/procurement/VendorManagement';
 import InventoryStore from './pages/procurement/InventoryStore';
+import ProcurementTasks from './pages/procurement/ProcurementTasks';
+import ProcurementDocuments from './pages/procurement/ProcurementDocuments';
 import ProcurementReports from './pages/procurement/ProcurementReports';
+
+import GeneralLedger from './pages/finance/GeneralLedger';
+import BudgetingForecasting from './pages/finance/BudgetingForecasting';
+import AccountsPayableReceivable from './pages/finance/AccountsPayableReceivable';
+import Invoicing from './pages/finance/Invoicing';
+import ContractsClaimsManagement from './pages/finance/ContractsClaimsManagement';
+import CommercialRisksInsurance from './pages/finance/CommercialRisksInsurance';
+import BankReconciliation from './pages/finance/BankReconciliation';
+import TaxManagement from './pages/finance/TaxManagement';
+import FinanceForms from './pages/finance/FinanceForms';
+import FinanceTasks from './pages/finance/FinanceTasks';
+import FinanceReports from './pages/finance/FinanceReports';
+
+import AuditManagement from './pages/quality/AuditManagement';
+import QualityCalibrationRecords from './pages/quality/CalibrationRecords';
+import MaterialsInspection from './pages/quality/MaterialsInspection';
+import QualityTasks from './pages/quality/QualityTasks';
+import QMSDocuments from './pages/quality/QMSDocuments';
+import QualityReports from './pages/quality/QualityReports';
 
 export default function App() {
   return (
@@ -130,10 +153,41 @@ export default function App() {
         <Route path="procurement">
           <Route index element={<Navigate to="/procurement/requests" replace />} />
           <Route path="requests" element={<PurchaseRequests />} />
+          <Route path="rfq" element={<RFQManagement />} />
           <Route path="orders" element={<PurchaseOrders />} />
+          <Route path="expediting" element={<ExpeditingDelivery />} />
           <Route path="vendors" element={<VendorManagement />} />
           <Route path="inventory" element={<InventoryStore />} />
+          <Route path="tasks" element={<ProcurementTasks />} />
+          <Route path="documents" element={<ProcurementDocuments />} />
           <Route path="reports" element={<ProcurementReports />} />
+        </Route>
+
+        {/* Accounts & Finance Module Routes */}
+        <Route path="finance">
+          <Route index element={<Navigate to="/finance/ledger" replace />} />
+          <Route path="ledger" element={<GeneralLedger />} />
+          <Route path="budget" element={<BudgetingForecasting />} />
+          <Route path="ap-ar" element={<AccountsPayableReceivable />} />
+          <Route path="invoicing" element={<Invoicing />} />
+          <Route path="contracts-claims" element={<ContractsClaimsManagement />} />
+          <Route path="risks-insurance" element={<CommercialRisksInsurance />} />
+          <Route path="bank-reconciliation" element={<BankReconciliation />} />
+          <Route path="tax" element={<TaxManagement />} />
+          <Route path="forms" element={<FinanceForms />} />
+          <Route path="tasks" element={<FinanceTasks />} />
+          <Route path="reports" element={<FinanceReports />} />
+        </Route>
+
+        {/* Quality System (Compliance) Module Routes */}
+        <Route path="quality">
+          <Route index element={<Navigate to="/quality/audits" replace />} />
+          <Route path="audits" element={<AuditManagement />} />
+          <Route path="calibration" element={<QualityCalibrationRecords />} />
+          <Route path="inspections" element={<MaterialsInspection />} />
+          <Route path="tasks" element={<QualityTasks />} />
+          <Route path="documents" element={<QMSDocuments />} />
+          <Route path="reports" element={<QualityReports />} />
         </Route>
 
         {/* Fallback route */}
