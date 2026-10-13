@@ -15,7 +15,8 @@ import { employeeService } from '../../services/hr.service';
 
 const ITEMS_PER_PAGE = 10;
 
-const URGviewing':   { bg: '#FEF9C3', color: '#854D0E' },
+const statusStyle = {
+  'URG Viewing':     { bg: '#FEF9C3', color: '#854D0E' },
   'HOD Approved':    { bg: '#DCFCE7', color: '#15803D' },
   'Store Reviewing': { bg: '#E0E7FF', color: '#4338CA' },
   'Returned':        { bg: '#FEE2E2', color: '#DC2626' },
