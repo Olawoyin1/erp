@@ -181,6 +181,12 @@ const navConfig = [
       { label: 'Roles & Permissions', icon: <FiLock size={17} />, path: '/roles' },
     ],
   },
+  {
+    section: 'System',
+    items: [
+      { label: 'Settings', icon: <FiSettings size={17} />, path: '/settings' },
+    ],
+  },
 ];
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {

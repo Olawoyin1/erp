@@ -57,6 +57,10 @@ const statusMap = {
   'Returned': 'returned',
   'Unavailable': 'inactive',
 
+  // User Management
+  'Suspended': 'rejected',
+  'Pending': 'pending',
+
   // Offshore / HSE
   'Pending Verification': 'pending',
 

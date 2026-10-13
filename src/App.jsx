@@ -1,5 +1,15 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+
+// ─── Auth Pages ───────────────────────────────────────────────────────────────
+import Login from './pages/auth/Login';
+import SetupPassword from './pages/auth/SetupPassword';
+import VerifyIdentity from './pages/auth/VerifyIdentity';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import CheckEmail from './pages/auth/CheckEmail';
+import CreateNewPassword from './pages/auth/CreateNewPassword';
+import PasswordResetSuccess from './pages/auth/PasswordResetSuccess';
+import AccountSetupComplete from './pages/auth/AccountSetupComplete';
 import Layout from './components/layout/Layout';
 import EmployeeList from './pages/hr/employees/EmployeeList';
 import EmployeeProfile from './pages/hr/employees/EmployeeProfile';
@@ -19,6 +29,7 @@ import GrievancesDiscipline from './pages/hr/grievances/GrievancesDiscipline';
 import AttendanceTimesheets from './pages/hr/attendance/AttendanceTimesheets';
 import HRDocuments from './pages/hr/documents/HRDocuments';
 import Tasks from './pages/hr/tasks/Tasks';
+import Settings from './pages/settings/Settings';
 import Reports from './pages/hr/reports/Reports';
 import Requests from './pages/hr/requests/Requests';
 import OffshoreTravelDocuments from './pages/hse/OffshoreTravelDocuments';
@@ -70,6 +81,9 @@ import FinanceForms from './pages/finance/FinanceForms';
 import FinanceTasks from './pages/finance/FinanceTasks';
 import FinanceReports from './pages/finance/FinanceReports';
 
+import UserManagement from './pages/users/UserManagement';
+import RolesPermissions from './pages/roles/RolesPermissions';
+
 import AuditManagement from './pages/quality/AuditManagement';
 import QualityCalibrationRecords from './pages/quality/CalibrationRecords';
 import MaterialsInspection from './pages/quality/MaterialsInspection';
@@ -80,6 +94,17 @@ import QualityReports from './pages/quality/QualityReports';
 export default function App() {
   return (
     <Routes>
+      {/* ─── Auth Routes (outside the main layout) ─── */}
+      <Route path="/auth/login" element={<Login />} />
+      <Route path="/auth/setup-password" element={<SetupPassword />} />
+      <Route path="/auth/verify" element={<VerifyIdentity />} />
+      <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+      <Route path="/auth/check-email" element={<CheckEmail />} />
+      <Route path="/auth/reset-password" element={<CreateNewPassword />} />
+      <Route path="/auth/password-reset-success" element={<PasswordResetSuccess />} />
+      <Route path="/auth/setup-complete" element={<AccountSetupComplete />} />
+
+      {/* ─── Protected App Routes ─── */}
       <Route path="/" element={<Layout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardOverview />} />
@@ -189,6 +214,11 @@ export default function App() {
           <Route path="documents" element={<QMSDocuments />} />
           <Route path="reports" element={<QualityReports />} />
         </Route>
+
+        {/* User Management & Roles */}
+        <Route path="users" element={<UserManagement />} />
+        <Route path="roles" element={<RolesPermissions />} />
+        <Route path="settings" element={<Settings />} />
 
         {/* Fallback route */}
         <Route path="*" element={<Navigate to="/hr/employees" replace />} />
