@@ -14,8 +14,15 @@ import grievanceReducer from './hr/grievanceSlice';
 import usersReducer from './platform/usersSlice';
 import notificationsReducer from './notifications/notificationsSlice';
 
+// Any `src/store/<area>/reducers.js` that default-exports an object of reducers is registered
+// automatically, so a module can add its slices without editing this file.
+const moduleReducers = Object.values(
+  import.meta.glob('./*/reducers.js', { eager: true, import: 'default' }),
+).reduce((all, reducers) => ({ ...all, ...reducers }), {});
+
 const store = configureStore({
   reducer: {
+    ...moduleReducers,
     auth: authReducer,
     ui: uiReducer,
     dashboard: dashboardReducer,
