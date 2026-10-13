@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Drawer from '../../components/ui/Drawer';
@@ -14,136 +15,100 @@ import {
   FiEye,
   FiTrash2,
   FiShield,
+  FiLock,
 } from 'react-icons/fi';
+import {
+  fetchRoles,
+  createRole,
+  updateRole,
+  deleteRole,
+  fetchPermissions,
+} from '../../store/platform/usersSlice';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const DEPARTMENTS = [
-  'System-Wide', 'Cross-department', 'Human Resources', 'Finance & Accounts',
-  'Accounts & Finance', 'Business Development', 'Administration', 'Technical',
+// Role.department is free text — real dept names + two fixed pseudo-values per API docs
+const DEPT_PSEUDO = ['System-wide', 'Cross-department'];
+const STATIC_DEPARTMENTS = [
+  ...DEPT_PSEUDO,
+  'Human Resources', 'Finance & Accounts', 'Accounts & Finance',
+  'Business Development', 'Administration', 'Technical',
   'HSE', 'Quality System', 'Procurement',
 ];
 
+// 8 UI module rows — labels must match exactly what the API's modulePresets keys expect
 const MODULES = [
-  { id: 'administration', label: 'Administration' },
-  { id: 'hr',            label: 'Human Resources' },
-  { id: 'finance',       label: 'Accounts & Finance' },
-  { id: 'bizdev',        label: 'Business Development' },
-  { id: 'procurement',   label: 'Procurement' },
-  { id: 'quality',       label: 'Quality System' },
-  { id: 'hse',           label: 'HSE' },
-  { id: 'technical',     label: 'Technical' },
+  { label: 'Administration' },
+  { label: 'Human Resources' },
+  { label: 'Accounts & Finance' },
+  { label: 'Business Development' },
+  { label: 'Procurement' },
+  { label: 'Quality System' },
+  { label: 'HSE' },
+  { label: 'Technical' },
 ];
 
 const PERMISSION_KEYS = ['view', 'create', 'approve', 'configure'];
 const PERMISSION_LABELS = { view: 'View', create: 'Create', approve: 'Approve', configure: 'Configure' };
 
-function emptyPermissions() {
+const ITEMS_PER_PAGE = 10;
+
+// ─── Preset <-> UI conversion helpers ────────────────────────────────────────
+// API format:  { "Human Resources": ["view", "create"] }
+// UI format:   { "Human Resources": { view: true, create: true, approve: false, configure: false } }
+
+function emptyUiPerms() {
   const p = {};
-  MODULES.forEach((m) => { p[m.id] = { view: false, create: false, approve: false, configure: false }; });
+  MODULES.forEach((m) => {
+    p[m.label] = { view: false, create: false, approve: false, configure: false };
+  });
   return p;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const AUDIT_LOGS = [
-  { date: '27 Aug 2026, 3:45 PM', action: 'Role Created', by: 'Super Admin' },
-  { date: '27 Aug 2026, 3:45 PM', action: 'Permissions Edited', by: 'Super Admin' },
-];
+function apiPresetsToUi(modulePresets = {}) {
+  const result = emptyUiPerms();
+  Object.entries(modulePresets).forEach(([label, actions]) => {
+    if (result[label]) {
+      actions.forEach((action) => {
+        if (action in result[label]) result[label][action] = true;
+      });
+    }
+  });
+  return result;
+}
 
-const mockRoles = [
-  {
-    id: 'ROL-001', role: 'Super Admin', department: 'System-wide',
-    description: 'Full access to all modules and system configuration',
-    noOfUsers: 1,
-    assignedUsers: [{ name: 'Adaeze Chukwu', email: 'a.chukwu@pgsl.com', status: 'Active' }],
-    permissions: (() => { const p = emptyPermissions(); MODULES.forEach((m) => { Object.keys(p[m.id]).forEach((k) => { p[m.id][k] = true; }); }); return p; })(),
-  },
-  {
-    id: 'ROL-002', role: 'MD/CEO', department: 'Cross-department',
-    description: 'Final approver for high-value Fund Requests and top-level executive decisions',
-    noOfUsers: 1,
-    assignedUsers: [{ name: 'Chioma Davids', email: 'chioma.davids@pgsl.com', status: 'Active' }],
-    permissions: (() => { const p = emptyPermissions(); MODULES.forEach((m) => { p[m.id].view = true; p[m.id].approve = true; }); return p; })(),
-  },
-  {
-    id: 'ROL-003', role: 'HR — HOD', department: 'Human Resources',
-    description: 'Approves HR requests, manages recruitment, training, and attendance records',
-    noOfUsers: 1,
-    assignedUsers: [{ name: 'Grace Mensah', email: 'grace.mensah@pgsl.com', status: 'Active' }],
-    permissions: (() => { const p = emptyPermissions(); p['hr'].view = true; p['hr'].create = true; p['hr'].approve = true; return p; })(),
-  },
-  {
-    id: 'ROL-004', role: 'HR — Staff', department: 'Human Resources',
-    description: 'Submits requests, views HR documents and records',
-    noOfUsers: 8,
-    assignedUsers: Array.from({ length: 8 }, (_, i) => ({ name: `HR Staff ${i + 1}`, email: `hrstaff${i + 1}@pgsl.com`, status: 'Active' })),
-    permissions: (() => { const p = emptyPermissions(); p['hr'].view = true; p['hr'].create = true; return p; })(),
-  },
-  {
-    id: 'ROL-005', role: 'Finance — Line Manager', department: 'Accounts & Finance',
-    description: 'First-level approver for Fund Requests within Threshold 1',
-    noOfUsers: 2,
-    assignedUsers: [{ name: 'Zainab Mohammed', email: 'zainab.m@pgsl.com', status: 'Active' }, { name: 'John Afolabi', email: 'john.a@pgsl.com', status: 'Active' }],
-    permissions: (() => { const p = emptyPermissions(); p['finance'].view = true; p['finance'].approve = true; return p; })(),
-  },
-  {
-    id: 'ROL-006', role: 'Finance — HOD', department: 'Accounts & Finance',
-    description: 'Approves Fund Requests within Threshold 2, oversees Finance team operations',
-    noOfUsers: 1,
-    assignedUsers: [{ name: 'Emmanuel Eze', email: 'emmanuel.e@pgsl.com', status: 'Active' }],
-    permissions: (() => { const p = emptyPermissions(); p['finance'].view = true; p['finance'].create = true; p['finance'].approve = true; return p; })(),
-  },
-  {
-    id: 'ROL-007', role: 'Finance — Manager/CFO', department: 'Accounts & Finance',
-    description: 'Approves Fund Requests within Threshold 3, oversees financial reporting and closing',
-    noOfUsers: 1,
-    assignedUsers: [{ name: 'Bello Adeleke', email: 'bello.a@pgsl.com', status: 'Active' }],
-    permissions: (() => { const p = emptyPermissions(); p['finance'].view = true; p['finance'].create = true; p['finance'].approve = true; p['finance'].configure = true; return p; })(),
-  },
-  {
-    id: 'ROL-008', role: 'Finance — Staff', department: 'Accounts & Finance',
-    description: 'Submits Fund Requests, manages invoicing, AP/AR, and ledger entries',
-    noOfUsers: 5,
-    assignedUsers: Array.from({ length: 5 }, (_, i) => ({ name: `Finance Staff ${i + 1}`, email: `finstaff${i + 1}@pgsl.com`, status: 'Active' })),
-    permissions: (() => { const p = emptyPermissions(); p['finance'].view = true; p['finance'].create = true; return p; })(),
-  },
-  {
-    id: 'ROL-009', role: 'Technical Director', department: 'Technical',
-    description: 'Approves resource allocation, project timelines, and technical decisions',
-    noOfUsers: 1,
-    assignedUsers: [{ name: 'Bamidele Olayiwola', email: 'bamidele.o@pgsl.com', status: 'Active' }],
-    permissions: (() => { const p = emptyPermissions(); p['technical'].view = true; p['technical'].approve = true; return p; })(),
-  },
-  {
-    id: 'ROL-010', role: 'Technical — Staff', department: 'Technical',
-    description: 'Manages project tasks, site diaries, engineering documents, and site inspections',
-    noOfUsers: 8,
-    assignedUsers: Array.from({ length: 8 }, (_, i) => ({ name: `Tech Staff ${i + 1}`, email: `techstaff${i + 1}@pgsl.com`, status: 'Active' })),
-    permissions: (() => { const p = emptyPermissions(); p['technical'].view = true; p['technical'].create = true; return p; })(),
-  },
-];
-
-const ITEMS_PER_PAGE = 10;
+function uiPresetsToApi(uiPerms) {
+  const result = {};
+  MODULES.forEach((m) => {
+    const actions = PERMISSION_KEYS.filter((k) => uiPerms[m.label]?.[k]);
+    if (actions.length > 0) result[m.label] = actions;
+  });
+  return result;
+}
 
 // ─── Permission Matrix ────────────────────────────────────────────────────────
 function PermissionMatrix({ permissions, onChange, readOnly = false }) {
-  const togglePerm = (moduleId, permKey) => {
+  const toggle = (label, key) => {
     if (readOnly) return;
-    onChange({ ...permissions, [moduleId]: { ...permissions[moduleId], [permKey]: !permissions[moduleId]?.[permKey] } });
+    onChange({
+      ...permissions,
+      [label]: { ...permissions[label], [key]: !permissions[label]?.[key] },
+    });
   };
 
   return (
     <div style={{ border: '1px solid #E2E8F0', borderRadius: 6, overflow: 'hidden' }}>
-      {/* Header row */}
+      {/* Header */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 80px 90px', backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
         <div style={{ padding: '8px 14px', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#1D4ED8' }}>Module</div>
         {PERMISSION_KEYS.map((k) => (
-          <div key={k} style={{ padding: '8px 0', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#1D4ED8', textAlign: 'center' }}>{PERMISSION_LABELS[k]}</div>
+          <div key={k} style={{ padding: '8px 0', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#1D4ED8', textAlign: 'center' }}>
+            {PERMISSION_LABELS[k]}
+          </div>
         ))}
       </div>
       {MODULES.map((mod, idx) => (
-        <div key={mod.id} style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 70px 70px 80px 90px',
+        <div key={mod.label} style={{
+          display: 'grid', gridTemplateColumns: '1fr 70px 70px 80px 90px',
           alignItems: 'center',
           borderBottom: idx === MODULES.length - 1 ? 'none' : '1px solid #F1F5F9',
           backgroundColor: idx % 2 === 0 ? '#FFFFFF' : '#FAFBFC',
@@ -153,8 +118,8 @@ function PermissionMatrix({ permissions, onChange, readOnly = false }) {
             <div key={pKey} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <input
                 type="checkbox"
-                checked={!!permissions[mod.id]?.[pKey]}
-                onChange={() => togglePerm(mod.id, pKey)}
+                checked={!!permissions[mod.label]?.[pKey]}
+                onChange={() => toggle(mod.label, pKey)}
                 disabled={readOnly}
                 style={{ accentColor: '#1D4ED8', cursor: readOnly ? 'default' : 'pointer', width: 15, height: 15 }}
               />
@@ -167,23 +132,55 @@ function PermissionMatrix({ permissions, onChange, readOnly = false }) {
 }
 
 // ─── Add / Edit Role Drawer ───────────────────────────────────────────────────
-function RoleFormDrawer({ isOpen, onClose, onSave, role }) {
+function RoleFormDrawer({ isOpen, onClose, onSave, role, departments }) {
   const isEditing = !!role;
-  const [form, setForm] = useState({ role: '', department: 'Human Resources', description: '', permissions: emptyPermissions() });
+  const isSystem = role?.isSystem;
+
+  const [form, setForm] = useState({
+    name: '', department: 'Human Resources', description: '', uiPerms: emptyUiPerms(),
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (role) setForm({ role: role.role, department: role.department, description: role.description, permissions: JSON.parse(JSON.stringify(role.permissions)) });
-    else setForm({ role: '', department: 'Human Resources', description: '', permissions: emptyPermissions() });
+    if (role) {
+      setForm({
+        name: role.name,
+        department: role.department,
+        description: role.description || '',
+        uiPerms: apiPresetsToUi(role.modulePresets || {}),
+      });
+    } else {
+      setForm({ name: '', department: 'Human Resources', description: '', uiPerms: emptyUiPerms() });
+    }
   }, [role, isOpen]);
 
-  const handleChange = (e) => { const { name, value } = e.target; setForm((p) => ({ ...p, [name]: value })); };
-  const handleSubmit = (e) => { e.preventDefault(); onSave(form); };
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    const payload = {
+      name: form.name,
+      department: form.department,
+      description: form.description,
+      modulePresets: uiPresetsToApi(form.uiPerms),
+    };
+    await onSave(payload);
+    setSaving(false);
+  };
+
+  // Dept options: real depts from API + pseudo values
+  const deptOptions = departments.length > 0
+    ? [...DEPT_PSEUDO, ...departments.map((d) => d.name)]
+    : STATIC_DEPARTMENTS;
 
   const footer = (
     <>
-      <button type="button" onClick={onClose} style={{ padding: '8px 20px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', color: '#475569', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
-      <button type="submit" form="role-form" style={{ padding: '8px 22px', borderRadius: 6, border: 'none', backgroundColor: '#1D4ED8', color: '#FFFFFF', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
-        {isEditing ? 'Save Changes' : 'Create Role'}
+      <button type="button" onClick={onClose} style={{ padding: '8px 20px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', color: '#475569', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>
+        Cancel
+      </button>
+      <button type="submit" form="role-form" disabled={saving} style={{ padding: '8px 22px', borderRadius: 6, border: 'none', backgroundColor: '#1D4ED8', color: '#FFFFFF', fontSize: '0.875rem', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+        {saving ? 'Saving…' : isEditing ? 'Save Changes' : 'Create Role'}
       </button>
     </>
   );
@@ -198,22 +195,47 @@ function RoleFormDrawer({ isOpen, onClose, onSave, role }) {
       footer={footer}
     >
       <form id="role-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {isSystem && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', backgroundColor: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 6, fontSize: '0.813rem', color: '#C2410C' }}>
+            <FiLock size={14} /> System role — name and permissions cannot be changed.
+          </div>
+        )}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <FormField label="Role ID" required>
-            <Input value={role?.id || 'ROL-001'} readOnly style={{ backgroundColor: '#F8FAFC', color: '#94A3B8' }} />
+          <FormField label="Role ID">
+            <Input value={role?.roleCode || 'Auto-generated'} readOnly style={{ backgroundColor: '#F8FAFC', color: '#94A3B8' }} />
           </FormField>
-          <FormField label="Role" required>
-            <Input name="role" value={form.role} onChange={handleChange} placeholder="HR — Staff" required />
+          <FormField label="Role Name" required>
+            <Input
+              value={form.name}
+              onChange={(e) => set('name', e.target.value)}
+              placeholder="HR — Staff"
+              required
+              disabled={isSystem}
+            />
           </FormField>
         </div>
         <FormField label="Department" required>
-          <Select name="department" value={form.department} onChange={handleChange} options={DEPARTMENTS} />
+          <Select
+            value={form.department}
+            onChange={(e) => set('department', e.target.value)}
+            options={deptOptions}
+          />
         </FormField>
         <FormField label="Description" required>
-          <Textarea name="description" value={form.description} onChange={handleChange} placeholder="Full access to all modules and system configuration" rows={3} required />
+          <Textarea
+            value={form.description}
+            onChange={(e) => set('description', e.target.value)}
+            placeholder="Full access to all modules and system configuration"
+            rows={3}
+            required
+          />
         </FormField>
         <FormField label="Module Access & Permissions" required>
-          <PermissionMatrix permissions={form.permissions} onChange={(p) => setForm((prev) => ({ ...prev, permissions: p }))} />
+          <PermissionMatrix
+            permissions={form.uiPerms}
+            onChange={(p) => set('uiPerms', p)}
+            readOnly={isSystem}
+          />
         </FormField>
       </form>
     </Drawer>
@@ -225,16 +247,15 @@ function ViewRoleDrawer({ isOpen, onClose, role, onEdit }) {
   const [tab, setTab] = useState('details');
   if (!role) return null;
 
+  const uiPerms = apiPresetsToUi(role.modulePresets || {});
+
   const tabStyle = (t) => ({
-    padding: '10px 0',
-    fontSize: '0.875rem',
+    padding: '10px 0', fontSize: '0.875rem',
     fontWeight: tab === t ? 700 : 500,
     color: tab === t ? '#1D4ED8' : '#64748B',
     border: 'none',
     borderBottom: tab === t ? '2px solid #1D4ED8' : '2px solid transparent',
-    backgroundColor: 'transparent',
-    cursor: 'pointer',
-    marginBottom: -1,
+    backgroundColor: 'transparent', cursor: 'pointer', marginBottom: -1,
     transition: 'color 0.15s ease',
   });
 
@@ -246,8 +267,11 @@ function ViewRoleDrawer({ isOpen, onClose, role, onEdit }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <FiShield size={20} color="#1D4ED8" style={{ flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>{role.role}</div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 400 }}>{role.id} · {role.department}</div>
+            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>{role.name}</div>
+            <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 400 }}>
+              {role.roleCode} · {role.department}
+              {role.isSystem && <span style={{ marginLeft: 6, color: '#EA580C', fontSize: '0.7rem', fontWeight: 600 }}>SYSTEM</span>}
+            </div>
           </div>
         </div>
       }
@@ -263,7 +287,7 @@ function ViewRoleDrawer({ isOpen, onClose, role, onEdit }) {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 24, borderBottom: '1px solid #E2E8F0', marginBottom: 20 }}>
         <button style={tabStyle('details')} onClick={() => setTab('details')}>Details</button>
-        <button style={tabStyle('audit')} onClick={() => setTab('audit')}>Audit Trail</button>
+        <button style={tabStyle('permissions')} onClick={() => setTab('permissions')}>Permissions</button>
       </div>
 
       {/* Details Tab */}
@@ -271,10 +295,10 @@ function ViewRoleDrawer({ isOpen, onClose, role, onEdit }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
             {[
-              ['ROL ID', role.id],
-              ['Role', role.role],
+              ['ROL ID', role.roleCode],
+              ['Role Name', role.name],
               ['Department', role.department],
-              ['Users Assigned', role.noOfUsers],
+              ['Users Assigned', role.userCount ?? '—'],
             ].map(([label, val]) => (
               <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94A3B8' }}>{label}</span>
@@ -286,55 +310,44 @@ function ViewRoleDrawer({ isOpen, onClose, role, onEdit }) {
           {/* Description */}
           <div style={{ padding: '12px 14px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8 }}>
             <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94A3B8', marginBottom: 6 }}>Description</div>
-            <div style={{ fontSize: '0.875rem', color: '#0F172A', fontStyle: 'italic' }}>{role.description}</div>
+            <div style={{ fontSize: '0.875rem', color: '#0F172A', fontStyle: 'italic' }}>{role.description || '—'}</div>
           </div>
-
-          {/* Users assigned */}
-          {role.assignedUsers?.length > 0 && (
-            <div>
-              <div style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94A3B8', marginBottom: 10 }}>Users Assigned To This Role</div>
-              <div style={{ border: '1px solid #E2E8F0', borderRadius: 6, overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px', backgroundColor: '#EFF6FF', padding: '8px 14px' }}>
-                  {['Name', 'Calibrated by', 'Status'].map((h) => (
-                    <span key={h} style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: '#1D4ED8' }}>{h}</span>
-                  ))}
-                </div>
-                {role.assignedUsers.slice(0, 5).map((u, i) => (
-                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 90px', padding: '10px 14px', borderBottom: i === Math.min(role.assignedUsers.length, 5) - 1 ? 'none' : '1px solid #F1F5F9', fontSize: '0.813rem' }}>
-                    <span style={{ fontWeight: 600, color: '#0F172A' }}>{u.name}</span>
-                    <span style={{ color: '#64748B' }}>{u.email}</span>
-                    <span style={{ color: '#16A34A', fontWeight: 500 }}>{u.status}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
-      {/* Audit Trail Tab */}
-      {tab === 'audit' && (
-        <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', padding: '10px 14px' }}>
-            {['Date & Time', 'Action', 'Changed By'].map((h) => (
-              <span key={h} style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748B' }}>{h}</span>
-            ))}
-          </div>
-          {AUDIT_LOGS.map((log, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '12px 14px', borderBottom: i === AUDIT_LOGS.length - 1 ? 'none' : '1px solid #F1F5F9', fontSize: '0.813rem' }}>
-              <span style={{ color: '#475569' }}>{log.date}</span>
-              <span style={{ color: '#0F172A', fontWeight: 500 }}>{log.action}</span>
-              <span style={{ color: '#1D4ED8', fontWeight: 500 }}>{log.by}</span>
-            </div>
-          ))}
-        </div>
+      {/* Permissions Tab */}
+      {tab === 'permissions' && (
+        <PermissionMatrix permissions={uiPerms} onChange={() => {}} readOnly />
       )}
     </Drawer>
   );
 }
 
+// ─── Delete Confirm Dialog ─────────────────────────────────────────────────────
+function DeleteRoleDialog({ role, onClose, onConfirm }) {
+  if (!role) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'var(--font)' }}>
+      <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.5)' }} />
+      <div style={{ position: 'relative', zIndex: 2001, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 28, maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+        <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: 8 }}>Delete Role?</div>
+        <div style={{ fontSize: '0.85rem', color: '#64748B', lineHeight: 1.6, marginBottom: 20 }}>
+          Are you sure you want to delete <strong>{role.name}</strong>? This action cannot be undone.
+          The role must have no users assigned before it can be deleted.
+        </div>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={onClose} style={{ padding: '8px 20px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', color: '#475569', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
+          <button onClick={onConfirm} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 6, border: 'none', backgroundColor: '#DC2626', color: '#FFFFFF', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
+            <FiTrash2 size={14} /> Delete Role
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Row Actions Menu ─────────────────────────────────────────────────────────
-function RoleRowMenu({ role, onView, onEdit, onDelete }) {
+function RoleRowMenu({ role, onEdit, onDelete }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
   useEffect(() => {
@@ -348,20 +361,24 @@ function RoleRowMenu({ role, onView, onEdit, onDelete }) {
       <button className="icon-btn" onClick={() => setOpen((v) => !v)}><FiMoreVertical size={16} /></button>
       {open && (
         <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, backgroundColor: '#FFFFFF', borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0', padding: '6px 0', zIndex: 100, width: 160 }}>
-          <div onClick={() => { onEdit(); setOpen(false); }}
+          <div
+            onClick={() => { onEdit(); setOpen(false); }}
             style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#334155', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
             onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F8FAFC')}
             onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
           >
             <FiEdit2 size={13} /> Edit Role
           </div>
-          <div onClick={() => { onDelete(); setOpen(false); }}
-            style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#DC2626', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FEF2F2')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
-          >
-            <FiTrash2 size={13} /> Delete role
-          </div>
+          {!role.isSystem && (
+            <div
+              onClick={() => { onDelete(); setOpen(false); }}
+              style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#DC2626', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FEF2F2')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
+            >
+              <FiTrash2 size={13} /> Delete Role
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -370,8 +387,12 @@ function RoleRowMenu({ role, onView, onEdit, onDelete }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function RolesPermissions() {
+  const dispatch = useDispatch();
   const { toast, showToast, hideToast } = useToast();
-  const [roles, setRoles] = useState(mockRoles);
+
+  // Redux state — roles list is NOT paginated (full list from API)
+  const { roles, rolesLoading, rolesError, departments } = useSelector((s) => s.users);
+
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -379,49 +400,76 @@ export default function RolesPermissions() {
   const [addOpen, setAddOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [viewTarget, setViewTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
+  // Fetch roles + permissions catalogue on mount
+  useEffect(() => {
+    dispatch(fetchRoles());
+    dispatch(fetchPermissions());
+  }, [dispatch]);
+
+  // Client-side filter (GET /roles returns full list)
   const filtered = roles.filter((r) => {
     const q = search.toLowerCase();
-    return !q || r.id.toLowerCase().includes(q) || r.role.toLowerCase().includes(q) || r.department.toLowerCase().includes(q);
+    return !q
+      || r.roleCode?.toLowerCase().includes(q)
+      || r.name?.toLowerCase().includes(q)
+      || r.department?.toLowerCase().includes(q);
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   const handleSelectRow = (id) => setSelectedIds((p) => p.includes(id) ? p.filter((i) => i !== id) : [...p, id]);
-  const handleSelectAll = () => selectedIds.length === paginated.length ? setSelectedIds([]) : setSelectedIds(paginated.map((r) => r.id));
+  const handleSelectAll = () => selectedIds.length === paginated.length ? setSelectedIds([]) : setSelectedIds(paginated.map((r) => r._id));
 
-  const handleSave = (form) => {
+  // Create / Edit
+  const handleSave = async (payload) => {
     if (editTarget) {
-      setRoles((p) => p.map((r) => r.id === editTarget.id ? { ...r, ...form } : r));
-      setEditTarget(null);
-      showToast('Role updated successfully', 'success');
+      const result = await dispatch(updateRole({ id: editTarget._id, ...payload }));
+      if (result.meta.requestStatus === 'fulfilled') {
+        setEditTarget(null);
+        showToast('Role updated successfully', 'success');
+      } else {
+        showToast(result.payload || 'Update failed', 'error');
+      }
     } else {
-      const newRole = {
-        ...form,
-        id: `ROL-${String(roles.length + 1).padStart(3, '0')}`,
-        noOfUsers: 0,
-        assignedUsers: [],
-      };
-      setRoles((p) => [...p, newRole]);
-      setAddOpen(false);
-      showToast('Role successfully created', 'success');
+      const result = await dispatch(createRole(payload));
+      if (result.meta.requestStatus === 'fulfilled') {
+        setAddOpen(false);
+        showToast('Role created successfully', 'success');
+      } else {
+        showToast(result.payload || 'Create failed', 'error');
+      }
     }
   };
 
-  const handleDelete = (role) => {
-    setRoles((p) => p.filter((r) => r.id !== role.id));
-    showToast(`Role "${role.role}" deleted`, 'error');
+  // Delete
+  const handleDeleteConfirm = async () => {
+    const result = await dispatch(deleteRole(deleteTarget._id));
+    if (result.meta.requestStatus === 'fulfilled') {
+      showToast(`Role "${deleteTarget.name}" deleted`, 'success');
+    } else {
+      showToast(result.payload || 'Delete failed — role may still have users assigned', 'error');
+    }
+    setDeleteTarget(null);
   };
 
   const columns = [
     {
-      key: 'id', label: 'ROLE ID',
+      key: 'roleCode', label: 'ROLE ID',
       render: (val) => <span style={{ color: '#1D4ED8', fontWeight: 600, fontSize: '0.813rem' }}>{val}</span>,
     },
     {
-      key: 'role', label: 'ROLE',
-      render: (val) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{val}</span>,
+      key: 'name', label: 'ROLE',
+      render: (val, row) => (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span style={{ fontWeight: 600, color: '#0F172A' }}>{val}</span>
+          {row.isSystem && (
+            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#EA580C', backgroundColor: '#FFF7ED', border: '1px solid #FED7AA', borderRadius: 4, padding: '1px 5px' }}>SYSTEM</span>
+          )}
+        </div>
+      ),
     },
     {
       key: 'department', label: 'DEPARTMENT',
@@ -431,13 +479,13 @@ export default function RolesPermissions() {
       key: 'description', label: 'DESCRIPTION',
       render: (val) => (
         <span style={{ color: '#475569', fontSize: '0.8rem', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', maxWidth: 340 }}>
-          {val}
+          {val || '—'}
         </span>
       ),
     },
     {
-      key: 'noOfUsers', label: 'NO OF USERS',
-      render: (val) => <span style={{ fontWeight: 500, color: '#334155' }}>{val}</span>,
+      key: 'userCount', label: 'NO OF USERS',
+      render: (val) => <span style={{ fontWeight: 500, color: '#334155' }}>{val ?? '—'}</span>,
     },
     {
       key: 'actions', label: 'ACTIONS', align: 'right',
@@ -446,9 +494,8 @@ export default function RolesPermissions() {
           <button className="icon-btn" onClick={() => setViewTarget(row)} title="View Role"><FiEye size={15} /></button>
           <RoleRowMenu
             role={row}
-            onView={() => setViewTarget(row)}
             onEdit={() => setEditTarget(row)}
-            onDelete={() => handleDelete(row)}
+            onDelete={() => setDeleteTarget(row)}
           />
         </div>
       ),
@@ -475,7 +522,7 @@ export default function RolesPermissions() {
             <Input
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-              placeholder="Search Role ID, Role..."
+              placeholder="Search Role ID, Role name..."
               style={{ paddingLeft: 36 }}
             />
             <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}><FiSearch size={15} /></div>
@@ -495,29 +542,58 @@ export default function RolesPermissions() {
           </button>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={paginated}
-          selectable
-          selectedIds={selectedIds}
-          onSelectRow={handleSelectRow}
-          onSelectAll={handleSelectAll}
-          keyField="id"
-          emptyMessage="No roles found matching your search."
-        />
+        {rolesError && (
+          <div style={{ padding: '12px 16px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, color: '#DC2626', fontSize: '0.85rem' }}>
+            Failed to load roles: {rolesError}
+          </div>
+        )}
+
+        {rolesLoading ? (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: '0.875rem' }}>Loading roles...</div>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={paginated}
+            selectable
+            selectedIds={selectedIds}
+            onSelectRow={handleSelectRow}
+            onSelectAll={handleSelectAll}
+            keyField="_id"
+            emptyMessage="No roles found matching your search."
+          />
+        )}
         <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
       </div>
 
       {/* Drawers */}
-      <RoleFormDrawer isOpen={addOpen} onClose={() => setAddOpen(false)} onSave={handleSave} role={null} />
+      <RoleFormDrawer
+        isOpen={addOpen}
+        onClose={() => setAddOpen(false)}
+        onSave={handleSave}
+        role={null}
+        departments={departments}
+      />
       {editTarget && (
-        <RoleFormDrawer isOpen={!!editTarget} onClose={() => setEditTarget(null)} onSave={handleSave} role={editTarget} />
+        <RoleFormDrawer
+          isOpen={!!editTarget}
+          onClose={() => setEditTarget(null)}
+          onSave={handleSave}
+          role={editTarget}
+          departments={departments}
+        />
       )}
       <ViewRoleDrawer
         isOpen={!!viewTarget}
         onClose={() => setViewTarget(null)}
         role={viewTarget}
         onEdit={() => { setEditTarget(viewTarget); setViewTarget(null); }}
+      />
+
+      {/* Delete confirmation */}
+      <DeleteRoleDialog
+        role={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteConfirm}
       />
     </div>
   );

@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchCurrentUser, selectBootstrapping, setBootstrapping } from './store/authSlice';
+import { getAccessToken } from './services/apiClient';
+import RequireAuth from './components/auth/RequireAuth';
 
 // ─── Auth Pages ───────────────────────────────────────────────────────────────
 import Login from './pages/auth/Login';
@@ -92,6 +96,20 @@ import QMSDocuments from './pages/quality/QMSDocuments';
 import QualityReports from './pages/quality/QualityReports';
 
 export default function App() {
+  const dispatch = useDispatch();
+  const bootstrapping = useSelector(selectBootstrapping);
+
+  // On mount, try to restore session from stored access token
+  useEffect(() => {
+    const token = getAccessToken();
+    if (token) {
+      dispatch(fetchCurrentUser());
+    } else {
+      // No token — not logged in, stop bootstrapping immediately
+      dispatch(setBootstrapping(false));
+    }
+  }, [dispatch]);
+
   return (
     <Routes>
       {/* ─── Auth Routes (outside the main layout) ─── */}
@@ -105,7 +123,7 @@ export default function App() {
       <Route path="/auth/setup-complete" element={<AccountSetupComplete />} />
 
       {/* ─── Protected App Routes ─── */}
-      <Route path="/" element={<Layout />}>
+      <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardOverview />} />
 

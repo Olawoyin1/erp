@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import Badge from '../../components/ui/Badge';
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
@@ -129,8 +130,18 @@ function UserFormDrawer({ isOpen, onClose, onSave, user }) {
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', department: 'Human Resources', role: 'Employee', phone: '' });
 
   useEffect(() => {
-    if (user) setForm({ firstName: user.firstName, lastName: user.lastName, email: user.email, department: user.department, role: user.role, phone: user.phone || '' });
-    else setForm({ firstName: '', lastName: '', email: '', department: 'Human Resources', role: 'Employee', phone: '' });
+    if (user) {
+      setForm({
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        departmentId: user.departmentId?._id || user.departmentId || '',
+        jobTitle: user.jobTitle || '',
+        phoneNumber: user.phoneNumber || '',
+      });
+    } else {
+      setForm({ firstName: '', lastName: '', email: '', departmentId: '', jobTitle: '', phoneNumber: '' });
+    }
   }, [user, isOpen]);
 
   const handleChange = (e) => { const { name, value } = e.target; setForm((p) => ({ ...p, [name]: value })); };
@@ -378,8 +389,11 @@ function ConfirmActionModal({ isOpen, onClose, onConfirm, user, actionKey }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function UserManagement() {
+  const dispatch = useDispatch();
   const { toast, showToast, hideToast } = useToast();
-  const [users, setUsers] = useState(mockUsers);
+
+  // Redux state
+  const { users, meta, usersLoading } = useSelector((s) => s.users);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -390,52 +404,77 @@ export default function UserManagement() {
   const [viewTarget, setViewTarget] = useState(null);
   const [actionModal, setActionModal] = useState({ open: false, user: null, key: null });
 
-  const filtered = users.filter((u) => {
-    const q = search.toLowerCase();
-    return !q || u.id.toLowerCase().includes(q) || `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) || u.email.toLowerCase().includes(q) || u.department.toLowerCase().includes(q) || u.role.toLowerCase().includes(q);
-  });
+  // Load users (server-side pagination + search)
+  const loadUsers = useCallback(() => {
+    dispatch(fetchUsers({ page: currentPage, limit: ITEMS_PER_PAGE, q: search || undefined }));
+  }, [dispatch, currentPage, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  useEffect(() => {
+    const t = setTimeout(loadUsers, search ? 300 : 0);
+    return () => clearTimeout(t);
+  }, [loadUsers]);
+
+  // Load roles + departments for pickers on mount
+  useEffect(() => {
+    dispatch(fetchRoles());
+    dispatch(fetchDepartments());
+  }, [dispatch]);
 
   const handleSelectRow = (id) => setSelectedIds((p) => p.includes(id) ? p.filter((i) => i !== id) : [...p, id]);
-  const handleSelectAll = () => selectedIds.length === paginated.length ? setSelectedIds([]) : setSelectedIds(paginated.map((u) => u.id));
+  const handleSelectAll = () => selectedIds.length === users.length ? setSelectedIds([]) : setSelectedIds(users.map((u) => u._id));
 
-  const handleSave = (form) => {
+
+  // Invite new user
+  const handleSave = async (form) => {
     if (editTarget) {
-      setUsers((p) => p.map((u) => u.id === editTarget.id ? { ...u, ...form } : u));
-      setEditTarget(null);
-      showToast('User updated successfully', 'success');
+      const result = await dispatch(updateUser({ id: editTarget._id, ...form }));
+      if (result.meta.requestStatus === 'fulfilled') {
+        setEditTarget(null);
+        showToast('User updated successfully', 'success');
+      } else {
+        showToast(result.payload || 'Update failed', 'error');
+      }
     } else {
-      const newId = `USR-${String(users.length + 1).padStart(3, '0')}`;
-      setUsers((p) => [{ ...form, id: newId, lastActive: '-', status: 'Invited', joined: new Date().toLocaleDateString('en-GB').replace(/\//g, '/') }, ...p]);
-      setAddOpen(false);
-      showToast('Invite sent successfully', 'success');
+      const result = await dispatch(inviteUser(form));
+      if (result.meta.requestStatus === 'fulfilled') {
+        setAddOpen(false);
+        showToast('Invite sent successfully', 'success');
+      } else {
+        showToast(result.payload || 'Invite failed', 'error');
+      }
     }
   };
 
-  const handleConfirmAction = (reason) => {
+  // Status / invite actions
+  const handleConfirmAction = async (reason) => {
     const { user, key } = actionModal;
-    const statusMap = { suspend: 'Suspended', deactivate: 'Deactivated', reactivate: 'Active' };
-    if (statusMap[key]) {
-      setUsers((p) => p.map((u) => u.id === user.id ? { ...u, status: statusMap[key] } : u));
-    }
+    let result;
+    const name = `${user.firstName} ${user.lastName}`;
+
+    if (key === 'suspend')      result = await dispatch(setUserStatus({ id: user._id, status: 'suspended',    reason }));
+    if (key === 'deactivate')   result = await dispatch(setUserStatus({ id: user._id, status: 'deactivated',  reason }));
+    if (key === 'reactivate')   result = await dispatch(setUserStatus({ id: user._id, status: 'active' }));
+    if (key === 'resend')       result = await dispatch(resendUserInvite(user._id));
+    if (key === 'cancelInvite') result = await dispatch(cancelUserInvite({ id: user._id, reason }));
+    if (key === 'resetPwd')     result = await dispatch(sendPasswordReset(user._id));
+
+    const ok = result?.meta?.requestStatus === 'fulfilled';
     const msgMap = {
-      suspend: `${user.firstName} ${user.lastName} has been suspended`,
-      deactivate: `${user.firstName} ${user.lastName} has been deactivated`,
-      cancelInvite: `Invitation cancelled for ${user.firstName} ${user.lastName}`,
-      resend: `Invitation resent to ${user.email}`,
-      reactivate: `${user.firstName} ${user.lastName} has been reactivated`,
-      resetPwd: `Password reset link sent to ${user.email}`,
+      suspend:      `${name} has been suspended`,
+      deactivate:   `${name} has been deactivated`,
+      cancelInvite: `Invitation cancelled for ${name}`,
+      resend:       `Invitation resent to ${user.email}`,
+      reactivate:   `${name} has been reactivated`,
+      resetPwd:     `Password reset link sent to ${user.email}`,
     };
     const typeMap = { suspend: 'error', deactivate: 'error', cancelInvite: 'error', resend: 'success', reactivate: 'success', resetPwd: 'success' };
-    showToast(msgMap[key], typeMap[key]);
+    showToast(ok ? msgMap[key] : (result?.payload || 'Action failed'), ok ? typeMap[key] : 'error');
     setActionModal({ open: false, user: null, key: null });
   };
 
   const columns = [
     {
-      key: 'id', label: 'USER ID',
+      key: 'userCode', label: 'USER ID',
       render: (val) => <span style={{ color: '#1D4ED8', fontWeight: 600, fontSize: '0.813rem' }}>{val}</span>,
     },
     {
@@ -444,14 +483,20 @@ export default function UserManagement() {
     },
     { key: 'email', label: 'EMAIL', render: (val) => <span style={{ color: '#475569' }}>{val}</span> },
     {
-      key: 'department', label: 'DEPARTMENT',
-      render: (val) => <span style={{ color: '#1D4ED8', fontWeight: 500 }}>{val}</span>,
+      key: 'departmentId', label: 'DEPARTMENT',
+      render: (val) => <span style={{ color: '#1D4ED8', fontWeight: 500 }}>{val?.name || val || '—'}</span>,
     },
-    { key: 'role', label: 'ROLE' },
-    { key: 'lastActive', label: 'LAST ACTIVE', nowrap: true },
+    {
+      key: 'roles', label: 'ROLE',
+      render: (val) => <span>{Array.isArray(val) ? val.map((r) => r?.name || r).join(', ') : val || '—'}</span>,
+    },
+    {
+      key: 'lastLoginAt', label: 'LAST ACTIVE', nowrap: true,
+      render: (val) => <span style={{ color: '#475569' }}>{val ? new Date(val).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</span>,
+    },
     {
       key: 'status', label: 'STATUS',
-      render: (val) => <StatusPill status={val} />,
+      render: (val) => <StatusPill status={val === 'active' ? 'Active' : val === 'invited' ? 'Invited' : val === 'suspended' ? 'Suspended' : 'Deactivated'} />,
     },
     {
       key: 'actions', label: 'ACTIONS', align: 'right',
@@ -459,7 +504,7 @@ export default function UserManagement() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
           <button className="icon-btn" onClick={() => setViewTarget(row)} title="View User"><FiEye size={15} /></button>
           <RowMenu
-            user={row}
+            user={{ ...row, status: row.status === 'active' ? 'Active' : row.status === 'invited' ? 'Invited' : row.status === 'suspended' ? 'Suspended' : 'Deactivated' }}
             onView={() => setViewTarget(row)}
             onEdit={() => setEditTarget(row)}
             onAction={(key) => setActionModal({ open: true, user: row, key })}
@@ -509,17 +554,22 @@ export default function UserManagement() {
           </button>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={paginated}
-          selectable
-          selectedIds={selectedIds}
-          onSelectRow={handleSelectRow}
-          onSelectAll={handleSelectAll}
-          keyField="id"
-          emptyMessage="No users found matching your search."
-        />
-        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        {usersLoading && (
+          <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: '0.875rem' }}>Loading users...</div>
+        )}
+        {!usersLoading && (
+          <DataTable
+            columns={columns}
+            data={users}
+            selectable
+            selectedIds={selectedIds}
+            onSelectRow={handleSelectRow}
+            onSelectAll={handleSelectAll}
+            keyField="_id"
+            emptyMessage="No users found matching your search."
+          />
+        )}
+        <Pagination currentPage={currentPage} totalPages={meta?.totalPages || 1} onPageChange={setCurrentPage} />
       </div>
 
       {/* Drawers */}

@@ -65,5 +65,5 @@ export function useToast() {
     setToast(null);
   };
 
-  return { toast, showToast, hideToast };
+  return { toast, showToast, hideToast, addToast: showToast };
 }

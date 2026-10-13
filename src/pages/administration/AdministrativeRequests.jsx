@@ -1,21 +1,21 @@
-import React, { useState } from 'react';
-import { FiSearch, FiFilter, FiDownload, FiPlus, FiEye, FiCheck, FiX, FiFile, FiDownloadCloud } from 'react-icons/fi';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  FiSearch, FiFilter, FiDownload, FiPlus, FiEye, FiCheck, FiX,
+  FiFile, FiMoreVertical, FiAlertCircle,
+} from 'react-icons/fi';
 import Drawer from '../../components/ui/Drawer';
-import RowMenu from '../../components/ui/RowMenu';
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
-import { FormField, Input, Select, Textarea, FileUpload } from '../../components/ui/FormField';
-import { mockAdminRequests } from '../../data/mockAdmin';
+import Modal from '../../components/ui/Modal';
+import { FormField, Input, Select, Textarea } from '../../components/ui/FormField';
+import Toast, { useToast } from '../../components/ui/Toast';
+import Badge from '../../components/ui/Badge';
+import { adminRequestService } from '../../services/admin.service';
+import { employeeService } from '../../services/hr.service';
 
-const urgencyStyle = {
-  'Routine':  { bg: '#F1F5F9', color: '#475569' },
-  'Urgent':   { bg: '#FEF3C7', color: '#B45309' },
-  'Critical': { bg: '#FEE2E2', color: '#DC2626' },
-};
+const ITEMS_PER_PAGE = 10;
 
-const statusStyle = {
-  'Issued':          { bg: '#DCFCE7', color: '#15803D' },
-  'HOD Reviewing':   { bg: '#FEF9C3', color: '#854D0E' },
+const URGviewing':   { bg: '#FEF9C3', color: '#854D0E' },
   'HOD Approved':    { bg: '#DCFCE7', color: '#15803D' },
   'Store Reviewing': { bg: '#E0E7FF', color: '#4338CA' },
   'Returned':        { bg: '#FEE2E2', color: '#DC2626' },

@@ -1,5 +1,6 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import Badge from '../../../components/ui/Badge';
 import DataTable from '../../../components/ui/DataTable';
 import Pagination from '../../../components/ui/Pagination';
@@ -10,125 +11,67 @@ import AddEmployeeModal from './AddEmployeeModal';
 import EditEmployeeModal from './EditEmployeeModal';
 import AssignManagerDrawer from './AssignManagerDrawer';
 import DeactivateModal from './DeactivateModal';
-import { mockEmployees } from '../../../data/mockEmployees';
 
 import {
-  FiSearch,
-  FiFilter,
-  FiDownload,
-  FiUpload,
-  FiPlus,
-  FiEye,
-  FiMoreVertical,
-  FiEdit2,
-  FiUser,
-  FiX,
+  fetchEmployees,
+  createEmployee,
+  updateEmployee,
+  assignManager,
+  deactivateEmployee,
+  selectEmployees,
+  selectEmployeesMeta,
+  selectEmployeesLoading,
+  selectEmployeesError,
+} from '../../../store/hr/employeesSlice';
+
+import {
+  FiSearch, FiFilter, FiDownload, FiUpload, FiPlus,
+  FiEye, FiMoreVertical, FiEdit2, FiUser, FiX,
 } from 'react-icons/fi';
 
-// ─── Filter Drawer ───────────────────────────────────────────────────────
-const LEAVE_TYPES = [
-  'All Leave Types',
-  'Annual Leave',
-  'Sick Leave',
-  'Maternity Leave',
-  'Paternity Leave',
-  'Study Leave',
-  'Unpaid Leave',
-  'Compassionate Leave',
-];
-
-const FILTER_STATUSES = ['All Statuses', 'Pending Approval', 'Approved', 'Declined', 'Cancelled'];
+// ─── Status options for the filter (matches API values) ──────────────────────
+const STATUS_OPTIONS = ['active', 'probation', 'on_leave', 'deactivated'];
 
 const FILTER_DEPTS = [
-  'All Departments',
-  'Human Resources',
-  'Finance & Accounts',
-  'Procurement',
-  'Administration',
-  'Mechanical Engineering',
-  'Civil Engineering',
-  'HSE',
-  'Quality Assurance',
+  'Human Resources', 'Finance & Accounts', 'Procurement', 'Administration',
+  'Mechanical Engineering', 'Civil Engineering', 'HSE', 'Quality Assurance', 'Engineering', 'Operations',
 ];
 
+// ─── Filter Drawer ────────────────────────────────────────────────────────────
 function FilterDrawer({ isOpen, onClose, onApply }) {
-  const [leaveTypes, setLeaveTypes] = useState(['All Leave Types']);
-  const [statuses, setStatuses] = useState(['All Statuses']);
-  const [depts, setDepts] = useState(['All Departments']);
+  const [statuses, setStatuses] = useState([]);
+  const [depts, setDepts]       = useState([]);
 
-  const toggle = (arr, setArr, val) => {
-    setArr((prev) => (prev.includes(val) ? prev.filter((v) => v !== val) : [...prev, val]));
-  };
+  const toggle = (arr, setArr, val) =>
+    setArr((p) => (p.includes(val) ? p.filter((v) => v !== val) : [...p, val]));
 
-  const handleReset = () => {
-    setLeaveTypes(['All Leave Types']);
-    setStatuses(['All Statuses']);
-    setDepts(['All Departments']);
-    onApply({});
-    onClose();
-  };
-
-  const handleApply = () => {
-    onApply({ leaveTypes, statuses, depts });
-    onClose();
-  };
+  const handleReset = () => { setStatuses([]); setDepts([]); onApply({}); onClose(); };
+  const handleApply = () => { onApply({ status: statuses[0], departmentId: undefined }); onClose(); };
 
   const footer = (
     <>
-      <button
-        className="btn btn-secondary"
+      <button className="btn btn-secondary"
         style={{ flex: 1, padding: '8px 16px', borderRadius: '6px', fontSize: '0.85rem' }}
-        onClick={handleReset}
-      >
-        Reset
-      </button>
-      <button
-        className="btn btn-primary"
+        onClick={handleReset}>Reset</button>
+      <button className="btn btn-primary"
         style={{ flex: 1, padding: '8px 16px', borderRadius: '6px', fontSize: '0.85rem', backgroundColor: '#1D4ED8' }}
-        onClick={handleApply}
-      >
-        Apply Filters
-      </button>
+        onClick={handleApply}>Apply Filters</button>
     </>
   );
 
   return (
-    <Drawer
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Filter Records"
-      subtitle="Refine employee directory view by status, department, and types"
-      width="420px"
-      footer={footer}
-    >
+    <Drawer isOpen={isOpen} onClose={onClose} title="Filter Records"
+      subtitle="Refine employee directory view by status and department"
+      width="420px" footer={footer}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        <FormField label="Leave Type">
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #E2E8F0', padding: '10px 12px', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
-            {LEAVE_TYPES.map((t) => (
-              <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#1E293B', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={leaveTypes.includes(t)}
-                  onChange={() => toggle(leaveTypes, setLeaveTypes, t)}
-                  style={{ accentColor: '#1D4ED8', cursor: 'pointer' }}
-                />
-                {t}
-              </label>
-            ))}
-          </div>
-        </FormField>
-
         <FormField label="Status">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #E2E8F0', padding: '10px 12px', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
-            {FILTER_STATUSES.map((s) => (
-              <label key={s} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#1E293B', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={statuses.includes(s)}
+            {STATUS_OPTIONS.map((s) => (
+              <label key={s} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#1E293B', cursor: 'pointer', textTransform: 'capitalize' }}>
+                <input type="checkbox" checked={statuses.includes(s)}
                   onChange={() => toggle(statuses, setStatuses, s)}
-                  style={{ accentColor: '#1D4ED8', cursor: 'pointer' }}
-                />
-                {s}
+                  style={{ accentColor: '#1D4ED8', cursor: 'pointer' }} />
+                {s.replace('_', ' ')}
               </label>
             ))}
           </div>
@@ -138,12 +81,9 @@ function FilterDrawer({ isOpen, onClose, onApply }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #E2E8F0', padding: '10px 12px', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
             {FILTER_DEPTS.map((d) => (
               <label key={d} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#1E293B', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={depts.includes(d)}
+                <input type="checkbox" checked={depts.includes(d)}
                   onChange={() => toggle(depts, setDepts, d)}
-                  style={{ accentColor: '#1D4ED8', cursor: 'pointer' }}
-                />
+                  style={{ accentColor: '#1D4ED8', cursor: 'pointer' }} />
                 {d}
               </label>
             ))}
@@ -154,221 +94,203 @@ function FilterDrawer({ isOpen, onClose, onApply }) {
   );
 }
 
-// ─── Row Menu Component ─────────────────────────────────────────────────
+// ─── Row Menu ─────────────────────────────────────────────────────────────────
 function RowMenu({ employee, onEdit, onAssign, onDeactivate }) {
   const [open, setOpen] = useState(false);
   const ref = useRef();
 
   useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const isDeactivated = employee.status === 'deactivated';
 
   return (
     <div style={{ position: 'relative' }} ref={ref}>
-      <button className="icon-btn" onClick={() => setOpen((v) => !v)}>
-        <FiMoreVertical size={16} />
-      </button>
+      <button className="icon-btn" onClick={() => setOpen((v) => !v)}><FiMoreVertical size={16} /></button>
       {open && (
-        <div
-          style={{
-            position: 'absolute',
-            right: 0,
-            top: '100%',
-            marginTop: '4px',
-            backgroundColor: '#FFFFFF',
-            borderRadius: '8px',
-            boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-            border: '1px solid #E2E8F0',
-            padding: '6px 0',
-            zIndex: 50,
-            width: '180px',
-          }}
-        >
-          <div
-            onClick={() => {
-              onEdit();
-              setOpen(false);
-            }}
-            style={{
-              padding: '8px 14px',
-              fontSize: '0.813rem',
-              color: '#334155',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F8FAFC')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
-          >
-            <FiEdit2 size={13} /> Edit Employee
-          </div>
-          <div
-            onClick={() => {
-              onAssign();
-              setOpen(false);
-            }}
-            style={{
-              padding: '8px 14px',
-              fontSize: '0.813rem',
-              color: '#334155',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F8FAFC')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
-          >
-            <FiUser size={13} /> Assign Manager
-          </div>
-          <div
-            onClick={() => {
-              onDeactivate();
-              setOpen(false);
-            }}
-            style={{
-              padding: '8px 14px',
-              fontSize: '0.813rem',
-              color: '#DC2626',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              cursor: 'pointer',
-            }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#FEE2E2')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
-          >
-            <FiX size={13} /> Deactivate Employee
-          </div>
+        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: '4px', backgroundColor: '#FFFFFF', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0', padding: '6px 0', zIndex: 50, width: '180px' }}>
+          {[
+            { label: 'Edit Employee', icon: <FiEdit2 size={13} />, action: onEdit, color: '#334155', hover: '#F8FAFC' },
+            { label: 'Assign Manager', icon: <FiUser size={13} />, action: onAssign, color: '#334155', hover: '#F8FAFC' },
+            ...(!isDeactivated ? [{ label: 'Deactivate', icon: <FiX size={13} />, action: onDeactivate, color: '#DC2626', hover: '#FEE2E2' }] : []),
+          ].map(({ label, icon, action, color, hover }) => (
+            <div key={label} onClick={() => { action(); setOpen(false); }}
+              style={{ padding: '8px 14px', fontSize: '0.813rem', color, display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = hover)}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}>
+              {icon} {label}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-// ─── Main Employee List Component ──────────────────────────────────────
+// ─── Skeleton row ─────────────────────────────────────────────────────────────
+function SkeletonRow() {
+  return (
+    <tr style={{ borderBottom: '1px solid #F1F5F9' }}>
+      {[180, 140, 140, 120, 160, 140, 80, 100, 70].map((w, i) => (
+        <td key={i} style={{ padding: '14px 12px' }}>
+          <div style={{ height: 12, width: w, borderRadius: 4, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+        </td>
+      ))}
+    </tr>
+  );
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 const ITEMS_PER_PAGE = 10;
 
 export default function EmployeeList() {
-  const navigate = useNavigate();
+  const navigate  = useNavigate();
+  const dispatch  = useDispatch();
   const { toast, showToast, hideToast } = useToast();
 
-  const [employees, setEmployees] = useState(mockEmployees);
-  const [search, setSearch] = useState('');
+  const employees = useSelector(selectEmployees);
+  const meta      = useSelector(selectEmployeesMeta);
+  const loading   = useSelector(selectEmployeesLoading);
+  const apiError  = useSelector(selectEmployeesError);
+
+  const [search,      setSearch]      = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterOpen,  setFilterOpen]  = useState(false);
+  const [activeFilters, setActiveFilters] = useState({});
 
-  // Modals / Drawers State
-  const [addOpen, setAddOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
-  const [assignTarget, setAssignTarget] = useState(null);
-  const [deactivateTarget, setDeactivateTarget] = useState(null);
+  const [addOpen,          setAddOpen]          = useState(false);
+  const [editTarget,       setEditTarget]        = useState(null);
+  const [assignTarget,     setAssignTarget]      = useState(null);
+  const [deactivateTarget, setDeactivateTarget]  = useState(null);
 
-  // Filter logic
-  const filtered = employees.filter((emp) => {
-    const q = search.toLowerCase();
-    if (q && !emp.name.toLowerCase().includes(q) && !emp.id.toLowerCase().includes(q) && !emp.position.toLowerCase().includes(q)) {
-      return false;
+  // Debounced search fetch
+  const load = useCallback((page = 1, q = search, filters = activeFilters) => {
+    dispatch(fetchEmployees({ page, limit: ITEMS_PER_PAGE, q: q || undefined, ...filters }));
+  }, [dispatch, search, activeFilters]);
+
+  // Initial load
+  useEffect(() => { load(1); }, []);   // eslint-disable-line
+
+  // Search debounce
+  useEffect(() => {
+    const t = setTimeout(() => { setCurrentPage(1); load(1, search, activeFilters); }, 400);
+    return () => clearTimeout(t);
+  }, [search]);   // eslint-disable-line
+
+  const handlePageChange = (p) => { setCurrentPage(p); load(p); };
+
+  const handleApplyFilters = (filters) => {
+    setActiveFilters(filters);
+    setCurrentPage(1);
+    load(1, search, filters);
+  };
+
+  // ── CRUD handlers ─────────────────────────────────────────────────────────
+  const handleAdd = async (formData) => {
+    const result = await dispatch(createEmployee(formData));
+    if (createEmployee.fulfilled.match(result)) {
+      setAddOpen(false);
+      showToast('Employee registered successfully', 'success');
+      load(1);
+    } else {
+      showToast(result.payload?.message || 'Registration failed', 'error');
     }
-    return true;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
-  const handleSelectRow = (id) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
   };
 
-  const handleSelectAll = () => {
-    if (selectedIds.length === paginated.length) setSelectedIds([]);
-    else setSelectedIds(paginated.map((e) => e.id));
+  const handleEdit = async (formData) => {
+    const result = await dispatch(updateEmployee({ id: editTarget._id, data: formData }));
+    if (updateEmployee.fulfilled.match(result)) {
+      setEditTarget(null);
+      showToast('Employee updated successfully', 'success');
+    } else {
+      showToast(result.payload?.message || 'Update failed', 'error');
+    }
   };
 
-  const handleAdd = (newEmp) => {
-    setEmployees((prev) => [newEmp, ...prev]);
-    setAddOpen(false);
-    showToast('Employee registered successfully', 'success');
+  const handleAssign = async (reportingManagerId) => {
+    const result = await dispatch(assignManager({ id: assignTarget._id, reportingManagerId }));
+    if (assignManager.fulfilled.match(result)) {
+      setAssignTarget(null);
+      showToast('Reporting manager assigned', 'success');
+    } else {
+      showToast(result.payload?.message || 'Assignment failed', 'error');
+    }
   };
 
-  const handleEdit = (updated) => {
-    setEmployees((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
-    setEditTarget(null);
-    showToast('Employee credentials updated successfully', 'success');
+  const handleDeactivate = async (reason) => {
+    const result = await dispatch(deactivateEmployee({ id: deactivateTarget._id, reason }));
+    if (deactivateEmployee.fulfilled.match(result)) {
+      setDeactivateTarget(null);
+      showToast('Employee deactivated', 'error');
+    } else {
+      showToast(result.payload?.message || 'Deactivation failed', 'error');
+    }
   };
 
-  const handleAssign = (manager) => {
-    setEmployees((prev) =>
-      prev.map((e) => (e.id === assignTarget.id ? { ...e, manager, reportingManager: manager } : e))
-    );
-    setAssignTarget(null);
-    showToast('Reporting supervisor assigned', 'success');
-  };
+  // ── Selection ──────────────────────────────────────────────────────────────
+  const handleSelectRow = (id) =>
+    setSelectedIds((p) => (p.includes(id) ? p.filter((i) => i !== id) : [...p, id]));
+  const handleSelectAll = () =>
+    setSelectedIds(selectedIds.length === employees.length ? [] : employees.map((e) => e._id));
 
-  const handleDeactivate = () => {
-    setEmployees((prev) =>
-      prev.map((e) => (e.id === deactivateTarget.id ? { ...e, status: 'Inactive', employmentStatus: 'Inactive' } : e))
-    );
-    setDeactivateTarget(null);
-    showToast('Employee deactivated', 'error');
-  };
-
-  // Table Columns Definition for base DataTable component
+  // ── Table columns ─────────────────────────────────────────────────────────
   const columns = [
     {
-      key: 'id',
+      key: 'employeeId',
       label: 'EMPLOYEE ID',
       render: (val, row) => (
-        <span
-          style={{ color: '#1D4ED8', fontWeight: 600, cursor: 'pointer' }}
-          onClick={() => navigate(`/hr/employees/${val}`)}
-        >
+        <span style={{ color: '#1D4ED8', fontWeight: 600, cursor: 'pointer' }}
+          onClick={() => navigate(`/hr/employees/${row._id}`)}>
           {val}
         </span>
       ),
     },
     {
-      key: 'name',
+      key: 'fullName',
       label: 'EMPLOYEE',
-      render: (val) => (
-        <span style={{ fontWeight: 600, color: '#0F172A' }}>{val}</span>
-      ),
+      render: (val) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{val}</span>,
     },
-    { key: 'position', label: 'POSITION' },
-    { key: 'department', label: 'DEPARTMENT' },
+    { key: 'position',    label: 'POSITION' },
     {
-      key: 'project',
+      key: 'departmentId',
+      label: 'DEPARTMENT',
+      render: (val) => val?.name ?? val ?? '—',
+    },
+    {
+      key: 'currentProjectRef',
       label: 'PROJECT',
       render: (val) => (
-        <div style={{ maxWidth: '170px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {val}
+        <div style={{ maxWidth: 170, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {val || '—'}
         </div>
       ),
     },
-    { key: 'reportingManager', label: 'REPORTING MANAGER' },
+    {
+      key: 'reportingManagerId',
+      label: 'REPORTING MANAGER',
+      render: (val) => val?.fullName ?? '—',
+    },
     {
       key: 'status',
       label: 'STATUS',
       render: (val) => <Badge status={val} />,
     },
-    { key: 'dateJoined', label: 'DATE JOINED' },
+    {
+      key: 'hireDate',
+      label: 'DATE JOINED',
+      render: (val) => val ? new Date(val).toLocaleDateString('en-GB') : '—',
+    },
     {
       key: 'actions',
       label: 'ACTIONS',
       align: 'right',
       render: (_, row) => (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-          <button
-            className="icon-btn"
-            onClick={() => navigate(`/hr/employees/${row.id}`)}
-            title="View Employee Profile"
-          >
+          <button className="icon-btn" onClick={() => navigate(`/hr/employees/${row._id}`)} title="View Profile">
             <FiEye size={15} />
           </button>
           <RowMenu
@@ -382,11 +304,14 @@ export default function EmployeeList() {
     },
   ];
 
+  const totalPages = meta?.totalPages ?? 1;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Page Header */}
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Employees</h1>
@@ -394,113 +319,85 @@ export default function EmployeeList() {
             Manage employee records, roles, departments, and employment status
           </p>
         </div>
-        <button
-          className="btn btn-secondary"
-          onClick={() => showToast('Bulk personnel upload', 'info')}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px' }}
-        >
+        <button className="btn btn-secondary"
+          onClick={() => showToast('Bulk personnel upload coming soon', 'info')}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px' }}>
           Upload <FiUpload size={13} />
         </button>
       </div>
 
-      {/* Table Action Bar */}
+      {/* Error banner */}
+      {apiError && (
+        <div style={{ padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: '0.82rem', color: '#DC2626' }}>
+          {apiError.message}
+        </div>
+      )}
+
+      {/* Table card */}
       <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
+        {/* Toolbar */}
         <div className="table-toolbar">
-          {/* Search Box */}
           <div className="table-toolbar-search">
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search employees, ID, position..."
-              style={{ paddingLeft: '36px', width: '100%' }}
-            />
+            <Input value={search}
+              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+              placeholder="Search name, ID, position…"
+              style={{ paddingLeft: '36px', width: '100%' }} />
             <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
               <FiSearch size={15} />
             </div>
           </div>
-
-          {/* Action Toolbar */}
           <div className="table-toolbar-actions">
-            <button
-              className="btn btn-secondary"
+            <button className="btn btn-secondary"
               onClick={() => setFilterOpen(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
-            >
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}>
               <FiFilter size={14} /> Filter
             </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => showToast('Exporting employee directory CSV...', 'info')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
-            >
+            <button className="btn btn-secondary"
+              onClick={() => showToast('Export coming soon', 'info')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}>
               <FiDownload size={14} /> Export
             </button>
-            <button
-              className="btn btn-primary"
+            <button className="btn btn-primary"
               onClick={() => setAddOpen(true)}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 18px',
-                backgroundColor: '#1D4ED8',
-                color: '#FFFFFF',
-                borderRadius: '6px',
-                fontWeight: 600,
-                border: 'none',
-              }}
-            >
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 18px', backgroundColor: '#1D4ED8', color: '#FFFFFF', borderRadius: '6px', fontWeight: 600, border: 'none' }}>
               <FiPlus size={14} /> Employee
             </button>
           </div>
         </div>
 
-        {/* Base Enterprise DataTable */}
-        <DataTable
-          columns={columns}
-          data={paginated}
-          selectable
-          selectedIds={selectedIds}
-          onSelectRow={handleSelectRow}
-          onSelectAll={handleSelectAll}
-          keyField="id"
-          emptyMessage="No employees found matching query."
-        />
+        {/* Table — show skeletons while first load */}
+        {loading && employees.length === 0 ? (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.813rem' }}>
+            <tbody>{[...Array(8)].map((_, i) => <SkeletonRow key={i} />)}</tbody>
+          </table>
+        ) : (
+          <DataTable
+            columns={columns}
+            data={employees}
+            selectable
+            selectedIds={selectedIds}
+            onSelectRow={handleSelectRow}
+            onSelectAll={handleSelectAll}
+            keyField="_id"
+            emptyMessage="No employees found."
+          />
+        )}
 
-        {/* Pagination */}
-        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
+        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={handlePageChange} />
       </div>
 
       {/* Drawers & Modals */}
-      <FilterDrawer isOpen={filterOpen} onClose={() => setFilterOpen(false)} onApply={() => {}} />
-
+      <FilterDrawer isOpen={filterOpen} onClose={() => setFilterOpen(false)} onApply={handleApplyFilters} />
       <AddEmployeeModal isOpen={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAdd} />
-
       {editTarget && (
-        <EditEmployeeModal
-          isOpen={!!editTarget}
-          employee={editTarget}
-          onClose={() => setEditTarget(null)}
-          onSave={handleEdit}
-        />
+        <EditEmployeeModal isOpen={!!editTarget} employee={editTarget}
+          onClose={() => setEditTarget(null)} onSave={handleEdit} />
       )}
-
-      <AssignManagerDrawer
-        isOpen={!!assignTarget}
-        employee={assignTarget}
-        onClose={() => setAssignTarget(null)}
-        onAssign={handleAssign}
-      />
-
+      <AssignManagerDrawer isOpen={!!assignTarget} employee={assignTarget}
+        onClose={() => setAssignTarget(null)} onAssign={handleAssign} />
       {deactivateTarget && (
-        <DeactivateModal
-          employee={deactivateTarget}
-          onClose={() => setDeactivateTarget(null)}
-          onDeactivate={handleDeactivate}
-        />
+        <DeactivateModal employee={deactivateTarget}
+          onClose={() => setDeactivateTarget(null)} onDeactivate={handleDeactivate} />
       )}
     </div>
   );

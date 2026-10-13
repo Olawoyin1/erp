@@ -1,21 +1,28 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { authService } from '../../services/auth.service';
 import AuthLayout, { AuthCard, AuthLogo, AuthInput, AuthButton } from './AuthLayout';
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
-  const [error, setError] = useState('');
+  const [fieldError, setFieldError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email) { setError('Work email is required'); return; }
+    if (!email) { setFieldError('Work email is required'); return; }
     setLoading(true);
-    setTimeout(() => {
+    try {
+      // The API always returns success regardless of whether email exists (security)
+      await authService.forgotPassword(email);
+      navigate('/auth/check-email', { state: { email } });
+    } catch {
+      // Still navigate — the API is designed to never reveal whether an email exists
+      navigate('/auth/check-email', { state: { email } });
+    } finally {
       setLoading(false);
-      navigate('/auth/check-email');
-    }, 900);
+    }
   };
 
   return (
@@ -36,10 +43,10 @@ export default function ForgotPassword() {
               type="email"
               placeholder="amaka@pgsl.com"
               value={email}
-              onChange={(e) => { setEmail(e.target.value); setError(''); }}
-              style={error ? { borderColor: '#DC2626' } : {}}
+              onChange={(e) => { setEmail(e.target.value); setFieldError(''); }}
+              style={fieldError ? { borderColor: '#DC2626' } : {}}
             />
-            {error && <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#DC2626' }}>{error}</p>}
+            {fieldError && <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#DC2626' }}>{fieldError}</p>}
           </div>
 
           <AuthButton type="submit" disabled={loading}>

@@ -1,18 +1,55 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import {
+  verifyOtp,
+  selectAuthLoading,
+  selectAuthError,
+  selectMfaToken,
+  selectCurrentUser,
+  selectIsAuthenticated,
+  clearError,
+  clearMfa,
+} from '../../store/authSlice';
+import { authService } from '../../services/auth.service';
 import AuthLayout, { AuthCard, AuthLogo, AuthButton } from './AuthLayout';
 
 const OTP_LENGTH = 6;
+const RESEND_COOLDOWN = 45; // seconds — backend enforces 45s minimum
 
 export default function VerifyIdentity() {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  const loading = useSelector(selectAuthLoading);
+  const serverError = useSelector(selectAuthError);
+  const mfaToken = useSelector(selectMfaToken);
+  const isAuthenticated = useSelector(selectIsAuthenticated);
+  const user = useSelector(selectCurrentUser);
+
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
-  const [timer, setTimer] = useState(45);
+  const [timer, setTimer] = useState(RESEND_COOLDOWN);
   const [canResend, setCanResend] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [localError, setLocalError] = useState('');
+  const [resending, setResending] = useState(false);
   const refs = useRef([]);
 
+  // If no mfaToken in store (e.g. landed here directly), send back to login
+  useEffect(() => {
+    if (!mfaToken) navigate('/auth/login', { replace: true });
+  }, [mfaToken, navigate]);
+
+  // Once verified, go to dashboard
+  useEffect(() => {
+    if (isAuthenticated) navigate('/dashboard', { replace: true });
+  }, [isAuthenticated, navigate]);
+
+  // Clear previous errors on mount
+  useEffect(() => {
+    dispatch(clearError());
+  }, [dispatch]);
+
+  // Countdown timer
   useEffect(() => {
     if (timer <= 0) { setCanResend(true); return; }
     const t = setTimeout(() => setTimer((p) => p - 1), 1000);
@@ -24,7 +61,8 @@ export default function VerifyIdentity() {
     const next = [...otp];
     next[i] = val;
     setOtp(next);
-    setError('');
+    setLocalError('');
+    if (serverError) dispatch(clearError());
     if (val && i < OTP_LENGTH - 1) refs.current[i + 1]?.focus();
   };
 
@@ -41,44 +79,57 @@ export default function VerifyIdentity() {
     refs.current[Math.min(pasted.length, OTP_LENGTH - 1)]?.focus();
   };
 
-  const handleResend = () => {
-    setTimer(45);
-    setCanResend(false);
-    setOtp(Array(OTP_LENGTH).fill(''));
-    refs.current[0]?.focus();
+  const handleResend = async () => {
+    if (!canResend || resending) return;
+    setResending(true);
+    try {
+      await authService.resendOtp(mfaToken);
+      setTimer(RESEND_COOLDOWN);
+      setCanResend(false);
+      setOtp(Array(OTP_LENGTH).fill(''));
+      setLocalError('');
+      dispatch(clearError());
+      refs.current[0]?.focus();
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || 'Could not resend code. Try again.';
+      setLocalError(msg);
+    } finally {
+      setResending(false);
+    }
   };
 
   const handleVerify = (e) => {
     e.preventDefault();
     const code = otp.join('');
-    if (code.length < OTP_LENGTH) { setError('Please enter the 6-digit code'); return; }
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      navigate('/dashboard');
-    }, 800);
+    if (code.length < OTP_LENGTH) { setLocalError('Please enter the 6-digit code'); return; }
+    dispatch(verifyOtp({ mfaToken, code }));
+  };
+
+  const handleBack = () => {
+    dispatch(clearMfa());
+    dispatch(clearError());
+    navigate('/auth/login');
   };
 
   const fmt = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const displayError = localError || serverError?.message;
 
   return (
     <AuthLayout>
       <AuthCard>
         <AuthLogo />
 
-        {/* Shield icon */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 18 }}>
-          <div style={{ width: 52, height: 52, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              <polyline points="9 12 11 14 15 10"/>
-            </svg>
-          </div>
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#64748B" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
         </div>
 
         <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0F172A', margin: '0 0 8px 0', textAlign: 'center' }}>Verify your identity</h1>
         <p style={{ fontSize: '0.83rem', color: '#64748B', margin: '0 0 24px 0', textAlign: 'center', lineHeight: 1.6 }}>
-          Enter the 6-digit verification code sent to <strong>amaka@pgsl.com</strong>
+          Enter the 6-digit verification code sent to{' '}
+          <strong>{user?.email ?? 'your email'}</strong>
         </p>
 
         <form onSubmit={handleVerify} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -102,7 +153,7 @@ export default function VerifyIdentity() {
                     textAlign: 'center',
                     fontSize: '1.2rem',
                     fontWeight: 700,
-                    border: `1.5px solid ${error ? '#DC2626' : digit ? '#1D4ED8' : '#E2E8F0'}`,
+                    border: `1.5px solid ${displayError ? '#DC2626' : digit ? '#1D4ED8' : '#E2E8F0'}`,
                     borderRadius: 8,
                     outline: 'none',
                     color: '#0F172A',
@@ -115,7 +166,9 @@ export default function VerifyIdentity() {
                 />
               ))}
             </div>
-            {error && <p style={{ marginTop: 8, textAlign: 'center', fontSize: '0.75rem', color: '#DC2626' }}>{error}</p>}
+            {displayError && (
+              <p style={{ marginTop: 8, textAlign: 'center', fontSize: '0.75rem', color: '#DC2626' }}>{displayError}</p>
+            )}
             <p style={{ marginTop: 10, textAlign: 'center', fontSize: '0.78rem', color: '#94A3B8' }}>
               Code expires in 10 minutes
             </p>
@@ -125,7 +178,6 @@ export default function VerifyIdentity() {
             {loading ? 'Verifying…' : 'Verify'}
           </AuthButton>
 
-          {/* Resend */}
           <div style={{
             padding: '10px 14px',
             backgroundColor: '#F8FAFC',
@@ -134,10 +186,15 @@ export default function VerifyIdentity() {
             fontSize: '0.8rem',
             color: '#64748B',
           }}>
-            Didn't receive an code?{' '}
+            Didn't receive a code?{' '}
             {canResend ? (
-              <button onClick={handleResend} type="button" style={{ background: 'none', border: 'none', color: '#1D4ED8', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}>
-                Resend
+              <button
+                onClick={handleResend}
+                type="button"
+                disabled={resending}
+                style={{ background: 'none', border: 'none', color: '#1D4ED8', fontWeight: 600, cursor: 'pointer', fontSize: '0.8rem', padding: 0 }}
+              >
+                {resending ? 'Sending…' : 'Resend'}
               </button>
             ) : (
               <span><strong style={{ color: '#1D4ED8' }}>Resend</strong> in {fmt(timer)}</span>
@@ -145,9 +202,13 @@ export default function VerifyIdentity() {
           </div>
 
           <div style={{ textAlign: 'center' }}>
-            <Link to="/auth/login" style={{ fontSize: '0.85rem', color: '#475569', textDecoration: 'none', fontWeight: 500 }}>
+            <button
+              type="button"
+              onClick={handleBack}
+              style={{ background: 'none', border: 'none', fontSize: '0.85rem', color: '#475569', cursor: 'pointer', fontWeight: 500, fontFamily: 'inherit' }}
+            >
               Back to Sign In
-            </Link>
+            </button>
           </div>
         </form>
       </AuthCard>

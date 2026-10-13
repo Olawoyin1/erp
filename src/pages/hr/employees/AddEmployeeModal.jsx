@@ -1,42 +1,25 @@
 import React, { useState } from 'react';
 import Drawer from '../../../components/ui/Drawer';
-import { FormField, Input, Select, Textarea } from '../../../components/ui/FormField';
+import { FormField, Input, Select } from '../../../components/ui/FormField';
 
 const DEPARTMENTS = [
-  'Engineering',
-  'HSE',
-  'Operations',
-  'Administration',
-  'Finance & Accounts',
-  'Procurement',
-  'Human Resources',
-  'Mechanical Engineering',
-  'Civil Engineering',
-  'Quality Assurance',
-];
-
-const MANAGERS = [
-  'Engr. Tunde Bello',
-  'Oluwatobi Ajeniya',
-  'Chidozie Godwin',
-  'Saurusi Fareedah',
-  'Bamidele Olayiwola',
+  'Engineering', 'HSE', 'Operations', 'Administration',
+  'Finance & Accounts', 'Procurement', 'Human Resources',
+  'Mechanical Engineering', 'Civil Engineering', 'Quality Assurance',
 ];
 
 export default function AddEmployeeModal({ isOpen, onClose, onAdd }) {
   const [formData, setFormData] = useState({
-    name: '',
-    id: `PGSL-${Math.floor(1000 + Math.random() * 9000)}`,
+    fullName: '',
     email: '',
     phone: '',
     position: '',
-    department: 'Engineering',
+    department: 'Engineering',   // sent as departmentId — backend accepts name or id
     employmentType: 'Full-time',
-    reportingManager: 'Oluwatobi Ajeniya',
-    dateJoined: '',
-    status: 'Active',
-    basicSalary: '',
-    notes: '',
+    contractType: 'permanent',
+    hireDate: '',
+    // baseSalary sent as kobo — user types naira, we convert on submit
+    baseSalaryNaira: '',
   });
 
   const handleChange = (e) => {
@@ -46,7 +29,21 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onAdd(formData);
+    // Build the API payload — field names must match POST /employees
+    const payload = {
+      fullName:     formData.fullName,
+      email:        formData.email,
+      phone:        formData.phone,
+      position:     formData.position,
+      departmentId: formData.department,   // backend resolves name or ObjectId
+      employmentType: formData.employmentType,
+      contractType: formData.contractType,
+      hireDate:     formData.hireDate || undefined,
+      baseSalary:   formData.baseSalaryNaira
+        ? Math.round(parseFloat(formData.baseSalaryNaira) * 100)   // naira → kobo
+        : 0,
+    };
+    onAdd(payload);
   };
 
   const footer = (
@@ -97,104 +94,51 @@ export default function AddEmployeeModal({ isOpen, onClose, onAdd }) {
     >
       <form id="add-employee-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <FormField label="Full Legal Name" required>
-          <Input
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            placeholder="e.g. Angela Amara Davids"
-            required
-          />
+          <Input name="fullName" value={formData.fullName} onChange={handleChange}
+            placeholder="e.g. Angela Amara Davids" required />
         </FormField>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <FormField label="Generated ID" required>
-            <Input name="id" value={formData.id} onChange={handleChange} required readOnly />
-          </FormField>
-
           <FormField label="Email Address" required>
-            <Input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="angeladavids@gmail.com"
-              required
-            />
+            <Input type="email" name="email" value={formData.email} onChange={handleChange}
+              placeholder="angela@pgsl.ng" required />
           </FormField>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
           <FormField label="Phone Number" required>
-            <Input
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="+234..."
-              required
-            />
-          </FormField>
-
-          <FormField label="Assigned Position" required>
-            <Input
-              name="position"
-              value={formData.position}
-              onChange={handleChange}
-              placeholder="e.g. Senior Mechanical Engineer"
-              required
-            />
+            <Input name="phone" value={formData.phone} onChange={handleChange}
+              placeholder="+234..." required />
           </FormField>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <FormField label="Assigned Position" required>
+            <Input name="position" value={formData.position} onChange={handleChange}
+              placeholder="e.g. Senior Mechanical Engineer" required />
+          </FormField>
           <FormField label="Department" required>
             <Select name="department" value={formData.department} onChange={handleChange} options={DEPARTMENTS} />
           </FormField>
+        </div>
 
-          <FormField label="Employment Type" required>
-            <Select
-              name="employmentType"
-              value={formData.employmentType}
-              onChange={handleChange}
-              options={['Full-time', 'Contract', 'Probation', 'Trainee', 'Part-time']}
-            />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          <FormField label="Contract Type" required>
+            <Select name="contractType" value={formData.contractType} onChange={handleChange}
+              options={['permanent', 'contract', 'temporary']} />
+          </FormField>
+          <FormField label="Employment Type">
+            <Select name="employmentType" value={formData.employmentType} onChange={handleChange}
+              options={['Full-time', 'Part-time']} />
           </FormField>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <FormField label="Hiring/Reporting Manager" required>
-            <Select name="reportingManager" value={formData.reportingManager} onChange={handleChange} options={MANAGERS} />
+          <FormField label="Hire Date">
+            <Input type="date" name="hireDate" value={formData.hireDate} onChange={handleChange} />
           </FormField>
-
-          <FormField label="Date Joined">
-            <Input type="date" name="dateJoined" value={formData.dateJoined} onChange={handleChange} />
-          </FormField>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <FormField label="Status" required>
-            <Select name="status" value={formData.status} onChange={handleChange} options={['Active', 'Probation', 'On Leave', 'Inactive']} />
-          </FormField>
-
-          <FormField label="Official Base Salary (#)">
-            <Input
-              type="number"
-              name="basicSalary"
-              value={formData.basicSalary}
-              onChange={handleChange}
-              placeholder="e.g. 750000"
-            />
+          <FormField label="Base Salary (₦)">
+            <Input type="number" name="baseSalaryNaira" value={formData.baseSalaryNaira}
+              onChange={handleChange} placeholder="e.g. 850000" />
           </FormField>
         </div>
-
-        <FormField label="General Notes">
-          <Textarea
-            name="notes"
-            value={formData.notes}
-            onChange={handleChange}
-            placeholder="Enter basic evaluation commentary..."
-            rows={3}
-          />
-        </FormField>
       </form>
     </Drawer>
   );

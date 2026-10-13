@@ -1,15 +1,24 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { authService } from '../../services/auth.service';
 import AuthLayout, { AuthCard, AuthLogo, AuthInput, AuthButton } from './AuthLayout';
 
 export default function CreateNewPassword() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token') || '';
+
   const [form, setForm] = useState({ password: '', confirm: '' });
   const [show, setShow] = useState({ pwd: false, confirm: false });
   const [errors, setErrors] = useState({});
+  const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleChange = (e) => setForm((p) => ({ ...p, [e.target.id]: e.target.value }));
+  const handleChange = (e) => {
+    setForm((p) => ({ ...p, [e.target.id]: e.target.value }));
+    setErrors((p) => ({ ...p, [e.target.id]: '' }));
+    setServerError('');
+  };
 
   const validate = () => {
     const e = {};
@@ -20,22 +29,29 @@ export default function CreateNewPassword() {
     return e;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
+    if (!token) { setServerError('Reset token is missing. Please use the link from your email.'); return; }
+
     setLoading(true);
-    setTimeout(() => {
+    try {
+      await authService.resetPassword(token, form.password);
+      navigate('/auth/password-reset-success', { replace: true });
+    } catch (err) {
+      const msg = err.response?.data?.error?.message || 'Reset failed. The link may have expired.';
+      setServerError(msg);
+    } finally {
       setLoading(false);
-      navigate('/auth/password-reset-success');
-    }, 900);
+    }
   };
 
   const EyeIcon = ({ field }) => (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+      strokeLinecap="round" strokeLinejoin="round"
       onClick={() => setShow((p) => ({ ...p, [field]: !p[field] }))}
-      style={{ cursor: 'pointer' }}
-    >
+      style={{ cursor: 'pointer' }}>
       {show[field] ? (
         <>
           <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
@@ -58,6 +74,12 @@ export default function CreateNewPassword() {
         <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0 0 24px 0', lineHeight: 1.6 }}>
           Enter a new password for your PGSL ERP account.
         </p>
+
+        {serverError && (
+          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8 }}>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: '#DC2626' }}>{serverError}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>

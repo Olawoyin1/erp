@@ -1,150 +1,155 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
   FiShoppingCart,
   FiCreditCard,
   FiShield,
-  FiArrowUpRight,
-  FiArrowDownRight,
   FiCheckCircle,
   FiUploadCloud,
   FiFileText,
   FiAlertCircle,
   FiArrowRight,
+  FiRefreshCw,
 } from 'react-icons/fi';
 
+import {
+  fetchDashboardOverview,
+  fetchRecentActivity,
+  selectDashboardOverview,
+  selectDashboardActivity,
+  selectOverviewLoading,
+  selectActivityLoading,
+} from '../../store/dashboard/dashboardSlice';
+import { koboToNaira } from '../../hooks/useKobo';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Map tile keys to icon + colour class
+const TILE_CONFIG = {
+  active_projects:  { icon: <FiShoppingCart size={16} />, colorClass: 'icon-orange', label: 'ACTIVE PROJECTS' },
+  total_revenue:    { icon: <FiCreditCard size={16} />,   colorClass: 'icon-blue',   label: 'TOTAL REVENUE' },
+  hse_compliance:   { icon: <FiShield size={16} />,       colorClass: 'icon-green',  label: 'HSE COMPLIANCE' },
+  open_pos:         { icon: <FiShoppingCart size={16} />, colorClass: 'icon-purple', label: 'OPEN POS' },
+};
+
+// Format a tile value depending on the key
+function formatTileValue(key, value) {
+  if (key === 'total_revenue') return koboToNaira(value, { compact: true });
+  if (key === 'hse_compliance') return `${value}%`;
+  return value;
+}
+
+// Map activity action strings to an icon + colours
+function activityStyle(action = '') {
+  const a = action.toLowerCase();
+  if (a.includes('approved') || a.includes('complete') || a.includes('signed') || a.includes('paid'))
+    return { icon: <FiCheckCircle size={16} />, bg: '#dcfce7', color: '#16a34a' };
+  if (a.includes('upload') || a.includes('submit') || a.includes('create') || a.includes('register'))
+    return { icon: <FiUploadCloud size={16} />, bg: '#dbeafe', color: '#2563eb' };
+  if (a.includes('overdue') || a.includes('reject') || a.includes('fail') || a.includes('alert'))
+    return { icon: <FiAlertCircle size={16} />, bg: '#fee2e2', color: '#ef4444' };
+  return { icon: <FiFileText size={16} />, bg: '#f1f5f9', color: '#475569' };
+}
+
+// Relative time string from ISO date
+function relativeTime(isoString) {
+  if (!isoString) return '';
+  const diff = Math.floor((Date.now() - new Date(isoString)) / 1000);
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+  return `${Math.floor(diff / 86400)} days ago`;
+}
+
+// ─── SVG chart helpers ────────────────────────────────────────────────────────
+const SVG_W = 650;
+const SVG_H = 220;
+const PAD_X = 35;
+const PAD_Y = 25;
+
+function buildChartPaths(series) {
+  if (!series?.length) return { revPath: '', tgtPath: '', getX: () => 0, getY: () => 0, maxY: 1 };
+
+  const revenues = series.map((s) => s.revenue / 100); // kobo → naira (then we'll scale)
+  const targets  = series.map((s) => s.target  / 100);
+  const maxVal   = Math.max(...revenues, ...targets, 1);
+  // Round up to a nice number for the Y axis ceiling
+  const maxY = Math.ceil(maxVal / 1_000_000) * 1_000_000; // nearest million
+
+  const chartW = SVG_W - PAD_X * 2;
+  const chartH = SVG_H - PAD_Y * 2;
+  const n = series.length;
+
+  const getX = (i) => PAD_X + (i * chartW) / Math.max(n - 1, 1);
+  const getY = (val) => PAD_Y + chartH - (val * chartH) / maxY;
+
+  const smooth = (pts) =>
+    pts.reduce((acc, val, i, arr) => {
+      const x = getX(i), y = getY(val);
+      if (i === 0) return `M ${x},${y}`;
+      const px = getX(i - 1), py = getY(arr[i - 1]);
+      const cpx = px + (x - px) / 2;
+      return `${acc} C ${cpx},${py} ${cpx},${y} ${x},${y}`;
+    }, '');
+
+  return {
+    revPath: smooth(revenues),
+    tgtPath: smooth(targets),
+    getX, getY,
+    maxY,
+    revenues, targets,
+  };
+}
+
+// ─── Skeleton loader ──────────────────────────────────────────────────────────
+function Skeleton({ h = 20, w = '100%', r = 6, style = {} }) {
+  return (
+    <div style={{
+      height: h, width: w, borderRadius: r,
+      background: 'linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%)',
+      backgroundSize: '200% 100%',
+      animation: 'shimmer 1.4s infinite',
+      ...style,
+    }} />
+  );
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
 export default function DashboardOverview() {
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [hoveredPoint, setHoveredPoint] = useState(null);
 
-  // Data for the Active Contracts chart
-  const months = ['Mar 2023', 'Jun 2023', 'Sep 2023', 'Dec 2023', 'Mar 2024', 'Jun 2024', 'Sep 2024', 'Dec 2024'];
-  const revenuePoints = [15, 14, 5, 12, 11, 11, 13, 11]; // In Millions
-  const targetPoints = [10, 11, 6, 8, 12, 11, 10, 11.5]; // In Millions
+  const overview        = useSelector(selectDashboardOverview);
+  const activity        = useSelector(selectDashboardActivity);
+  const overviewLoading = useSelector(selectOverviewLoading);
+  const activityLoading = useSelector(selectActivityLoading);
 
-  // Shaded column indices (Mar 2023 = 0, Sep 2023 = 2, Mar 2024 = 4, Sep 2024 = 6)
-  const shadedCols = [0, 2, 4, 6];
+  useEffect(() => {
+    dispatch(fetchDashboardOverview());
+    dispatch(fetchRecentActivity({ page: 1, limit: 4 }));
+  }, [dispatch]);
 
-  // Projects data
-  const projects = [
-    {
-      id: 1,
-      code: 'PGSL-PRJ-008',
-      title: 'PGSL-PRJ-008 · Offshore Pipeline Repair',
-      client: 'TotalEnergies',
-      budget: 485,
-      spent: 312,
-      spentPct: 64,
-      marginLeft: 173,
-      alert: null,
-    },
-    {
-      id: 2,
-      code: 'PGSL-PRJ-008',
-      title: 'PGSL-PRJ-008 · Offshore Pipeline Repair',
-      client: 'TotalEnergies',
-      budget: 340,
-      spent: 291,
-      spentPct: 86,
-      marginLeft: 49,
-      alert: 'Red Alert',
-    },
-    {
-      id: 3,
-      code: 'PGSL-PRJ-008',
-      title: 'PGSL-PRJ-008 · Offshore Pipeline Repair',
-      client: 'TotalEnergies',
-      budget: 485,
-      spent: 312,
-      spentPct: 64,
-      marginLeft: 173,
-      alert: null,
-    },
-    {
-      id: 4,
-      code: 'PGSL-PRJ-008',
-      title: 'PGSL-PRJ-008 · Offshore Pipeline Repair',
-      client: 'TotalEnergies',
-      budget: 485,
-      spent: 312,
-      spentPct: 64,
-      marginLeft: 173,
-      alert: null,
-    },
-  ];
+  // ── Derived data ─────────────────────────────────────────────────────────
+  const tiles    = overview?.tiles ?? [];
+  const series   = overview?.activeContracts?.series ?? [];
+  const projects = overview?.activeProjectsCostVsBudget ?? [];
 
-  // Activities data
-  const activities = [
-    {
-      id: 1,
-      type: 'approved',
-      icon: <FiCheckCircle size={16} />,
-      bg: '#dcfce7',
-      color: '#16a34a',
-      text: 'Journey request JR-2025-117 approved by GM',
-      time: '10 mins ago',
-    },
-    {
-      id: 2,
-      type: 'uploaded',
-      icon: <FiUploadCloud size={16} />,
-      bg: '#dbeafe',
-      color: '#2563eb',
-      text: 'HR Policy v3 uploaded by HR Coordinator',
-      time: '1 hour ago',
-    },
-    {
-      id: 3,
-      type: 'complete',
-      icon: <FiFileText size={16} />,
-      bg: '#dcfce7',
-      color: '#16a34a',
-      text: 'Task "Q2 Audit Prep" marked complete by Ngozi Obi',
-      time: '10 mins ago',
-    },
-    {
-      id: 4,
-      type: 'overdue',
-      icon: <FiAlertCircle size={16} />,
-      bg: '#fee2e2',
-      color: '#ef4444',
-      text: 'Invoice #INV-2025-041 (₦4,250,000) is overdue',
-      time: '3 hrs ago',
-    },
-  ];
+  const { revPath, tgtPath, getX, getY, maxY, revenues = [], targets = [] } =
+    buildChartPaths(series);
 
-  // SVG Chart path calculation helper
-  const svgWidth = 650;
-  const svgHeight = 220;
-  const paddingX = 35;
-  const paddingY = 25;
-  const chartW = svgWidth - paddingX * 2;
-  const chartH = svgHeight - paddingY * 2;
-  const maxY = 20;
+  const totalRevenue = overview?.activeContracts?.totalRevenue ?? 0;
+  const totalTarget  = overview?.activeContracts?.totalTarget  ?? 0;
+  const revShare     = overview?.activeContracts?.revenueShare ?? 0;
+  const tgtShare     = overview?.activeContracts?.targetShare  ?? 0;
 
-  const getX = (i) => paddingX + (i * chartW) / (months.length - 1);
-  const getY = (val) => paddingY + chartH - (val * chartH) / maxY;
-
-  // Generate smooth cubic bezier curve string
-  const createSmoothPath = (pts) => {
-    return pts.reduce((acc, val, i, arr) => {
-      const x = getX(i);
-      const y = getY(val);
-      if (i === 0) return `M ${x},${y}`;
-
-      const prevX = getX(i - 1);
-      const prevY = getY(arr[i - 1]);
-      const cp1X = prevX + (x - prevX) / 2;
-      const cp1Y = prevY;
-      const cp2X = prevX + (x - prevX) / 2;
-      const cp2Y = y;
-      return `${acc} C ${cp1X},${cp1Y} ${cp2X},${cp2Y} ${x},${y}`;
-    }, '');
-  };
-
-  const revenuePath = createSmoothPath(revenuePoints);
-  const targetPath = createSmoothPath(targetPoints);
-
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="dashboard-page-container">
+      {/* shimmer keyframe */}
+      <style>{`@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}`}</style>
+
       {/* Page Header */}
       <div className="dashboard-header-section">
         <h1 className="dashboard-title">Dashboard Overview</h1>
@@ -153,286 +158,275 @@ export default function DashboardOverview() {
         </p>
       </div>
 
-      {/* Top 4 KPI Metrics */}
+      {/* ── Top 4 KPI Tiles ────────────────────────────────────────────────── */}
       <div className="dashboard-kpi-grid">
-        {/* Card 1 */}
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <span className="kpi-label">ACTIVE PROJECTS</span>
-            <div className="kpi-icon-badge icon-orange">
-              <FiShoppingCart size={16} />
-            </div>
-          </div>
-          <div className="kpi-value">24</div>
-          <div className="kpi-trend trend-positive">
-            <FiArrowUpRight size={14} />
-            <span>+8.2%</span>
-            <span className="kpi-trend-period">vs last year</span>
-          </div>
-        </div>
-
-        {/* Card 2 */}
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <span className="kpi-label">TOTAL REVENUE</span>
-            <div className="kpi-icon-badge icon-blue">
-              <FiCreditCard size={16} />
-            </div>
-          </div>
-          <div className="kpi-value">&#8358;21.24B</div>
-          <div className="kpi-trend trend-positive">
-            <FiArrowUpRight size={14} />
-            <span>+12.5%</span>
-            <span className="kpi-trend-period">vs last year</span>
-          </div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <span className="kpi-label">HSE COMPLIANCE</span>
-            <div className="kpi-icon-badge icon-green">
-              <FiShield size={16} />
-            </div>
-          </div>
-          <div className="kpi-value">92%</div>
-          <div className="kpi-trend trend-negative">
-            <FiArrowDownRight size={14} />
-            <span>-2.1%</span>
-            <span className="kpi-trend-period">vs last month</span>
-          </div>
-        </div>
-
-        {/* Card 4 */}
-        <div className="kpi-card">
-          <div className="kpi-card-header">
-            <span className="kpi-label">OPEN POS</span>
-            <div className="kpi-icon-badge icon-purple">
-              <FiShoppingCart size={16} />
-            </div>
-          </div>
-          <div className="kpi-value">38</div>
-          <div className="kpi-trend trend-positive">
-            <FiArrowUpRight size={14} />
-            <span>+15.3%</span>
-            <span className="kpi-trend-period">vs last month</span>
-          </div>
-        </div>
+        {overviewLoading && !overview
+          ? [1, 2, 3, 4].map((k) => (
+              <div key={k} className="kpi-card" style={{ gap: 12 }}>
+                <Skeleton h={14} w="60%" />
+                <Skeleton h={32} w="50%" />
+                <Skeleton h={12} w="40%" />
+              </div>
+            ))
+          : tiles.map((tile) => {
+              const cfg = TILE_CONFIG[tile.key] ?? { icon: <FiCreditCard size={16} />, colorClass: 'icon-blue' };
+              return (
+                <div key={tile.key} className="kpi-card">
+                  <div className="kpi-card-header">
+                    <span className="kpi-label">{cfg.label ?? tile.label.toUpperCase()}</span>
+                    <div className={`kpi-icon-badge ${cfg.colorClass}`}>{cfg.icon}</div>
+                  </div>
+                  <div className="kpi-value">{formatTileValue(tile.key, tile.value)}</div>
+                  {/* API has no delta/trend field — the backend docs confirm this by design */}
+                  <div className="kpi-trend trend-neutral" style={{ color: '#94a3b8', fontSize: '0.75rem' }}>
+                    Live data
+                  </div>
+                </div>
+              );
+            })}
       </div>
 
-      {/* Middle Grid: Active Contracts & Recent Activity */}
+      {/* ── Middle Grid ───────────────────────────────────────────────────── */}
       <div className="dashboard-middle-grid">
-        {/* Active Contracts Card */}
+
+        {/* Active Contracts chart */}
         <div className="dashboard-card main-chart-card">
           <div className="chart-card-header">
             <h2 className="card-title">Active Contracts</h2>
+            {overviewLoading && (
+              <FiRefreshCw size={14} style={{ color: '#94a3b8', animation: 'spin 1s linear infinite' }} />
+            )}
           </div>
 
-          <div className="chart-legend-row">
-            <div className="legend-item">
-              <span className="legend-dot dot-blue" />
-              <span className="legend-label">Total Revenue</span>
-              <span className="legend-value">$ 33,023.98</span>
-              <span className="legend-bullet">•</span>
-              <span className="legend-pct">55%</span>
+          {overviewLoading && !overview ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '16px 0' }}>
+              <Skeleton h={14} w="55%" />
+              <Skeleton h={180} />
             </div>
-            <div className="legend-item">
-              <span className="legend-dot dot-red" />
-              <span className="legend-label">Total Target</span>
-              <span className="legend-value">$ 32,032.86</span>
-              <span className="legend-bullet">•</span>
-              <span className="legend-pct">45%</span>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="chart-legend-row">
+                <div className="legend-item">
+                  <span className="legend-dot dot-blue" />
+                  <span className="legend-label">Total Revenue</span>
+                  <span className="legend-value">{koboToNaira(totalRevenue, { compact: true })}</span>
+                  <span className="legend-bullet">•</span>
+                  <span className="legend-pct">{revShare}%</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-dot dot-red" />
+                  <span className="legend-label">Total Target</span>
+                  <span className="legend-value">{koboToNaira(totalTarget, { compact: true })}</span>
+                  <span className="legend-bullet">•</span>
+                  <span className="legend-pct">{tgtShare}%</span>
+                </div>
+              </div>
 
-          {/* SVG Chart Container */}
-          <div className="svg-chart-wrapper">
-            <svg
-              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="dashboard-svg-chart"
-              preserveAspectRatio="xMidYMid meet"
-            >
-              {/* Shaded vertical column backgrounds */}
-              {shadedCols.map((colIdx) => {
-                const x = getX(colIdx) - 22;
-                return (
-                  <rect
-                    key={colIdx}
-                    x={x}
-                    y={paddingY - 5}
-                    width={44}
-                    height={chartH + 10}
-                    rx={6}
-                    fill="#f1f5f9"
-                    opacity={0.7}
-                  />
-                );
-              })}
+              <div className="svg-chart-wrapper">
+                {series.length > 0 ? (
+                  <>
+                    <svg
+                      viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+                      className="dashboard-svg-chart"
+                      preserveAspectRatio="xMidYMid meet"
+                    >
+                      {/* Grid lines */}
+                      {[maxY, maxY / 2, 0].map((val) => {
+                        const y = getY(val);
+                        return (
+                          <g key={val}>
+                            <line x1={PAD_X} y1={y} x2={SVG_W - PAD_X} y2={y}
+                              stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth="1" />
+                            <text x={SVG_W - 5} y={y + 4} fill="#94a3b8"
+                              fontSize="10" fontWeight="500" textAnchor="end">
+                              {koboToNaira(val * 100, { compact: true })}
+                            </text>
+                          </g>
+                        );
+                      })}
 
-              {/* Dashed Horizontal Grid Lines */}
-              {[20, 10, 0].map((val) => {
-                const y = getY(val);
-                return (
-                  <line
-                    key={val}
-                    x1={paddingX}
-                    y1={y}
-                    x2={svgWidth - paddingX}
-                    y2={y}
-                    stroke="#e2e8f0"
-                    strokeDasharray="4 4"
-                    strokeWidth="1"
-                  />
-                );
-              })}
+                      {/* Lines */}
+                      <path d={revPath} fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" />
+                      <path d={tgtPath} fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinecap="round" />
 
-              {/* Y-Axis Labels (Right Aligned) */}
-              {[20, 10, 0].map((val) => {
-                const y = getY(val);
-                return (
-                  <text
-                    key={val}
-                    x={svgWidth - 5}
-                    y={y + 4}
-                    fill="#94a3b8"
-                    fontSize="11"
-                    fontWeight="500"
-                    textAnchor="end"
-                  >
-                    &#8358;{val}M
-                  </text>
-                );
-              })}
+                      {/* Interactive dots */}
+                      {series.map((s, i) => {
+                        const cx = getX(i);
+                        const cyRev = getY(revenues[i]);
+                        const cyTgt = getY(targets[i]);
+                        const hov = hoveredPoint === i;
+                        return (
+                          <g key={i}
+                            onMouseEnter={() => setHoveredPoint(i)}
+                            onMouseLeave={() => setHoveredPoint(null)}>
+                            <circle cx={cx} cy={cyRev} r={hov ? 5 : 3} fill="#1d4ed8" stroke="#fff" strokeWidth={hov ? 2 : 1} />
+                            <circle cx={cx} cy={cyTgt} r={hov ? 5 : 3} fill="#ef4444" stroke="#fff" strokeWidth={hov ? 2 : 1} />
+                            {hov && (
+                              <>
+                                <line x1={cx} y1={PAD_Y} x2={cx} y2={SVG_H - PAD_Y}
+                                  stroke="#cbd5e1" strokeDasharray="2 2" strokeWidth="1" />
+                                {/* Tooltip */}
+                                <rect x={cx - 52} y={PAD_Y - 44} width={104} height={38} rx={6}
+                                  fill="#1e293b" opacity={0.9} />
+                                <text x={cx} y={PAD_Y - 28} fill="#fff" fontSize="10" textAnchor="middle">
+                                  {s.label}
+                                </text>
+                                <text x={cx} y={PAD_Y - 14} fill="#93c5fd" fontSize="9" textAnchor="middle">
+                                  Rev: {koboToNaira(s.revenue, { compact: true })}  Tgt: {koboToNaira(s.target, { compact: true })}
+                                </text>
+                              </>
+                            )}
+                          </g>
+                        );
+                      })}
+                    </svg>
 
-              {/* Trend Lines */}
-              <path
-                d={revenuePath}
-                fill="none"
-                stroke="#1d4ed8"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-              <path
-                d={targetPath}
-                fill="none"
-                stroke="#ef4444"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-              />
-
-              {/* Interactive Points */}
-              {months.map((m, i) => {
-                const cx = getX(i);
-                const cyRev = getY(revenuePoints[i]);
-                const cyTgt = getY(targetPoints[i]);
-                const isHovered = hoveredPoint === i;
-
-                return (
-                  <g key={i} onMouseEnter={() => setHoveredPoint(i)} onMouseLeave={() => setHoveredPoint(null)}>
-                    <circle cx={cx} cy={cyRev} r={isHovered ? 5 : 3} fill="#1d4ed8" stroke="#ffffff" strokeWidth={isHovered ? 2 : 1} />
-                    <circle cx={cx} cy={cyTgt} r={isHovered ? 5 : 3} fill="#ef4444" stroke="#ffffff" strokeWidth={isHovered ? 2 : 1} />
-                    {isHovered && (
-                      <line x1={cx} y1={paddingY} x2={cx} y2={svgHeight - paddingY} stroke="#cbd5e1" strokeDasharray="2 2" strokeWidth="1" />
-                    )}
-                  </g>
-                );
-              })}
-            </svg>
-
-            {/* X-Axis Labels */}
-            <div className="chart-x-labels">
-              {months.map((m, i) => (
-                <span key={i} className="x-label-item">
-                  {m}
-                </span>
-              ))}
-            </div>
-          </div>
+                    {/* X-axis labels */}
+                    <div className="chart-x-labels">
+                      {series.map((s, i) => (
+                        <span key={i} className="x-label-item">{s.label}</span>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                    No contract data available yet.
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </div>
 
-        {/* Recent Activity Card */}
+        {/* Recent Activity */}
         <div className="dashboard-card activity-card">
           <div className="activity-card-header">
             <h2 className="card-title">Recent Activity</h2>
-            <button className="view-all-link">
+            <button
+              className="view-all-link"
+              onClick={() => navigate('/notifications')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            >
               View All <FiArrowRight size={14} />
             </button>
           </div>
 
           <div className="activity-list">
-            {activities.map((act) => (
-              <div key={act.id} className="activity-item">
-                <div className="activity-icon-badge" style={{ backgroundColor: act.bg, color: act.color }}>
-                  {act.icon}
+            {activityLoading && !activity.length
+              ? [1, 2, 3, 4].map((k) => (
+                  <div key={k} className="activity-item">
+                    <Skeleton h={32} w={32} r={8} style={{ flexShrink: 0 }} />
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <Skeleton h={12} w="85%" />
+                      <Skeleton h={10} w="30%" />
+                    </div>
+                  </div>
+                ))
+              : activity.length > 0
+              ? activity.map((act) => {
+                  const style = activityStyle(act.action);
+                  return (
+                    <div key={act._id} className="activity-item">
+                      <div className="activity-icon-badge"
+                        style={{ backgroundColor: style.bg, color: style.color }}>
+                        {style.icon}
+                      </div>
+                      <div className="activity-content">
+                        {/* label is a pre-built human-readable string from the API */}
+                        <p className="activity-text">{act.label}</p>
+                        <span className="activity-time">{relativeTime(act.occurredAt)}</span>
+                      </div>
+                    </div>
+                  );
+                })
+              : (
+                <div style={{ padding: '32px 0', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                  No recent activity yet.
                 </div>
-                <div className="activity-content">
-                  <p className="activity-text">{act.text}</p>
-                  <span className="activity-time">{act.time}</span>
-                </div>
-              </div>
-            ))}
+              )}
           </div>
         </div>
       </div>
 
-      {/* Bottom Section: Active Projects — Cost vs Budget */}
+      {/* ── Active Projects — Cost vs Budget ──────────────────────────────── */}
       <div className="dashboard-card cost-budget-card">
         <div className="cost-budget-header">
           <h2 className="card-title">Active Projects &mdash; Cost vs Budget</h2>
-          <button className="view-all-link">
+          <button
+            className="view-all-link"
+            onClick={() => navigate('/technical/projects')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+          >
             View all projects <FiArrowRight size={14} />
           </button>
         </div>
 
-        <div className="project-rows-list">
-          {projects.map((prj) => (
-            <div key={prj.id} className="project-row-card">
-              <div className="project-info-col">
-                <div className="project-badges-row">
-                  <span className="project-code-badge">{prj.code}</span>
-                  {prj.alert && (
-                    <span className="project-alert-badge">
-                      <FiAlertCircle size={12} />
-                      {prj.alert}
+        {overviewLoading && !overview ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '8px 0' }}>
+            {[1, 2, 3].map((k) => <Skeleton key={k} h={72} />)}
+          </div>
+        ) : projects.length > 0 ? (
+          <div className="project-rows-list">
+            {projects.map((prj, idx) => (
+              <div key={prj.projectId ?? idx} className="project-row-card">
+                <div className="project-info-col">
+                  <div className="project-badges-row">
+                    <span className="project-code-badge">{prj.projectId}</span>
+                    {prj.redAlert && (
+                      <span className="project-alert-badge">
+                        <FiAlertCircle size={12} />
+                        Red Alert
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="project-title-name">
+                    {prj.projectId} · {prj.project}
+                  </h3>
+                  <span className="project-client-name">
+                    Client: <strong>{prj.client || '—'}</strong>
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="project-progress-col">
+                  <div className="project-progress-bar">
+                    <div
+                      className="progress-spent-fill"
+                      style={{ width: `${Math.min(prj.percentSpent, 100)}%` }}
+                    />
+                    <div
+                      className="progress-budget-fill"
+                      style={{ width: `${Math.max(0, 100 - prj.percentSpent)}%` }}
+                    />
+                  </div>
+                  <div className="progress-labels-row">
+                    <span className="label-budget">
+                      Budget: {koboToNaira(prj.approvedBudget, { compact: true })}
                     </span>
-                  )}
+                    <span className="label-spent">
+                      Spent: {koboToNaira(prj.actualSpend, { compact: true })}
+                    </span>
+                  </div>
                 </div>
-                <h3 className="project-title-name">{prj.title}</h3>
-                <span className="project-client-name">
-                  Client: <strong>{prj.client}</strong>
-                </span>
-              </div>
 
-              {/* Progress Bar & Amounts */}
-              <div className="project-progress-col">
-                <div className="project-progress-bar">
-                  <div
-                    className="progress-spent-fill"
-                    style={{ width: `${prj.spentPct}%` }}
-                  />
-                  <div
-                    className="progress-budget-fill"
-                    style={{ width: `${100 - prj.spentPct}%` }}
-                  />
-                </div>
-                <div className="progress-labels-row">
-                  <span className="label-budget">Budget: &#8358;{prj.budget}M</span>
-                  <span className="label-spent">Spent: &#8358;{prj.spent}M</span>
+                {/* Stats */}
+                <div className="project-stats-col">
+                  <div className="stat-spent-pct">
+                    <strong>{prj.percentSpent}%</strong>{' '}
+                    <span className="text-muted">spent</span>
+                  </div>
+                  <div className="stat-margin-left">
+                    Margin Left: {koboToNaira(prj.marginLeft, { compact: true })}
+                  </div>
                 </div>
               </div>
-
-              {/* Percentage & Margin Left */}
-              <div className="project-stats-col">
-                <div className="stat-spent-pct">
-                  <strong>{prj.spentPct}%</strong> <span className="text-muted">spent</span>
-                </div>
-                <div className="stat-margin-left">
-                  Margin Left: &#8358;{prj.marginLeft}M
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding: '48px 0', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+            No active project budgets found.
+          </div>
+        )}
       </div>
     </div>
   );
