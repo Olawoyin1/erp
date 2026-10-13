@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -20,7 +20,10 @@ import {
   selectDashboardActivity,
   selectOverviewLoading,
   selectActivityLoading,
+  selectOverviewError,
+  selectActivityError,
 } from '../../store/dashboard/dashboardSlice';
+import { usePermission } from '../../hooks/usePermission';
 import { koboToNaira } from '../../hooks/useKobo';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -125,11 +128,20 @@ export default function DashboardOverview() {
   const activity        = useSelector(selectDashboardActivity);
   const overviewLoading = useSelector(selectOverviewLoading);
   const activityLoading = useSelector(selectActivityLoading);
+  const overviewError = useSelector(selectOverviewError);
+  const activityError = useSelector(selectActivityError);
+  const canSeeActivity = usePermission('core.auditlog.view');
+  const canSeeProjects = usePermission('technical.project.view');
+
+  const loadAll = () => {
+    dispatch(fetchDashboardOverview());
+    if (canSeeActivity) dispatch(fetchRecentActivity({ page: 1, limit: 4 }));
+  };
 
   useEffect(() => {
     dispatch(fetchDashboardOverview());
-    dispatch(fetchRecentActivity({ page: 1, limit: 4 }));
-  }, [dispatch]);
+    if (canSeeActivity) dispatch(fetchRecentActivity({ page: 1, limit: 4 }));
+  }, [dispatch, canSeeActivity]);
 
   // ── Derived data ─────────────────────────────────────────────────────────
   const tiles    = overview?.tiles ?? [];
@@ -157,6 +169,13 @@ export default function DashboardOverview() {
           Monitor all of your business operations and integrations from here.
         </p>
       </div>
+
+      {overviewError && (
+        <div role="alert" style={{ padding: '12px 16px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#B91C1C', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+          <span>{overviewError.message}</span>
+          <button onClick={loadAll} style={{ background: 'none', border: 'none', color: '#B91C1C', fontWeight: 600, cursor: 'pointer' }}>Retry</button>
+        </div>
+      )}
 
       {/* ── Top 4 KPI Tiles ────────────────────────────────────────────────── */}
       <div className="dashboard-kpi-grid">
@@ -302,17 +321,30 @@ export default function DashboardOverview() {
         <div className="dashboard-card activity-card">
           <div className="activity-card-header">
             <h2 className="card-title">Recent Activity</h2>
-            <button
-              className="view-all-link"
-              onClick={() => navigate('/notifications')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-            >
-              View All <FiArrowRight size={14} />
-            </button>
+            {canSeeActivity && (
+              <button
+                className="view-all-link"
+                onClick={() => navigate('/settings?tab=audit')}
+                style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+              >
+                View All <FiArrowRight size={14} />
+              </button>
+            )}
           </div>
 
           <div className="activity-list">
-            {activityLoading && !activity.length
+            {!canSeeActivity ? (
+              <div style={{ padding: '32px 12px', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem', lineHeight: 1.5 }}>
+                The company activity feed is shown to roles with audit-log access. Your own alerts are in the bell above.
+              </div>
+            ) : activityError && !activity.length ? (
+              <div style={{ padding: '24px 12px', textAlign: 'center', color: '#B91C1C', fontSize: '0.85rem' }}>
+                {activityError.message}
+                <div>
+                  <button onClick={() => dispatch(fetchRecentActivity({ page: 1, limit: 4 }))} style={{ marginTop: 8, background: 'none', border: 'none', color: '#B91C1C', fontWeight: 600, cursor: 'pointer' }}>Retry</button>
+                </div>
+              </div>
+            ) : activityLoading && !activity.length
               ? [1, 2, 3, 4].map((k) => (
                   <div key={k} className="activity-item">
                     <Skeleton h={32} w={32} r={8} style={{ flexShrink: 0 }} />
@@ -352,13 +384,15 @@ export default function DashboardOverview() {
       <div className="dashboard-card cost-budget-card">
         <div className="cost-budget-header">
           <h2 className="card-title">Active Projects &mdash; Cost vs Budget</h2>
-          <button
-            className="view-all-link"
-            onClick={() => navigate('/technical/projects')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-          >
-            View all projects <FiArrowRight size={14} />
-          </button>
+          {canSeeProjects && (
+            <button
+              className="view-all-link"
+              onClick={() => navigate('/technical/projects')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              View all projects <FiArrowRight size={14} />
+            </button>
+          )}
         </div>
 
         {overviewLoading && !overview ? (

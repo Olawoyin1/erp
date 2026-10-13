@@ -1,9 +1,13 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { fetchCurrentUser, selectBootstrapping, setBootstrapping } from './store/authSlice';
-import { getAccessToken } from './services/apiClient';
+import { useDispatch } from 'react-redux';
+import { fetchCurrentUser, setBootstrapping } from './store/authSlice';
+import { getAccessToken, getRefreshToken } from './services/apiClient';
 import RequireAuth from './components/auth/RequireAuth';
+import NotFound from './components/auth/NotFound';
+import { SectionIndex, LandingRedirect } from './components/auth/RouteGate';
+import ForceChangePassword from './pages/auth/ForceChangePassword';
+import NotificationsPage from './pages/notifications/NotificationsPage';
 
 // ─── Auth Pages ───────────────────────────────────────────────────────────────
 import Login from './pages/auth/Login';
@@ -22,11 +26,6 @@ import Recruitment from './pages/hr/recruitment/Recruitment';
 import Deployment from './pages/hr/deployment/Deployment';
 import TrainingCertifications from './pages/hr/training/TrainingCertifications';
 import DashboardOverview from './pages/dashboard/DashboardOverview';
-import {
-  RecruitmentPage,
-  DeploymentPage,
-  TrainingCertificationsPage,
-} from './pages/hr/PlaceholderPage';
 import Onboarding from './pages/hr/onboarding/Onboarding';
 import PayrollInputs from './pages/hr/payroll/PayrollInputs';
 import GrievancesDiscipline from './pages/hr/grievances/GrievancesDiscipline';
@@ -97,15 +96,12 @@ import QualityReports from './pages/quality/QualityReports';
 
 export default function App() {
   const dispatch = useDispatch();
-  const bootstrapping = useSelector(selectBootstrapping);
 
-  // On mount, try to restore session from stored access token
+  // On mount restore the session: from this tab's access token, or (new tab) from the stored refresh token
   useEffect(() => {
-    const token = getAccessToken();
-    if (token) {
+    if (getAccessToken() || getRefreshToken()) {
       dispatch(fetchCurrentUser());
     } else {
-      // No token — not logged in, stop bootstrapping immediately
       dispatch(setBootstrapping(false));
     }
   }, [dispatch]);
@@ -115,6 +111,12 @@ export default function App() {
       {/* ─── Auth Routes (outside the main layout) ─── */}
       <Route path="/auth/login" element={<Login />} />
       <Route path="/auth/setup-password" element={<SetupPassword />} />
+      {/* Links inside the emails the server sends */}
+      <Route path="/accept-invite" element={<SetupPassword />} />
+      <Route path="/reset-password" element={<CreateNewPassword />} />
+      <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+      <Route path="/forgot-password" element={<Navigate to="/auth/forgot-password" replace />} />
+      <Route path="/auth/change-password" element={<RequireAuth><ForceChangePassword /></RequireAuth>} />
       <Route path="/auth/verify" element={<VerifyIdentity />} />
       <Route path="/auth/forgot-password" element={<ForgotPassword />} />
       <Route path="/auth/check-email" element={<CheckEmail />} />
@@ -124,12 +126,12 @@ export default function App() {
 
       {/* ─── Protected App Routes ─── */}
       <Route path="/" element={<RequireAuth><Layout /></RequireAuth>}>
-        <Route index element={<Navigate to="/dashboard" replace />} />
+        <Route index element={<LandingRedirect />} />
         <Route path="dashboard" element={<DashboardOverview />} />
 
         {/* HR Module Routes */}
         <Route path="hr">
-          <Route index element={<Navigate to="/hr/employees" replace />} />
+          <Route index element={<SectionIndex base="/hr" />} />
           <Route path="employees" element={<EmployeeList />} />
           <Route path="employees/:id" element={<EmployeeProfile />} />
           <Route path="recruitment" element={<Recruitment />} />
@@ -148,7 +150,7 @@ export default function App() {
 
         {/* HSE Module Routes */}
         <Route path="hse">
-          <Route index element={<Navigate to="/hse/offshore-travel" replace />} />
+          <Route index element={<SectionIndex base="/hse" />} />
           <Route path="offshore-travel" element={<OffshoreTravelDocuments />} />
           <Route path="emergency" element={<EmergencyPreparedness />} />
           <Route path="tasks" element={<HSETasks />} />
@@ -158,7 +160,7 @@ export default function App() {
 
         {/* Technical Module Routes */}
         <Route path="technical">
-          <Route index element={<Navigate to="/technical/projects" replace />} />
+          <Route index element={<SectionIndex base="/technical" />} />
           <Route path="projects" element={<TechnicalProjects />} />
           <Route path="projects/:id" element={<ProjectDetail />} />
           <Route path="engineering-docs" element={<EngineeringDocuments />} />
@@ -170,7 +172,7 @@ export default function App() {
 
         {/* Administration Module Routes */}
         <Route path="administration">
-          <Route index element={<Navigate to="/administration/requests" replace />} />
+          <Route index element={<SectionIndex base="/administration" />} />
           <Route path="requests" element={<AdministrativeRequests />} />
           <Route path="assets" element={<AssetSupplies />} />
           <Route path="documents" element={<Documents />} />
@@ -185,7 +187,7 @@ export default function App() {
 
         {/* Business Development Module Routes */}
         <Route path="bizdev">
-          <Route index element={<Navigate to="/bizdev/pipeline" replace />} />
+          <Route index element={<SectionIndex base="/bizdev" />} />
           <Route path="pipeline" element={<ClientPipeline />} />
           <Route path="tenders" element={<RFQsTenders />} />
           <Route path="proposals" element={<Proposals />} />
@@ -194,7 +196,7 @@ export default function App() {
 
         {/* Procurement Module Routes */}
         <Route path="procurement">
-          <Route index element={<Navigate to="/procurement/requests" replace />} />
+          <Route index element={<SectionIndex base="/procurement" />} />
           <Route path="requests" element={<PurchaseRequests />} />
           <Route path="rfq" element={<RFQManagement />} />
           <Route path="orders" element={<PurchaseOrders />} />
@@ -208,7 +210,7 @@ export default function App() {
 
         {/* Accounts & Finance Module Routes */}
         <Route path="finance">
-          <Route index element={<Navigate to="/finance/ledger" replace />} />
+          <Route index element={<SectionIndex base="/finance" />} />
           <Route path="ledger" element={<GeneralLedger />} />
           <Route path="budget" element={<BudgetingForecasting />} />
           <Route path="ap-ar" element={<AccountsPayableReceivable />} />
@@ -224,7 +226,7 @@ export default function App() {
 
         {/* Quality System (Compliance) Module Routes */}
         <Route path="quality">
-          <Route index element={<Navigate to="/quality/audits" replace />} />
+          <Route index element={<SectionIndex base="/quality" />} />
           <Route path="audits" element={<AuditManagement />} />
           <Route path="calibration" element={<QualityCalibrationRecords />} />
           <Route path="inspections" element={<MaterialsInspection />} />
@@ -237,9 +239,9 @@ export default function App() {
         <Route path="users" element={<UserManagement />} />
         <Route path="roles" element={<RolesPermissions />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="notifications" element={<NotificationsPage />} />
 
-        {/* Fallback route */}
-        <Route path="*" element={<Navigate to="/hr/employees" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   );

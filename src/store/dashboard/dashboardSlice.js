@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { dashboardService } from '../../services/dashboard.service';
+import { apiError } from '../../services/apiHelpers';
 
 // ─── Thunks ───────────────────────────────────────────────────────────────────
 
@@ -10,7 +11,7 @@ export const fetchDashboardOverview = createAsyncThunk(
       const res = await dashboardService.getOverview();
       return res.data.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to load dashboard' });
+      return rejectWithValue({ message: apiError(err, 'Failed to load the dashboard'), status: err.response?.status });
     }
   }
 );
@@ -22,7 +23,7 @@ export const fetchRecentActivity = createAsyncThunk(
       const res = await dashboardService.getActivity(page, limit);
       return { data: res.data.data, meta: res.data.meta };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to load activity' });
+      return rejectWithValue({ message: apiError(err, 'Failed to load recent activity'), status: err.response?.status });
     }
   }
 );
@@ -78,5 +79,7 @@ export const selectDashboardOverview = (state) => state.dashboard.overview;
 export const selectDashboardActivity = (state) => state.dashboard.activity;
 export const selectOverviewLoading = (state) => state.dashboard.overviewLoading;
 export const selectActivityLoading = (state) => state.dashboard.activityLoading;
+export const selectOverviewError = (state) => state.dashboard.overviewError;
+export const selectActivityError = (state) => state.dashboard.activityError;
 
 export default dashboardSlice.reducer;

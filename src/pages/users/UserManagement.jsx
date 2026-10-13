@@ -1,596 +1,430 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import Badge from '../../components/ui/Badge';
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Drawer from '../../components/ui/Drawer';
+import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
-import { FormField, Input, Select, Textarea } from '../../components/ui/FormField';
+import { FormField, Input, Select } from '../../components/ui/FormField';
+import PermissionGate from '../../components/auth/PermissionGate';
+import { usePermissions } from '../../hooks/usePermission';
+import { useDebounce } from '../../hooks/useDebounce';
+import { downloadBlob, downloadCsv, filenameFromResponse, blobErrorMessage } from '../../hooks/downloadBlob';
+import { userService } from '../../services/platform.service';
 import {
-  FiSearch,
-  FiFilter,
-  FiDownload,
-  FiPlus,
-  FiMoreVertical,
-  FiEdit2,
-  FiEye,
-  FiMail,
-  FiKey,
-  FiUserX,
-  FiUserCheck,
-  FiX,
-  FiUser,
+  FiSearch, FiFilter, FiDownload, FiPlus, FiEdit2, FiEye, FiMail, FiKey, FiUserX, FiUserCheck, FiX,
 } from 'react-icons/fi';
+import {
+  fetchUsers, inviteUser, updateUser, setUserStatus, setUserRoles, sendPasswordReset,
+  resendUserInvite, cancelUserInvite, fetchRoles, fetchDepartments, fetchLocations,
+} from '../../store/platform/usersSlice';
+import StatusPill from './StatusPill';
+import ConfirmDialog from './ConfirmDialog';
+import UserFormDrawer from './UserFormDrawer';
+import UserViewDrawer from './UserViewDrawer';
+import { formatDateTime } from './auditFormat';
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const DEPARTMENTS = [
-  'Human Resources', 'Finance & Accounts', 'Procurement', 'Administration',
-  'Technical', 'HSE', 'Quality System', 'Business Development', 'System',
-];
-const ROLES = [
-  'Super Admin', 'MD/CEO', 'Admin — HOD', 'Admin — Staff', 'HR — HOD', 'HR — Staff',
-  'Finance — Line Manager', 'Finance — HOD', 'Finance — Manager/CFO', 'Finance — Staff',
-  'Technical Director', 'Technical — Staff', 'HSE — HOD', 'HSE — Staff',
-  'Quality — HOD', 'Quality — Staff', 'Procurement — HOD', 'Procurement — Staff',
-  'BizDev — HOD', 'BizDev — Staff', 'Employee', 'HOD',
-];
-
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-const mockUsers = [
-  { id: 'USR-001', firstName: 'Grace', lastName: 'Mensah', email: 'grace.mensah@pgsl.com', department: 'Human Resources', role: 'HOD', lastActive: '28/05/25 9:12 AM', status: 'Active', phone: '0803 456 7890', joined: '12/08/26' },
-  { id: 'USR-002', firstName: 'Ibrahim', lastName: 'Musa', email: 'ibrahim.musa@pgsl.com', department: 'Technical', role: 'Employee', lastActive: '-', status: 'Invited', phone: '0802 111 2222', joined: '01/09/26' },
-  { id: 'USR-003', firstName: 'Emmanuel', lastName: 'Eze', email: 'emmanuel.eze@pgsl.com', department: 'Administration', role: 'HOD', lastActive: '28/05/25 9:12 AM', status: 'Active', phone: '0801 333 4444', joined: '15/01/26' },
-  { id: 'USR-004', firstName: 'Zainab', lastName: 'Mohammed', email: 'zainab.mohammed@pgsl.com', department: 'Finance & Accounts', role: 'Employee', lastActive: '28/05/25 9:12 AM', status: 'Active', phone: '0809 555 6666', joined: '03/03/26' },
-  { id: 'USR-005', firstName: 'Adeola', lastName: 'Olatunji', email: 'adeola.olatunji@pgsl.com', department: 'Quality System', role: 'Employee', lastActive: '-', status: 'Invited', phone: '0806 777 8888', joined: '20/05/26' },
-  { id: 'USR-006', firstName: 'Tunde', lastName: 'Bakare', email: 'tunde.bakare@pgsl.com', department: 'HSE', role: 'HOD', lastActive: '-', status: 'Invited', phone: '0805 999 0000', joined: '11/02/26' },
-  { id: 'USR-007', firstName: 'Amaka', lastName: 'Ugochukwu', email: 'amaka.ugochukwu@pgsl.com', department: 'Business Development', role: 'Employee', lastActive: '28/05/25 9:12 AM', status: 'Active', phone: '0804 123 4567', joined: '07/04/26' },
-  { id: 'USR-008', firstName: 'Damilola', lastName: 'Adebayo', email: 'damiloa.adebayo@pgsl.com', department: 'System', role: 'Admin', lastActive: '28/05/25 9:12 AM', status: 'Active', phone: '0803 234 5678', joined: '01/01/26' },
-  { id: 'USR-009', firstName: 'Chidera', lastName: 'Nwosu', email: 'chidera.nwosu@pgsl.com', department: 'Quality System', role: 'HOD', lastActive: '28/05/25 9:12 AM', status: 'Suspended', phone: '0807 345 6789', joined: '14/06/26' },
-  { id: 'USR-010', firstName: 'Ijeoma', lastName: 'Chukwuma', email: 'ijeoma.chukwuma@pgsl.com', department: 'Technical', role: 'Employee', lastActive: '28/05/25 9:12 AM', status: 'Deactivated', phone: '0808 456 7890', joined: '22/07/26' },
+const PAGE_SIZE = 10;
+const STATUS_OPTIONS = [
+  { value: '', label: 'Any status' },
+  { value: 'active', label: 'Active' },
+  { value: 'invited', label: 'Invited' },
+  { value: 'suspended', label: 'Suspended' },
+  { value: 'deactivated', label: 'Deactivated' },
 ];
 
-const AUDIT_LOGS = [
-  { date: '27 Aug 2026, 3:45 PM', action: 'Account Created', by: 'Super Admin' },
-  { date: '27 Aug 2026, 3:45 PM', action: 'Account Activated', by: 'System' },
-  { date: '27 Aug 2026, 3:45 PM', action: 'Role Changed', by: 'Super Admin' },
-  { date: '27 Aug 2026, 3:45 PM', action: 'Login', by: 'System' },
-];
-
-const ITEMS_PER_PAGE = 10;
-
-// ─── Status Badge ─────────────────────────────────────────────────────────────
-const STATUS_STYLES = {
-  Active:      { bg: '#F0FDF4', color: '#16A34A', border: '#BBF7D0' },
-  Invited:     { bg: '#FFF7ED', color: '#EA580C', border: '#FED7AA' },
-  Suspended:   { bg: '#FEF9C3', color: '#CA8A04', border: '#FDE68A' },
-  Deactivated: { bg: '#F1F5F9', color: '#64748B', border: '#CBD5E1' },
+const ACTIONS = {
+  suspend: {
+    title: 'Suspend User?',
+    desc: 'This prevents the user from signing in to PGSL ERP and ends their current sessions. Their account and records stay in the system.',
+    label: 'Suspend User', tone: 'danger', icon: <FiUserX size={14} />, requireReason: true,
+  },
+  deactivate: {
+    title: 'Deactivate User?',
+    desc: "This deactivates the user's account, ends their sessions and prevents access to PGSL ERP.",
+    label: 'Deactivate User', tone: 'danger', icon: <FiUserX size={14} />, requireReason: true,
+  },
+  cancelInvite: {
+    title: 'Cancel Invitation?',
+    desc: 'This deletes the pending account. The invitation link stops working and the user cannot activate the account.',
+    label: 'Cancel Invitation', tone: 'danger', icon: <FiX size={14} />, requireReason: true,
+  },
+  resend: {
+    title: 'Resend Invitation?',
+    desc: "A new invitation link is sent to the user's work email so they can finish setting up their account.",
+    label: 'Resend Invite', tone: 'primary', icon: <FiMail size={14} />,
+  },
+  reactivate: {
+    title: 'Reactivate User?',
+    desc: "This restores the user's access to PGSL ERP.",
+    label: 'Reactivate User', tone: 'success', icon: <FiUserCheck size={14} />,
+  },
+  resetPwd: {
+    title: 'Send Password Reset?',
+    desc: "A password reset link (valid for 60 minutes) is sent to the user's work email.",
+    label: 'Send Reset Link', tone: 'primary', icon: <FiKey size={14} />,
+  },
 };
-function StatusPill({ status }) {
-  const s = STATUS_STYLES[status] || STATUS_STYLES.Deactivated;
+
+function SkeletonRows() {
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '3px 10px', borderRadius: 20, fontSize: '0.75rem', fontWeight: 600, backgroundColor: s.bg, color: s.color, border: `1px solid ${s.border}` }}>
-      {status}
-    </span>
-  );
-}
-
-// ─── Row Actions Menu ─────────────────────────────────────────────────────────
-function RowMenu({ user, onView, onEdit, onAction }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef();
-  useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
-  }, []);
-
-  const activeMenuItems = [
-    { label: 'Edit User',       icon: <FiEdit2 size={13} />,     action: () => onEdit(),               color: '#334155' },
-    { label: 'Reset Password',  icon: <FiKey size={13} />,       action: () => onAction('resetPwd'),   color: '#334155' },
-    { label: 'Suspend User',    icon: <FiUserX size={13} />,     action: () => onAction('suspend'),    color: '#DC2626' },
-    { label: 'Deactivate User', icon: <FiUserX size={13} />,     action: () => onAction('deactivate'), color: '#DC2626' },
-  ];
-  const invitedMenuItems = [
-    { label: 'Edit User',    icon: <FiEdit2 size={13} />, action: () => onEdit(),                 color: '#334155' },
-    { label: 'Resend Invite',icon: <FiMail size={13} />,  action: () => onAction('resend'),       color: '#334155' },
-    { label: 'Cancel Invite',icon: <FiX size={13} />,    action: () => onAction('cancelInvite'), color: '#DC2626' },
-  ];
-  const suspendedMenuItems = [
-    { label: 'Edit User',       icon: <FiEdit2 size={13} />,     action: () => onEdit(),               color: '#334155' },
-    { label: 'Reactivate User', icon: <FiUserCheck size={13} />, action: () => onAction('reactivate'), color: '#16A34A' },
-  ];
-
-  const items = user.status === 'Invited' ? invitedMenuItems
-    : user.status === 'Suspended' ? suspendedMenuItems
-    : activeMenuItems;
-
-  return (
-    <div style={{ position: 'relative' }} ref={ref}>
-      <button className="icon-btn" onClick={() => setOpen((v) => !v)}><FiMoreVertical size={16} /></button>
-      {open && (
-        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, backgroundColor: '#FFFFFF', borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0', padding: '6px 0', zIndex: 100, width: 185, minWidth: 'max-content' }}>
-          {items.map((item, i) => (
-            <div key={i} onClick={() => { item.action(); setOpen(false); }}
-              style={{ padding: '8px 14px', fontSize: '0.813rem', color: item.color, display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#F8FAFC')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
-            >
-              {item.icon} {item.label}
-            </div>
-          ))}
-        </div>
-      )}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: '4px 0' }}>
+      {[1, 2, 3, 4, 5, 6].map((k) => (
+        <div key={k} style={{ height: 44, borderRadius: 8, background: 'linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)', backgroundSize: '200% 100%', animation: 'shimmer 1.4s infinite' }} />
+      ))}
+      <style>{'@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}'}</style>
     </div>
   );
 }
 
-// ─── Add / Edit User Drawer ───────────────────────────────────────────────────
-function UserFormDrawer({ isOpen, onClose, onSave, user }) {
-  const isEditing = !!user;
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', department: 'Human Resources', role: 'Employee', phone: '' });
-
-  useEffect(() => {
-    if (user) {
-      setForm({
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        departmentId: user.departmentId?._id || user.departmentId || '',
-        jobTitle: user.jobTitle || '',
-        phoneNumber: user.phoneNumber || '',
-      });
-    } else {
-      setForm({ firstName: '', lastName: '', email: '', departmentId: '', jobTitle: '', phoneNumber: '' });
-    }
-  }, [user, isOpen]);
-
-  const handleChange = (e) => { const { name, value } = e.target; setForm((p) => ({ ...p, [name]: value })); };
-  const handleSubmit = (e) => { e.preventDefault(); onSave(form); };
+function FilterDrawer({ isOpen, onClose, value, onApply, departments, roles }) {
+  const [draft, setDraft] = useState(value);
+  const set = (k, v) => setDraft((p) => ({ ...p, [k]: v }));
 
   const footer = (
     <>
-      <button type="button" onClick={onClose} style={{ padding: '8px 20px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', color: '#475569', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
-      <button type="submit" form="user-form" style={{ padding: '8px 22px', borderRadius: 6, border: 'none', backgroundColor: '#1D4ED8', color: '#FFFFFF', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}>
-        {isEditing ? 'Save Changes' : 'Send Invite'}
-      </button>
+      <button className="btn btn-secondary" style={{ flex: 1, padding: '8px 16px', borderRadius: 6, fontSize: '0.85rem' }} onClick={() => { onApply({}); onClose(); }}>Reset</button>
+      <button className="btn btn-primary" style={{ flex: 1, padding: '8px 16px', borderRadius: 6, fontSize: '0.85rem', backgroundColor: '#1D4ED8' }} onClick={() => { onApply(draft); onClose(); }}>Apply Filters</button>
     </>
   );
 
   return (
-    <Drawer
-      isOpen={isOpen}
-      onClose={onClose}
-      title={isEditing ? 'Edit User' : 'Add User'}
-      subtitle={isEditing ? 'Update user account details.' : 'Create a user account and assign their department and role.'}
-      width="520px"
-      footer={footer}
-    >
-      <form id="user-form" onSubmit={handleSubmit}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-          <FormField label="User ID" required>
-            <Input value={user?.id || 'USR-001'} readOnly style={{ backgroundColor: '#F8FAFC', color: '#94A3B8' }} />
-          </FormField>
-          <FormField label="First Name" required>
-            <Input name="firstName" value={form.firstName} onChange={handleChange} placeholder="Aminat" required />
-          </FormField>
-          <FormField label="Last Name" required>
-            <Input name="lastName" value={form.lastName} onChange={handleChange} placeholder="Yusuf" required />
-          </FormField>
-          <FormField label="Work Email" required>
-            <Input type="email" name="email" value={form.email} onChange={handleChange} placeholder="amina.yusuf@pgsl.com" required />
-          </FormField>
-          <FormField label="Department" required>
-            <Select name="department" value={form.department} onChange={handleChange} options={DEPARTMENTS} />
-          </FormField>
-          <FormField label="Role" required>
-            <Select name="role" value={form.role} onChange={handleChange} options={ROLES} />
-          </FormField>
-          <FormField label="Phone Number (Optional)" style={{ gridColumn: '1 / -1' }}>
-            <Input name="phone" value={form.phone} onChange={handleChange} placeholder="0803 456 7890" />
-          </FormField>
-        </div>
-      </form>
+    <Drawer isOpen={isOpen} onClose={onClose} title="Filter Users" subtitle="Narrow the list by status, department or role" width="420px" footer={footer}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <FormField label="Status">
+          <Select value={draft.status || ''} onChange={(e) => set('status', e.target.value)} options={STATUS_OPTIONS} />
+        </FormField>
+        <FormField label="Department">
+          <Select
+            value={draft.departmentId || ''}
+            onChange={(e) => set('departmentId', e.target.value)}
+            options={[{ value: '', label: 'Any department' }, ...departments.map((d) => ({ value: d._id, label: d.name }))]}
+            searchable
+          />
+        </FormField>
+        <FormField label="Role">
+          <Select
+            value={draft.roleId || ''}
+            onChange={(e) => set('roleId', e.target.value)}
+            options={[{ value: '', label: 'Any role' }, ...roles.map((r) => ({ value: r._id, label: r.name }))]}
+            searchable
+          />
+        </FormField>
+      </div>
     </Drawer>
   );
 }
 
-// ─── View User Drawer ─────────────────────────────────────────────────────────
-function ViewUserDrawer({ isOpen, onClose, user, onEdit }) {
-  const [tab, setTab] = useState('details');
-  if (!user) return null;
-
-  const tabStyle = (t) => ({
-    padding: '10px 0',
-    fontSize: '0.875rem',
-    fontWeight: tab === t ? 700 : 500,
-    color: tab === t ? '#1D4ED8' : '#64748B',
-    border: 'none',
-    borderBottom: tab === t ? '2px solid #1D4ED8' : '2px solid transparent',
-    backgroundColor: 'transparent',
-    cursor: 'pointer',
-    marginBottom: -1,
-    transition: 'color 0.15s ease',
-  });
-
-  const detailItem = (label, value) => (
-    <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#94A3B8' }}>{label}</span>
-      <span style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{value || '—'}</span>
-    </div>
-  );
-
-  return (
-    <Drawer
-      isOpen={isOpen}
-      onClose={onClose}
-      title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: '50%', backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <FiUser size={16} color="#1D4ED8" />
-          </div>
-          <div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A' }}>{user.firstName} {user.lastName}</div>
-            <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 400 }}>{user.id} · {user.email}</div>
-          </div>
-        </div>
-      }
-      width="520px"
-    >
-      {/* Status bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #F1F5F9' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 500 }}>Status:</span>
-          <StatusPill status={user.status} />
-        </div>
-        <button onClick={onEdit} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', color: '#334155', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>
-          <FiEdit2 size={13} /> Edit User
-        </button>
-      </div>
-
-      {/* Tabs */}
-      <div style={{ display: 'flex', gap: 24, borderBottom: '1px solid #E2E8F0', marginBottom: 20 }}>
-        <button style={tabStyle('details')} onClick={() => setTab('details')}>Details</button>
-        <button style={tabStyle('audit')} onClick={() => setTab('audit')}>Audit Trail</button>
-      </div>
-
-      {/* Details Tab */}
-      {tab === 'details' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 24px' }}>
-          {detailItem('User ID', user.id)}
-          {detailItem('First Name', user.firstName)}
-          {detailItem('Last Name', user.lastName)}
-          {detailItem('Work Email', user.email)}
-          {detailItem('Department', user.department)}
-          {detailItem('Role', user.role)}
-          {detailItem('Phone Number', user.phone)}
-          {detailItem('Joined', user.joined)}
-          {detailItem('Last Active', user.lastActive)}
-          {detailItem('Status', user.status)}
-        </div>
-      )}
-
-      {/* Audit Trail Tab */}
-      {tab === 'audit' && (
-        <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0', padding: '10px 14px' }}>
-            {['Date & Time', 'Action', 'Changed By'].map((h) => (
-              <span key={h} style={{ fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748B' }}>{h}</span>
-            ))}
-          </div>
-          {AUDIT_LOGS.map((log, i) => (
-            <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', padding: '12px 14px', borderBottom: i === AUDIT_LOGS.length - 1 ? 'none' : '1px solid #F1F5F9', fontSize: '0.813rem' }}>
-              <span style={{ color: '#475569' }}>{log.date}</span>
-              <span style={{ color: '#0F172A', fontWeight: 500 }}>{log.action}</span>
-              <span style={{ color: '#1D4ED8', fontWeight: 500 }}>{log.by}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </Drawer>
-  );
-}
-
-// ─── Confirm Action Modal (compact overlay — kept as small dialog per screenshots) ──
-const ACTION_CONFIGS = {
-  suspend: {
-    title: 'Suspend User?',
-    desc: 'This will prevent the user from signing in to PGSL ERP. Their account and existing records will remain in the system.',
-    btnLabel: 'Suspend User',
-    btnColor: '#DC2626',
-    icon: <FiUserX size={14} />,
-    hasReason: true,
-  },
-  deactivate: {
-    title: 'Deactivate User?',
-    desc: 'This will deactivate the user\'s account and prevent access to PGSL ERP.',
-    btnLabel: 'Deactivate User',
-    btnColor: '#DC2626',
-    icon: <FiUserX size={14} />,
-    hasReason: true,
-  },
-  cancelInvite: {
-    title: 'Cancel Invitation?',
-    desc: 'This will invalidate the current invitation link. The user will not be able to activate their account using this invitation.',
-    btnLabel: 'Cancel Invitation',
-    btnColor: '#DC2626',
-    icon: <FiX size={14} />,
-    hasReason: true,
-  },
-  resend: {
-    title: 'Resend Invitation?',
-    desc: 'A new invitation link will be sent to the user\'s work email so they can complete their account setup.',
-    btnLabel: 'Resend Invite',
-    btnColor: '#1D4ED8',
-    icon: <FiMail size={14} />,
-    hasReason: false,
-  },
-  reactivate: {
-    title: 'Reactivate User?',
-    desc: 'This will restore the user\'s access to PGSL ERP.',
-    btnLabel: 'Reactivate User',
-    btnColor: '#16A34A',
-    icon: <FiUserCheck size={14} />,
-    hasReason: false,
-  },
-  resetPwd: {
-    title: 'Send Password Reset?',
-    desc: 'A password reset link will be sent to the user\'s work email.',
-    btnLabel: 'Send Reset Link',
-    btnColor: '#1D4ED8',
-    icon: <FiKey size={14} />,
-    hasReason: false,
-  },
-};
-
-function ConfirmActionModal({ isOpen, onClose, onConfirm, user, actionKey }) {
-  const [reason, setReason] = useState('');
-  const cfg = ACTION_CONFIGS[actionKey];
-  if (!isOpen || !cfg || !user) return null;
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, fontFamily: 'var(--font)' }}>
-      <div onClick={onClose} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.5)', backdropFilter: 'blur(4px)' }} />
-      <div style={{ position: 'relative', zIndex: 2001, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 28, maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', marginBottom: 6 }}>{cfg.title}</div>
-          <div style={{ fontSize: '0.85rem', color: '#64748B', lineHeight: 1.6 }}>{cfg.desc}</div>
-        </div>
-        <div style={{ marginBottom: cfg.hasReason ? 16 : 24 }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#0F172A' }}>{user.firstName} {user.lastName}</div>
-          <div style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{user.email}</div>
-        </div>
-        {cfg.hasReason && (
-          <div style={{ marginBottom: 24 }}>
-            <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: '#64748B', marginBottom: 6 }}>
-              REASON <span style={{ color: '#DC2626' }}>*</span>
-            </label>
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Add reason..."
-              rows={3}
-              style={{ width: '100%', padding: '10px 12px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', fontSize: '0.875rem', fontFamily: 'var(--font)', resize: 'vertical', outline: 'none', boxSizing: 'border-box', color: '#0F172A' }}
-            />
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ padding: '8px 20px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#FFFFFF', color: '#475569', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
-          <button
-            onClick={() => { onConfirm(reason); setReason(''); }}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', borderRadius: 6, border: 'none', backgroundColor: cfg.btnColor, color: '#FFFFFF', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer' }}
-          >
-            {cfg.icon} {cfg.btnLabel}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 export default function UserManagement() {
   const dispatch = useDispatch();
   const { toast, showToast, hideToast } = useToast();
+  const { can, isSuperAdmin } = usePermissions();
+  const myPermissions = useSelector((s) => s.auth.permissions);
+  const myId = useSelector((s) => s.auth.user?._id);
+  const { users, meta, usersLoading, usersError, roles, rolesError, departments, departmentsError, locations } = useSelector((s) => s.users);
 
-  // Redux state
-  const { users, meta, usersLoading } = useSelector((s) => s.users);
   const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
+  const debouncedSearch = useDebounce(search.trim(), 300);
+  const [page, setPage] = useState(1);
+  const [filters, setFilters] = useState({});
   const [selectedIds, setSelectedIds] = useState([]);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [formMode, setFormMode] = useState(null);
+  const [viewId, setViewId] = useState(null);
+  const [action, setAction] = useState({ user: null, key: null, busy: false, error: '' });
 
-  // Drawer / modal states
-  const [addOpen, setAddOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
-  const [viewTarget, setViewTarget] = useState(null);
-  const [actionModal, setActionModal] = useState({ open: false, user: null, key: null });
+  const query = useMemo(
+    () => ({
+      page,
+      limit: PAGE_SIZE,
+      q: debouncedSearch || undefined,
+      status: filters.status || undefined,
+      departmentId: filters.departmentId || undefined,
+      roleId: filters.roleId || undefined,
+    }),
+    [page, debouncedSearch, filters],
+  );
 
-  // Load users (server-side pagination + search)
-  const loadUsers = useCallback(() => {
-    dispatch(fetchUsers({ page: currentPage, limit: ITEMS_PER_PAGE, q: search || undefined }));
-  }, [dispatch, currentPage, search]);
+  const loadUsers = useCallback(() => dispatch(fetchUsers(query)), [dispatch, query]);
 
   useEffect(() => {
-    const t = setTimeout(loadUsers, search ? 300 : 0);
-    return () => clearTimeout(t);
+    loadUsers();
   }, [loadUsers]);
 
-  // Load roles + departments for pickers on mount
   useEffect(() => {
-    dispatch(fetchRoles());
-    dispatch(fetchDepartments());
+    if (can('core.role.view')) dispatch(fetchRoles());
+    if (can('core.department.view')) dispatch(fetchDepartments());
+    if (can('core.location.view')) dispatch(fetchLocations());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch]);
 
-  const handleSelectRow = (id) => setSelectedIds((p) => p.includes(id) ? p.filter((i) => i !== id) : [...p, id]);
-  const handleSelectAll = () => selectedIds.length === users.length ? setSelectedIds([]) : setSelectedIds(users.map((u) => u._id));
+  const grantCeiling = useCallback(
+    (role) => {
+      if (isSuperAdmin) return { ok: true };
+      if (role.slug === 'super-admin') return { ok: false, reason: 'Only a Super Admin can grant the Super Admin role' };
+      const missing = (role.permissions || []).some((p) => !myPermissions.includes(p));
+      return missing ? { ok: false, reason: 'This role includes permissions you do not hold, so you cannot grant it' } : { ok: true };
+    },
+    [isSuperAdmin, myPermissions],
+  );
 
+  const viewUser = viewId ? users.find((u) => u._id === viewId) : null;
+  const editUser = formMode && formMode !== 'add' ? users.find((u) => u._id === formMode) : null;
 
-  // Invite new user
-  const handleSave = async (form) => {
-    if (editTarget) {
-      const result = await dispatch(updateUser({ id: editTarget._id, ...form }));
-      if (result.meta.requestStatus === 'fulfilled') {
-        setEditTarget(null);
-        showToast('User updated successfully', 'success');
-      } else {
-        showToast(result.payload || 'Update failed', 'error');
+  const activeFilterCount = ['status', 'departmentId', 'roleId'].filter((k) => filters[k]).length;
+
+  // ── Save (invite or edit) ───────────────────────────────────────────────────
+  const handleSave = async (payload) => {
+    const { roleIds, ...profile } = payload;
+    if (!editUser) {
+      const result = await dispatch(inviteUser({ ...profile, roleIds }));
+      if (result.meta.requestStatus !== 'fulfilled') return { error: result.payload };
+      setFormMode(null);
+      showToast('Invitation sent', 'success');
+      setPage(1);
+      loadUsers();
+      return {};
+    }
+
+    const updated = await dispatch(updateUser({ id: editUser._id, ...profile }));
+    if (updated.meta.requestStatus !== 'fulfilled') return { error: updated.payload };
+
+    const before = (editUser.roles || []).map((r) => r?._id || r).sort().join(',');
+    const after = [...roleIds].sort().join(',');
+    if (before !== after && can('core.user.update')) {
+      const rolesResult = await dispatch(setUserRoles({ id: editUser._id, roleIds }));
+      if (rolesResult.meta.requestStatus !== 'fulfilled') {
+        loadUsers();
+        return { error: { ...rolesResult.payload, message: `Details saved, but roles were not changed: ${rolesResult.payload.message}` } };
       }
-    } else {
-      const result = await dispatch(inviteUser(form));
-      if (result.meta.requestStatus === 'fulfilled') {
-        setAddOpen(false);
-        showToast('Invite sent successfully', 'success');
-      } else {
-        showToast(result.payload || 'Invite failed', 'error');
+    }
+    setFormMode(null);
+    showToast('User updated', 'success');
+    loadUsers();
+    return {};
+  };
+
+  // ── Status / invite actions ─────────────────────────────────────────────────
+  const runAction = async (reason) => {
+    const { user, key } = action;
+    const name = `${user.firstName} ${user.lastName}`;
+    setAction((a) => ({ ...a, busy: true, error: '' }));
+
+    let result;
+    if (key === 'suspend') result = await dispatch(setUserStatus({ id: user._id, status: 'suspended', reason }));
+    if (key === 'deactivate') result = await dispatch(setUserStatus({ id: user._id, status: 'deactivated', reason }));
+    if (key === 'reactivate') result = await dispatch(setUserStatus({ id: user._id, status: 'active' }));
+    if (key === 'resend') result = await dispatch(resendUserInvite(user._id));
+    if (key === 'cancelInvite') result = await dispatch(cancelUserInvite({ id: user._id, reason }));
+    if (key === 'resetPwd') result = await dispatch(sendPasswordReset(user._id));
+
+    if (result.meta.requestStatus !== 'fulfilled') {
+      setAction((a) => ({ ...a, busy: false, error: result.payload?.message || 'Action failed' }));
+      return;
+    }
+    const messages = {
+      suspend: `${name} has been suspended`,
+      deactivate: `${name} has been deactivated`,
+      cancelInvite: `Invitation cancelled for ${name}`,
+      resend: `Invitation resent to ${user.email}`,
+      reactivate: `${name} has been reactivated`,
+      resetPwd: `Password reset link sent to ${user.email}`,
+    };
+    showToast(messages[key], 'success');
+    setAction({ user: null, key: null, busy: false, error: '' });
+    if (key === 'cancelInvite') setViewId(null);
+    loadUsers();
+  };
+
+  const menuItemsFor = (user) => {
+    const open = (key) => () => setAction({ user, key, busy: false, error: '' });
+    const items = [];
+    const isSelf = user._id === myId;
+    if (can('core.user.update')) items.push({ label: 'Edit User', icon: <FiEdit2 size={13} />, action: () => setFormMode(user._id), color: '#334155' });
+    if (user.status === 'active') {
+      if (can('core.user.reset-password')) items.push({ label: 'Reset Password', icon: <FiKey size={13} />, action: open('resetPwd'), color: '#334155' });
+      if (can('core.user.suspend') && !isSelf) {
+        items.push({ label: 'Suspend User', icon: <FiUserX size={13} />, action: open('suspend'), color: '#DC2626' });
+        items.push({ label: 'Deactivate User', icon: <FiUserX size={13} />, action: open('deactivate'), color: '#DC2626' });
       }
+    }
+    if (user.status === 'invited') {
+      if (can('core.user.resend-invite')) items.push({ label: 'Resend Invite', icon: <FiMail size={13} />, action: open('resend'), color: '#334155' });
+      if (can('core.user.cancel-invite')) items.push({ label: 'Cancel Invite', icon: <FiX size={13} />, action: open('cancelInvite'), color: '#DC2626' });
+    }
+    if (user.status === 'suspended' && can('core.user.suspend')) {
+      items.push({ label: 'Reactivate User', icon: <FiUserCheck size={13} />, action: open('reactivate'), color: '#16A34A' });
+      items.push({ label: 'Deactivate User', icon: <FiUserX size={13} />, action: open('deactivate'), color: '#DC2626' });
+    }
+    if (user.status === 'deactivated' && can('core.user.suspend')) {
+      items.push({ label: 'Reactivate User', icon: <FiUserCheck size={13} />, action: open('reactivate'), color: '#16A34A' });
+    }
+    return items;
+  };
+
+  // ── Export: ticked rows as CSV, or everything matching the filters from the server ──
+  const handleExport = async () => {
+    const roleNames = (u) => (u.roles || []).map((r) => r?.name || r).join('; ');
+    if (selectedIds.length > 0) {
+      const rows = users
+        .filter((u) => selectedIds.includes(u._id))
+        .map((u) => [u.userCode, u.firstName, u.lastName, u.email, u.phoneNumber || '', u.jobTitle || '', u.departmentId?.name || '', roleNames(u), u.status, u.lastLoginAt || '', u.createdAt]);
+      downloadCsv('users-selected.csv', ['User ID', 'First name', 'Last name', 'Email', 'Phone', 'Job title', 'Department', 'Roles', 'Status', 'Last login', 'Created'], rows);
+      showToast(`Exported ${rows.length} selected user${rows.length === 1 ? '' : 's'}`, 'success');
+      return;
+    }
+    try {
+      const { q, status, departmentId, roleId } = query;
+      const res = await userService.exportCsv({ q, status, departmentId, roleId });
+      downloadBlob(res.data, filenameFromResponse(res, 'users.csv'));
+      showToast('Users exported', 'success');
+    } catch (err) {
+      showToast(await blobErrorMessage(err, 'Export failed'), 'error');
     }
   };
 
-  // Status / invite actions
-  const handleConfirmAction = async (reason) => {
-    const { user, key } = actionModal;
-    let result;
-    const name = `${user.firstName} ${user.lastName}`;
-
-    if (key === 'suspend')      result = await dispatch(setUserStatus({ id: user._id, status: 'suspended',    reason }));
-    if (key === 'deactivate')   result = await dispatch(setUserStatus({ id: user._id, status: 'deactivated',  reason }));
-    if (key === 'reactivate')   result = await dispatch(setUserStatus({ id: user._id, status: 'active' }));
-    if (key === 'resend')       result = await dispatch(resendUserInvite(user._id));
-    if (key === 'cancelInvite') result = await dispatch(cancelUserInvite({ id: user._id, reason }));
-    if (key === 'resetPwd')     result = await dispatch(sendPasswordReset(user._id));
-
-    const ok = result?.meta?.requestStatus === 'fulfilled';
-    const msgMap = {
-      suspend:      `${name} has been suspended`,
-      deactivate:   `${name} has been deactivated`,
-      cancelInvite: `Invitation cancelled for ${name}`,
-      resend:       `Invitation resent to ${user.email}`,
-      reactivate:   `${name} has been reactivated`,
-      resetPwd:     `Password reset link sent to ${user.email}`,
-    };
-    const typeMap = { suspend: 'error', deactivate: 'error', cancelInvite: 'error', resend: 'success', reactivate: 'success', resetPwd: 'success' };
-    showToast(ok ? msgMap[key] : (result?.payload || 'Action failed'), ok ? typeMap[key] : 'error');
-    setActionModal({ open: false, user: null, key: null });
-  };
-
   const columns = [
-    {
-      key: 'userCode', label: 'USER ID',
-      render: (val) => <span style={{ color: '#1D4ED8', fontWeight: 600, fontSize: '0.813rem' }}>{val}</span>,
-    },
-    {
-      key: 'firstName', label: 'NAME',
-      render: (val, row) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{row.firstName} {row.lastName}</span>,
-    },
+    { key: 'userCode', label: 'USER ID', render: (val) => <span style={{ color: '#1D4ED8', fontWeight: 600, fontSize: '0.813rem' }}>{val}</span> },
+    { key: 'firstName', label: 'NAME', render: (_, row) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{row.firstName} {row.lastName}</span> },
     { key: 'email', label: 'EMAIL', render: (val) => <span style={{ color: '#475569' }}>{val}</span> },
-    {
-      key: 'departmentId', label: 'DEPARTMENT',
-      render: (val) => <span style={{ color: '#1D4ED8', fontWeight: 500 }}>{val?.name || val || '—'}</span>,
-    },
-    {
-      key: 'roles', label: 'ROLE',
-      render: (val) => <span>{Array.isArray(val) ? val.map((r) => r?.name || r).join(', ') : val || '—'}</span>,
-    },
-    {
-      key: 'lastLoginAt', label: 'LAST ACTIVE', nowrap: true,
-      render: (val) => <span style={{ color: '#475569' }}>{val ? new Date(val).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '—'}</span>,
-    },
-    {
-      key: 'status', label: 'STATUS',
-      render: (val) => <StatusPill status={val === 'active' ? 'Active' : val === 'invited' ? 'Invited' : val === 'suspended' ? 'Suspended' : 'Deactivated'} />,
-    },
+    { key: 'departmentId', label: 'DEPARTMENT', render: (val) => <span style={{ color: '#1D4ED8', fontWeight: 500 }}>{val?.name || '—'}</span> },
+    { key: 'roles', label: 'ROLE', render: (val) => <span>{(val || []).map((r) => r?.name || r).join(', ') || '—'}</span> },
+    { key: 'lastLoginAt', label: 'LAST ACTIVE', nowrap: true, render: (val) => <span style={{ color: '#475569' }}>{val ? formatDateTime(val) : '—'}</span> },
+    { key: 'status', label: 'STATUS', render: (val) => <StatusPill status={val} /> },
     {
       key: 'actions', label: 'ACTIONS', align: 'right',
-      render: (_, row) => (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
-          <button className="icon-btn" onClick={() => setViewTarget(row)} title="View User"><FiEye size={15} /></button>
-          <RowMenu
-            user={{ ...row, status: row.status === 'active' ? 'Active' : row.status === 'invited' ? 'Invited' : row.status === 'suspended' ? 'Suspended' : 'Deactivated' }}
-            onView={() => setViewTarget(row)}
-            onEdit={() => setEditTarget(row)}
-            onAction={(key) => setActionModal({ open: true, user: row, key })}
-          />
-        </div>
-      ),
+      render: (_, row) => {
+        const items = menuItemsFor(row);
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+            <button className="icon-btn" onClick={() => setViewId(row._id)} title="View User"><FiEye size={15} /></button>
+            {items.length > 0 && <RowMenu items={items} />}
+          </div>
+        );
+      },
     },
   ];
+
+  const cfg = ACTIONS[action.key];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Page Header */}
       <div>
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Users</h1>
-        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-          Manage user accounts, roles, and access to the PGSL ERP.
-        </p>
+        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>Manage user accounts, roles, and access to the PGSL ERP.</p>
       </div>
 
-      {/* Table Card */}
       <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
-        {/* Toolbar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
             <Input
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
-              placeholder="Search User ID, Name..."
+              onChange={(e) => { setSearch(e.target.value); setPage(1); setSelectedIds([]); }}
+              placeholder="Search User ID, name or email..."
               style={{ paddingLeft: 36 }}
             />
             <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}><FiSearch size={15} /></div>
           </div>
-          <button className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
-            <FiFilter size={14} /> Filter
+          <button className="btn btn-secondary" onClick={() => setFilterOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
+            <FiFilter size={14} /> Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
           </button>
-          <button className="btn btn-secondary" onClick={() => showToast('Exporting users...', 'info')} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
-            Export <FiDownload size={14} />
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => setAddOpen(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', backgroundColor: '#1D4ED8', color: '#FFFFFF', borderRadius: 6, fontWeight: 600, border: 'none' }}
-          >
-            <FiPlus size={14} /> Add User
-          </button>
+          <PermissionGate permission="core.user.export">
+            <button className="btn btn-secondary" onClick={handleExport} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
+              {selectedIds.length > 0 ? `Export (${selectedIds.length})` : 'Export'} <FiDownload size={14} />
+            </button>
+          </PermissionGate>
+          <PermissionGate permission="core.user.create">
+            <button
+              className="btn btn-primary"
+              onClick={() => setFormMode('add')}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', backgroundColor: '#1D4ED8', color: '#FFFFFF', borderRadius: 6, fontWeight: 600, border: 'none' }}
+            >
+              <FiPlus size={14} /> Add User
+            </button>
+          </PermissionGate>
         </div>
 
-        {usersLoading && (
-          <div style={{ textAlign: 'center', padding: '24px 0', color: '#94A3B8', fontSize: '0.875rem' }}>Loading users...</div>
+        {usersError && (
+          <div style={{ padding: '12px 16px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 6, color: '#DC2626', fontSize: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>{usersError}</span>
+            <button onClick={loadUsers} style={{ background: 'none', border: 'none', color: '#DC2626', fontWeight: 600, cursor: 'pointer' }}>Retry</button>
+          </div>
         )}
-        {!usersLoading && (
-          <DataTable
-            columns={columns}
-            data={users}
-            selectable
-            selectedIds={selectedIds}
-            onSelectRow={handleSelectRow}
-            onSelectAll={handleSelectAll}
-            keyField="_id"
-            emptyMessage="No users found matching your search."
-          />
+
+        {usersLoading && users.length === 0 ? (
+          <SkeletonRows />
+        ) : (
+          <div style={{ opacity: usersLoading ? 0.6 : 1, transition: 'opacity 0.15s ease' }}>
+            <DataTable
+              columns={columns}
+              data={users}
+              selectable
+              selectedIds={selectedIds}
+              onSelectRow={(id) => setSelectedIds((p) => (p.includes(id) ? p.filter((i) => i !== id) : [...p, id]))}
+              onSelectAll={() => setSelectedIds(selectedIds.length === users.length ? [] : users.map((u) => u._id))}
+              keyField="_id"
+              emptyMessage={usersError ? 'Users could not be loaded.' : debouncedSearch || activeFilterCount ? 'No users match your search or filters.' : 'No users yet. Use Add User to invite the first one.'}
+            />
+          </div>
         )}
-        <Pagination currentPage={currentPage} totalPages={meta?.totalPages || 1} onPageChange={setCurrentPage} />
+        <Pagination currentPage={meta?.page || page} totalPages={meta?.totalPages || 1} onPageChange={(p) => { setPage(p); setSelectedIds([]); }} />
       </div>
 
-      {/* Drawers */}
-      <UserFormDrawer isOpen={addOpen} onClose={() => setAddOpen(false)} onSave={handleSave} user={null} />
-      {editTarget && (
-        <UserFormDrawer isOpen={!!editTarget} onClose={() => setEditTarget(null)} onSave={handleSave} user={editTarget} />
+      {filterOpen && (
+        <FilterDrawer
+          isOpen
+          onClose={() => setFilterOpen(false)}
+          value={filters}
+          onApply={(next) => { setFilters(next); setPage(1); setSelectedIds([]); }}
+          departments={departments}
+          roles={roles}
+        />
       )}
-      <ViewUserDrawer
-        isOpen={!!viewTarget}
-        onClose={() => setViewTarget(null)}
-        user={viewTarget}
-        onEdit={() => { setEditTarget(viewTarget); setViewTarget(null); }}
-      />
 
-      {/* Compact confirm dialogs (suspend/deactivate/etc.) */}
-      <ConfirmActionModal
-        isOpen={actionModal.open}
-        onClose={() => setActionModal({ open: false, user: null, key: null })}
-        onConfirm={handleConfirmAction}
-        user={actionModal.user}
-        actionKey={actionModal.key}
+      {formMode && (formMode === 'add' || editUser) && (
+        <UserFormDrawer
+          key={formMode}
+          isOpen
+          onClose={() => setFormMode(null)}
+          onSubmit={handleSave}
+          user={editUser}
+          roles={roles}
+          rolesError={rolesError}
+          departments={departments}
+          departmentsError={departmentsError}
+          locations={locations}
+          canGrant={grantCeiling}
+          canAssignRoles={can('core.user.update') && can('core.role.view')}
+        />
+      )}
+
+      {viewUser && (
+        <UserViewDrawer
+          user={viewUser}
+          onClose={() => setViewId(null)}
+          onEdit={() => { setFormMode(viewUser._id); setViewId(null); }}
+          menuItems={menuItemsFor(viewUser).filter((i) => i.label !== 'Edit User')}
+          canEdit={can('core.user.update')}
+          canAudit={can('core.auditlog.view')}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!cfg}
+        title={cfg?.title}
+        description={cfg?.desc}
+        subject={action.user ? `${action.user.firstName} ${action.user.lastName}` : ''}
+        subjectDetail={action.user?.email}
+        confirmLabel={cfg?.label}
+        icon={cfg?.icon}
+        tone={cfg?.tone}
+        requireReason={!!cfg?.requireReason}
+        busy={action.busy}
+        error={action.error}
+        onConfirm={runAction}
+        onClose={() => setAction({ user: null, key: null, busy: false, error: '' })}
       />
     </div>
   );

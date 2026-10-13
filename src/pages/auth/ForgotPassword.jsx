@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../../services/auth.service';
+import { apiError } from '../../services/apiHelpers';
 import AuthLayout, { AuthCard, AuthLogo, AuthInput, AuthButton } from './AuthLayout';
 
 export default function ForgotPassword() {
@@ -11,15 +12,17 @@ export default function ForgotPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email) { setFieldError('Work email is required'); return; }
+    if (!email.trim()) { setFieldError('Work email is required'); return; }
     setLoading(true);
     try {
-      // The API always returns success regardless of whether email exists (security)
-      await authService.forgotPassword(email);
-      navigate('/auth/check-email', { state: { email } });
-    } catch {
-      // Still navigate — the API is designed to never reveal whether an email exists
-      navigate('/auth/check-email', { state: { email } });
+      // The API answers the same whether or not the email exists, so it never reveals accounts.
+      await authService.forgotPassword(email.trim());
+      navigate('/auth/check-email', { state: { email: email.trim() } });
+    } catch (err) {
+      const status = err.response?.status;
+      if (status === 422) setFieldError(apiError(err, 'Enter a valid work email'));
+      else if (status === 429) setFieldError('Too many attempts. Please wait a few minutes and try again.');
+      else setFieldError(apiError(err, 'Could not send the reset link. Check your connection and try again.'));
     } finally {
       setLoading(false);
     }

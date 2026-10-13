@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { FiCheck, FiAlertCircle, FiX } from 'react-icons/fi';
 
 export default function Toast({ message, type = 'success', onClose }) {
@@ -57,13 +57,13 @@ export default function Toast({ message, type = 'success', onClose }) {
 export function useToast() {
   const [toast, setToast] = useState(null);
 
-  const showToast = (message, type = 'success') => {
+  const showToast = useCallback((message, type = 'success') => {
     setToast({ message, type });
-  };
+  }, []);
 
-  const hideToast = () => {
+  const hideToast = useCallback(() => {
     setToast(null);
-  };
+  }, []);
 
   return { toast, showToast, hideToast, addToast: showToast };
 }
