@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginUser, selectAuthLoading, selectAuthError, selectMfaToken, selectIsAuthenticated, clearError } from '../../store/authSlice';
 import AuthLayout, { AuthCard, AuthLogo, AuthInput, AuthButton } from './AuthLayout';
+import Toast, { useToast } from '../../components/ui/Toast';
 
 export default function Login() {
   const dispatch = useDispatch();
@@ -16,6 +17,15 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const { toast, showToast, hideToast } = useToast();
+
+  // Show server error as toast
+  useEffect(() => {
+    if (error) {
+      showToast(error.message || 'Invalid email or password', 'error');
+      dispatch(clearError());
+    }
+  }, [error]);
 
   // If already authenticated, go straight to dashboard
   useEffect(() => {
@@ -27,15 +37,9 @@ export default function Login() {
     if (mfaToken) navigate('/auth/verify', { replace: true });
   }, [mfaToken, navigate]);
 
-  // Clear any previous auth error when the component mounts
-  useEffect(() => {
-    dispatch(clearError());
-  }, [dispatch]);
-
   const handleChange = (e) => {
     setForm((p) => ({ ...p, [e.target.id]: e.target.value }));
     setFieldErrors((p) => ({ ...p, [e.target.id]: '' }));
-    if (error) dispatch(clearError());
   };
 
   const validate = () => {
@@ -76,13 +80,6 @@ export default function Login() {
         <AuthLogo />
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: '0 0 6px 0' }}>Welcome back</h1>
         <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0 0 24px 0' }}>Sign in to your PGSL ERP account.</p>
-
-        {/* Server-level error (wrong credentials, suspended, etc.) */}
-        {error && (
-          <div style={{ marginBottom: 16, padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8 }}>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: '#DC2626' }}>{error.message}</p>
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>
@@ -126,6 +123,7 @@ export default function Login() {
           </AuthButton>
         </form>
       </AuthCard>
+      <Toast message={toast?.message} type={toast?.type} onClose={hideToast} />
     </AuthLayout>
   );
 }
