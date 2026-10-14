@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { FiCheck, FiAlertCircle, FiX } from 'react-icons/fi';
 
 export default function Toast({ message, type = 'success', onClose }) {

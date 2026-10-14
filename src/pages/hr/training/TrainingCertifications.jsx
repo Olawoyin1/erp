@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  FiSearch, FiFilter, FiDownload, FiPlus,
-  FiEye, FiMoreVertical, FiCheck, FiX, FiEdit2,
-  FiFileText, FiArrowLeft, FiUsers, FiBookOpen, FiAlertCircle
+  FiSearch, FiFilter, FiDownload, FiUpload, FiPlus, FiEye, FiMoreVertical, FiCheck, FiX, FiEdit2,
+  FiFileText, FiUsers, FiBookOpen, FiAlertCircle,
 } from 'react-icons/fi';
 import DataTable from '../../../components/ui/DataTable';
 import Pagination from '../../../components/ui/Pagination';
@@ -12,36 +11,24 @@ import Modal from '../../../components/ui/Modal';
 import { FormField, Input, Select, DatePicker, Textarea } from '../../../components/ui/FormField';
 import Toast, { useToast } from '../../../components/ui/Toast';
 import {
-  fetchTrainingPrograms, createTrainingProgram, updateTrainingProgram,
-  setTrainingStatus, cancelTraining, fetchParticipants, enrollParticipants,
-  selectTrainingPrograms, selectTrainingMeta, selectTrainingLoading,
-  selectTrainingError, selectParticipants, selectParticipantsLoading,
-  clearTrainingError,
+  fetchTrainingPrograms, createTrainingProgram, updateTrainingProgram, setTrainingStatus, cancelTraining,
+  selectTrainingPrograms, selectTrainingMeta, selectTrainingLoading, selectTrainingError,
 } from '../../../store/hr/trainingSlice';
-import { employeeService } from '../../../services/hr.service';
+import { trainingService } from '../../../services/hr.service';
+import { apiError, formatDate, titleCase } from '../../../services/apiHelpers';
+import { usePermission } from '../../../hooks/usePermission';
+import { fieldErrorsOf, saveBlob, blobErrorMessage, ymd } from '../hrUtils';
+import MultiEmployeePicker from '../MultiEmployeePicker';
+import { EmployeeFileDialog } from '../FileUploadDialogs';
+import TrainingParticipants from './TrainingParticipants';
+import { StatusBadge } from './trainingUi';
+import { STATUS_STYLES, durationLabel } from './trainingConstants';
 
 const ROWS_PER_PAGE = 10;
+const STATUS_FILTERS = [{ value: '', label: 'All statuses' }, ...Object.entries(STATUS_STYLES).map(([value, s]) => ({ value, label: s.label }))];
+const timeInput = { width: '100%', padding: '10px 14px', border: '1px solid #E2E8F0', borderRadius: 6, fontSize: '0.85rem', outline: 'none', backgroundColor: '#F8FAFC', boxSizing: 'border-box' };
 
-const STATUS_STYLES = {
-  scheduled:  { bg: '#EFF6FF', color: '#1D4ED8' },
-  active:     { bg: '#D1FAE5', color: '#065F46' },
-  completed:  { bg: '#F0FDF4', color: '#15803D' },
-  evaluation: { bg: '#FEF9C3', color: '#92400E' },
-  cancelled:  { bg: '#FEF2F2', color: '#991B1B' },
-};
-
-function StatusBadge({ status }) {
-  const s = STATUS_STYLES[status?.toLowerCase()] || { bg: '#F1F5F9', color: '#64748B' };
-  const label = status ? status.charAt(0).toUpperCase() + status.slice(1) : '—';
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '4px 10px', borderRadius: '20px',
-      fontSize: '0.75rem', fontWeight: 500, backgroundColor: s.bg, color: s.color }}>
-      {label}
-    </span>
-  );
-}
-
-function RowMenu({ item, options }) {
+function RowMenu({ options }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
   useEffect(() => {
@@ -52,22 +39,14 @@ function RowMenu({ item, options }) {
   if (!options?.length) return <div style={{ width: 24 }} />;
   return (
     <div style={{ position: 'relative' }} ref={ref}>
-      <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
-        style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: 4, display: 'flex', alignItems: 'center' }}>
-        <FiMoreVertical size={18} />
-      </button>
+      <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="icon-btn"><FiMoreVertical size={18} /></button>
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: '100%', zIndex: 50, backgroundColor: '#fff',
-          border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', borderRadius: 8,
-          padding: 4, minWidth: 180 }}>
-          {options.map((opt, idx) => {
+        <div style={{ position: 'absolute', right: 0, top: '100%', zIndex: 50, backgroundColor: '#fff', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', borderRadius: 8, padding: 4, minWidth: 190 }}>
+          {options.map((opt) => {
             const Icon = opt.icon;
             return (
-              <div key={idx} onClick={(e) => { e.stopPropagation(); opt.onClick(); setOpen(false); }}
-                style={{ padding: '8px 12px', fontSize: '0.8rem', color: opt.color || '#334155',
-                  display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 4 }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+              <div key={opt.label} className="menu-item-hover" onClick={(e) => { e.stopPropagation(); opt.onClick(); setOpen(false); }}
+                style={{ padding: '8px 12px', fontSize: '0.8rem', color: opt.color || '#334155', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 4 }}>
                 <Icon size={14} /> {opt.label}
               </div>
             );
@@ -78,321 +57,156 @@ function RowMenu({ item, options }) {
   );
 }
 
-function SkeletonRow() {
-  return (
-    <tr>
-      {Array.from({ length: 7 }).map((_, i) => (
-        <td key={i} style={{ padding: '12px 16px' }}>
-          <div style={{ height: 14, backgroundColor: '#E2E8F0', borderRadius: 4, width: i === 1 ? '80%' : '60%',
-            animation: 'pulse 1.5s ease-in-out infinite' }} />
-        </td>
-      ))}
-    </tr>
-  );
-}
-
-// ─── Participants Sub-Page ─────────────────────────────────────────────────────
-function ParticipantsView({ training, onBack }) {
-  const dispatch = useDispatch();
-  const { addToast } = useToast();
-  const participants = useSelector(selectParticipants(training._id));
-  const loading = useSelector(selectParticipantsLoading);
-  const [enrollSearch, setEnrollSearch] = useState('');
-  const [employees, setEmployees] = useState([]);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [enrollDrawerOpen, setEnrollDrawerOpen] = useState(false);
-  const [enrolling, setEnrolling] = useState(false);
-
-  useEffect(() => { dispatch(fetchParticipants(training._id)); }, [dispatch, training._id]);
-
-  const openEnrollDrawer = async () => {
-    try {
-      const res = await employeeService.list({ limit: 200 });
-      setEmployees(res.data.data || []);
-    } catch {
-      setEmployees([]);
-    }
-    setEnrollSearch('');
-    setSelectedIds([]);
-    setEnrollDrawerOpen(true);
-  };
-
-  const handleEnroll = async () => {
-    if (!selectedIds.length) return;
-    setEnrolling(true);
-    try {
-      await dispatch(enrollParticipants({ id: training._id, employeeIds: selectedIds })).unwrap();
-      addToast(`${selectedIds.length} participant(s) enrolled`, 'success');
-      setEnrollDrawerOpen(false);
-    } catch (err) {
-      addToast(err?.message || 'Failed to enroll', 'error');
-    } finally {
-      setEnrolling(false);
-    }
-  };
-
-  const filteredEmps = employees.filter(e => {
-    const q = enrollSearch.toLowerCase();
-    return !q || e.fullName?.toLowerCase().includes(q) || e.employeeId?.toLowerCase().includes(q);
-  });
-
-  const enrolledIds = new Set(participants.map(p => p.employeeId?._id || p.employeeId));
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B', display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.85rem' }}>
-          <FiArrowLeft size={16} /> Back to Training List
-        </button>
-      </div>
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{training.title}</h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
-            {training.trainingId} &nbsp;·&nbsp; <StatusBadge status={training.status} />
-          </p>
-        </div>
-        <button className="btn btn-primary" onClick={openEnrollDrawer}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', backgroundColor: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600 }}>
-          <FiPlus size={14} /> Add Participants
-        </button>
-      </div>
-
-      <div className="card" style={{ padding: 16 }}>
-        {loading ? (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: '#94A3B8' }}>Loading participants…</div>
-        ) : participants.length === 0 ? (
-          <div style={{ padding: '40px 0', textAlign: 'center', color: '#94A3B8' }}>No participants enrolled yet.</div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-            <thead>
-              <tr style={{ borderBottom: '1px solid #E2E8F0' }}>
-                {['Employee', 'Position', 'Attendance', 'Outcome'].map(h => (
-                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: '0.7rem', fontWeight: 600, color: '#64748B', letterSpacing: '0.05em' }}>{h.toUpperCase()}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {participants.map((p, idx) => {
-                const emp = p.employeeId;
-                const name = emp?.fullName || '—';
-                const pos = emp?.position || '—';
-                return (
-                  <tr key={p._id || idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                    <td style={{ padding: '12px 16px' }}>
-                      <p style={{ margin: 0, fontWeight: 500, color: '#0F172A' }}>{name}</p>
-                      <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>{emp?.employeeId || ''}</p>
-                    </td>
-                    <td style={{ padding: '12px 16px', color: '#334155' }}>{pos}</td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 500,
-                        backgroundColor: p.attended ? '#D1FAE5' : '#F1F5F9', color: p.attended ? '#065F46' : '#64748B' }}>
-                        {p.attended ? 'Attended' : 'Not marked'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 500,
-                        backgroundColor: p.outcomeStatus === 'value_created' ? '#D1FAE5' : '#F1F5F9',
-                        color: p.outcomeStatus === 'value_created' ? '#065F46' : '#64748B' }}>
-                        {p.outcomeStatus ? p.outcomeStatus.replace(/_/g, ' ') : 'Pending'}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {/* Enroll Drawer */}
-      <Drawer isOpen={enrollDrawerOpen} onClose={() => setEnrollDrawerOpen(false)} title="Add Participants" width="520px">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 0' }}>
-          <div style={{ position: 'relative' }}>
-            <FiSearch style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} size={15} />
-            <input value={enrollSearch} onChange={(e) => setEnrollSearch(e.target.value)}
-              placeholder="Search employee name or ID..."
-              style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #E2E8F0', borderRadius: 6, fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box' }} />
-          </div>
-          <div style={{ border: '1px solid #F1F5F9', borderRadius: 8, maxHeight: 320, overflowY: 'auto' }}>
-            {filteredEmps.map((emp) => {
-              const alreadyIn = enrolledIds.has(emp._id);
-              const checked = selectedIds.includes(emp._id);
-              return (
-                <div key={emp._id} onClick={() => !alreadyIn && setSelectedIds(prev => prev.includes(emp._id) ? prev.filter(x => x !== emp._id) : [...prev, emp._id])}
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px',
-                    borderBottom: '1px solid #F1F5F9', cursor: alreadyIn ? 'default' : 'pointer',
-                    opacity: alreadyIn ? 0.5 : 1 }}>
-                  <input type="checkbox" checked={checked || alreadyIn} readOnly
-                    style={{ width: 15, height: 15, accentColor: '#3B82F6' }} />
-                  <div>
-                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 500, color: '#1E293B' }}>{emp.fullName}</p>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#94A3B8' }}>{emp.position} · {emp.employeeId}</p>
-                  </div>
-                  {alreadyIn && <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94A3B8' }}>Enrolled</span>}
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
-            <button className="btn btn-outline" onClick={() => setEnrollDrawerOpen(false)} style={{ padding: '8px 20px' }}>Cancel</button>
-            <button className="btn btn-primary" onClick={handleEnroll} disabled={!selectedIds.length || enrolling}
-              style={{ padding: '8px 20px', backgroundColor: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, opacity: !selectedIds.length ? 0.6 : 1 }}>
-              {enrolling ? 'Enrolling…' : `Enroll ${selectedIds.length || ''}`}
-            </button>
-          </div>
-        </div>
-      </Drawer>
-      <Toast />
-    </div>
-  );
-}
-
-// ─── Schedule / Edit Drawer Form ──────────────────────────────────────────────
-function ScheduleDrawer({ isOpen, onClose, editItem, onSaved }) {
-  const dispatch = useDispatch();
-  const { addToast } = useToast();
+// ─── Schedule / edit ──────────────────────────────────────────────────────────
+function ScheduleDrawer({ editItem, onClose, onSave }) {
+  const editing = !!editItem?._id;
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({});
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
+  const [selected, setSelected] = useState({});
+  const [form, setForm] = useState(() => ({
+    title: editItem?.title || '',
+    providerType: editItem?.providerType || 'external',
+    providerName: editItem?.providerName || '',
+    startDate: ymd(editItem?.startDate),
+    endDate: ymd(editItem?.endDate),
+    startTime: editItem?.startTime || '',
+    endTime: editItem?.endTime || '',
+    trainingType: editItem?.trainingType || 'in_person',
+    locationOrPlatform: editItem?.locationOrPlatform || '',
+    validityPeriod: editItem?.validityPeriod || '',
+    description: editItem?.description || '',
+    renewalRequirements: editItem?.renewalRequirements || '',
+  }));
 
-  useEffect(() => {
-    if (isOpen) {
-      setForm(editItem ? {
-        title: editItem.title || '',
-        providerType: editItem.providerType || 'external',
-        providerName: editItem.providerName || '',
-        startDate: editItem.startDate?.slice(0, 10) || '',
-        endDate: editItem.endDate?.slice(0, 10) || '',
-        startTime: editItem.startTime || '',
-        endTime: editItem.endTime || '',
-        trainingType: editItem.trainingType || 'in_person',
-        locationOrPlatform: editItem.locationOrPlatform || '',
-        validityPeriod: editItem.validityPeriod || '',
-        description: editItem.description || '',
-      } : {
-        title: '', providerType: 'external', providerName: '',
-        startDate: '', endDate: '', startTime: '', endTime: '',
-        trainingType: 'in_person', locationOrPlatform: '', validityPeriod: '', description: '',
-      });
-    }
-  }, [isOpen, editItem]);
+  const set = (k, v) => { setForm((f) => ({ ...f, [k]: v })); setErrors((e) => ({ ...e, [k]: undefined })); };
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const validate = () => {
+    const next = {};
+    if (!form.title.trim()) next.title = 'Enter the training title';
+    if (!form.providerName.trim()) next.providerName = 'Enter the provider name';
+    if (!form.startDate) next.startDate = 'Enter the start date';
+    if (!form.endDate) next.endDate = 'Enter the end date';
+    if (form.startDate && form.endDate && form.endDate < form.startDate) next.endDate = 'Must not be before the start date';
+    if (!editing && Object.keys(selected).length === 0) next.participants = 'Select at least one participant';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
 
-  const handleSave = async () => {
-    if (!form.title || !form.startDate || !form.endDate) {
-      addToast('Title, start date, and end date are required', 'error'); return;
-    }
+  const submit = async () => {
+    setFormError('');
+    if (!validate()) return;
     setSaving(true);
-    try {
-      if (editItem?._id) {
-        await dispatch(updateTrainingProgram({ id: editItem._id, data: form })).unwrap();
-        addToast('Training updated', 'success');
-      } else {
-        await dispatch(createTrainingProgram(form)).unwrap();
-        addToast('Training scheduled', 'success');
-      }
-      onSaved();
-    } catch (err) {
-      addToast(err?.message || 'Failed to save', 'error');
-    } finally {
-      setSaving(false);
+    const body = {
+      title: form.title.trim(),
+      providerType: form.providerType,
+      providerName: form.providerName.trim(),
+      startDate: form.startDate,
+      endDate: form.endDate,
+      trainingType: form.trainingType,
+      ...(form.startTime ? { startTime: form.startTime } : {}),
+      ...(form.endTime ? { endTime: form.endTime } : {}),
+      ...(form.locationOrPlatform.trim() ? { locationOrPlatform: form.locationOrPlatform.trim() } : {}),
+      ...(form.validityPeriod.trim() ? { validityPeriod: form.validityPeriod.trim() } : {}),
+      ...(form.description.trim() ? { description: form.description.trim() } : {}),
+      ...(form.renewalRequirements.trim() ? { renewalRequirements: form.renewalRequirements.trim() } : {}),
+    };
+    const failure = await onSave(body, Object.keys(selected));
+    setSaving(false);
+    if (failure) {
+      setErrors((e) => ({ ...e, ...fieldErrorsOf(failure.details) }));
+      setFormError(failure.message);
     }
   };
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose}
-      title={editItem?._id ? 'Edit Training' : 'Schedule Training'}
-      subtitle="Schedule a training session for employees"
-      width="650px">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, paddingTop: 10 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <FormField label="TRAINING TITLE *">
-            <Input value={form.title || ''} onChange={(e) => set('title', e.target.value)} />
-          </FormField>
-          <FormField label="PROVIDER TYPE *">
-            <Select value={form.providerType || 'external'}
-              options={[{ value: 'external', label: 'External' }, { value: 'internal', label: 'Internal' }]}
-              onChange={(v) => set('providerType', v)} />
-          </FormField>
-          <FormField label="PROVIDER NAME *">
-            <Input value={form.providerName || ''} onChange={(e) => set('providerName', e.target.value)} />
-          </FormField>
-          <FormField label="START DATE *">
-            <DatePicker value={form.startDate || ''} onChange={(v) => set('startDate', v)} />
-          </FormField>
-          <FormField label="END DATE *">
-            <DatePicker value={form.endDate || ''} onChange={(v) => set('endDate', v)} />
-          </FormField>
-          <FormField label="START TIME">
-            <input type="time" value={form.startTime || ''} onChange={(e) => set('startTime', e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 6, fontSize: '0.85rem', outline: 'none' }} />
-          </FormField>
-          <FormField label="END TIME">
-            <input type="time" value={form.endTime || ''} onChange={(e) => set('endTime', e.target.value)}
-              style={{ width: '100%', padding: '9px 12px', border: '1px solid #E2E8F0', borderRadius: 6, fontSize: '0.85rem', outline: 'none' }} />
-          </FormField>
-          <FormField label="TRAINING TYPE *">
-            <Select value={form.trainingType || 'in_person'}
-              options={[{ value: 'in_person', label: 'In Person' }, { value: 'virtual', label: 'Virtual' }]}
-              onChange={(v) => set('trainingType', v)} />
-          </FormField>
-          <FormField label="LOCATION / PLATFORM">
-            <Input value={form.locationOrPlatform || ''} onChange={(e) => set('locationOrPlatform', e.target.value)} />
-          </FormField>
-          <FormField label="VALIDITY PERIOD">
-            <Input value={form.validityPeriod || ''} onChange={(e) => set('validityPeriod', e.target.value)} placeholder="e.g. 3 years" />
-          </FormField>
-        </div>
-        <FormField label="DESCRIPTION">
-          <Textarea rows={3} value={form.description || ''} onChange={(e) => set('description', e.target.value)} />
-        </FormField>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
-          <button className="btn btn-outline" onClick={onClose} style={{ padding: '8px 20px' }}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave} disabled={saving}
-            style={{ padding: '8px 20px', backgroundColor: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600 }}>
-            {saving ? 'Saving…' : (editItem?._id ? 'Save Changes' : 'Schedule Training')}
+    <Drawer isOpen onClose={onClose} title={editing ? 'Edit Training' : 'Schedule Training'}
+      subtitle={editing ? 'Update the training schedule' : 'Schedule a training session and assign participants'} width="650px"
+      footer={
+        <>
+          <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1, padding: '9px 16px' }}>Cancel</button>
+          <button onClick={submit} disabled={saving} style={{ flex: 1, padding: '9px 16px', backgroundColor: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, opacity: saving ? 0.7 : 1, cursor: saving ? 'wait' : 'pointer' }}>
+            {saving ? 'Saving…' : editing ? 'Save Changes' : 'Schedule Training'}
           </button>
+        </>
+      }>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {formError && (
+          <div style={{ display: 'flex', gap: 8, padding: '10px 12px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.8rem' }}>
+            <FiAlertCircle size={15} style={{ marginTop: 2 }} /> <span>{formError}</span>
+          </div>
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <FormField label="Training" required error={errors.title}>
+            <Input value={form.title} error={!!errors.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. BOSIET" />
+          </FormField>
+          <FormField label="Provider type" required>
+            <Select value={form.providerType} onChange={(e) => set('providerType', e.target.value)} options={[{ value: 'external', label: 'External' }, { value: 'internal', label: 'Internal' }]} />
+          </FormField>
+          <FormField label="Provider name" required error={errors.providerName}>
+            <Input value={form.providerName} error={!!errors.providerName} onChange={(e) => set('providerName', e.target.value)} />
+          </FormField>
+          <FormField label="Training type" required>
+            <Select value={form.trainingType} onChange={(e) => set('trainingType', e.target.value)} options={[{ value: 'in_person', label: 'In Person' }, { value: 'virtual', label: 'Virtual' }]} />
+          </FormField>
+          <FormField label="Start date" required error={errors.startDate}>
+            <DatePicker value={form.startDate} error={!!errors.startDate} onChange={(e) => set('startDate', e.target.value)} />
+          </FormField>
+          <FormField label="End date" required error={errors.endDate}>
+            <DatePicker value={form.endDate} min={form.startDate || undefined} error={!!errors.endDate} onChange={(e) => set('endDate', e.target.value)} />
+          </FormField>
+          <FormField label="Start time" error={errors.startTime}>
+            <input type="time" value={form.startTime} onChange={(e) => set('startTime', e.target.value)} style={timeInput} />
+          </FormField>
+          <FormField label="End time" error={errors.endTime}>
+            <input type="time" value={form.endTime} onChange={(e) => set('endTime', e.target.value)} style={timeInput} />
+          </FormField>
+          <FormField label="Location / platform" error={errors.locationOrPlatform}>
+            <Input value={form.locationOrPlatform} onChange={(e) => set('locationOrPlatform', e.target.value)} placeholder="e.g. Google Meet" />
+          </FormField>
+          <FormField label="Validity period" error={errors.validityPeriod} helpText="How long the certification remains valid">
+            <Input value={form.validityPeriod} onChange={(e) => set('validityPeriod', e.target.value)} placeholder="e.g. 2 Years" />
+          </FormField>
         </div>
+        {!editing && (
+          <FormField label="Add participants (select at least 1)" required error={errors.participants}>
+            <MultiEmployeePicker selected={selected} onChange={(s) => { setSelected(s); setErrors((e) => ({ ...e, participants: undefined })); }} />
+          </FormField>
+        )}
+        <FormField label="Description (optional)" error={errors.description}>
+          <Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} />
+        </FormField>
+        <FormField label="Renewal requirements (optional)" error={errors.renewalRequirements}>
+          <Textarea rows={2} value={form.renewalRequirements} onChange={(e) => set('renewalRequirements', e.target.value)} placeholder="e.g. Employees must renew this certification every 2 years." />
+        </FormField>
       </div>
     </Drawer>
   );
 }
 
-// ─── Cancel Modal ─────────────────────────────────────────────────────────────
-function CancelModal({ isOpen, onClose, training, onCancelled }) {
-  const dispatch = useDispatch();
-  const { addToast } = useToast();
+function CancelModal({ training, onClose, onConfirm }) {
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const handleCancel = async () => {
+  const [error, setError] = useState('');
+  const submit = async () => {
+    if (!reason.trim()) { setError('A reason is required'); return; }
     setSaving(true);
-    try {
-      await dispatch(cancelTraining({ id: training._id, reason })).unwrap();
-      addToast('Training cancelled', 'success');
-      onCancelled();
-    } catch (err) {
-      addToast(err?.message || 'Failed to cancel', 'error');
-    } finally {
-      setSaving(false);
-    }
+    const message = await onConfirm(reason.trim());
+    setSaving(false);
+    if (message) setError(message);
   };
-
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Cancel Training" width="440px">
+    <Modal isOpen onClose={onClose} title="Cancel Training" maxWidth="440px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <p style={{ margin: 0, fontSize: '0.9rem', color: '#334155' }}>
-          Are you sure you want to cancel <strong>{training?.title}</strong>? Enrolled participants will be notified.
+          Cancel <strong>{training.title}</strong>? Enrolled participants will be notified.
         </p>
-        <FormField label="REASON (OPTIONAL)">
-          <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Trainer unavailable — rescheduling" />
+        <FormField label="Reason" required error={error}>
+          <Textarea rows={3} value={reason} onChange={(e) => { setReason(e.target.value); setError(''); }} placeholder="e.g. Trainer unavailable, rescheduling" />
         </FormField>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <button className="btn btn-outline" onClick={onClose} style={{ padding: '8px 20px' }}>Back</button>
-          <button onClick={handleCancel} disabled={saving}
-            style={{ padding: '8px 20px', backgroundColor: '#EF4444', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+          <button className="btn btn-secondary" onClick={onClose}>Back</button>
+          <button onClick={submit} disabled={saving} style={{ padding: '8px 20px', backgroundColor: '#EF4444', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.7 : 1 }}>
             {saving ? 'Cancelling…' : 'Cancel Training'}
           </button>
         </div>
@@ -401,194 +215,251 @@ function CancelModal({ isOpen, onClose, training, onCancelled }) {
   );
 }
 
-// ─── Main Component ────────────────────────────────────────────────────────────
+function FilterDrawer({ onClose, value, onApply }) {
+  const [draft, setDraft] = useState(value);
+  return (
+    <Drawer isOpen onClose={onClose} title="Filter training" width="380px"
+      footer={
+        <>
+          <button onClick={() => { onApply(''); onClose(); }} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Clear</button>
+          <button onClick={() => { onApply(draft); onClose(); }} style={{ padding: '8px 20px', backgroundColor: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}>Apply</button>
+        </>
+      }>
+      <FormField label="Status"><Select value={draft} onChange={(e) => setDraft(e.target.value)} options={STATUS_FILTERS} /></FormField>
+    </Drawer>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TrainingCertifications() {
   const dispatch = useDispatch();
-  const { addToast } = useToast();
+  const { toast, showToast, hideToast } = useToast();
 
   const items = useSelector(selectTrainingPrograms);
   const meta = useSelector(selectTrainingMeta);
   const loading = useSelector(selectTrainingLoading);
-  const apiError = useSelector(selectTrainingError);
+  const loadError = useSelector(selectTrainingError);
+
+  const canCreate = usePermission('hr.training.create');
+  const canUpdate = usePermission('hr.training.update');
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
+  const [status, setStatus] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
-
-  const [viewCourse, setViewCourse] = useState(null);
-  const [editItem, setEditItem] = useState(null);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [viewId, setViewId] = useState(null);
+  const [drawer, setDrawer] = useState(null);
   const [cancelItem, setCancelItem] = useState(null);
-  const [participantsTraining, setParticipantsTraining] = useState(null);
-
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const canUploadCert = usePermission('hr.employee.update');
+  const [participantsId, setParticipantsId] = useState(null);
   const debounceRef = useRef(null);
 
-  const load = useCallback((p, q, s) => {
-    const params = { page: p, limit: ROWS_PER_PAGE };
-    if (q) params.q = q;
-    if (s) params.status = s;
-    dispatch(fetchTrainingPrograms(params));
-  }, [dispatch]);
+  const params = useCallback(() => ({ page, limit: ROWS_PER_PAGE, ...(activeSearch ? { q: activeSearch } : {}), ...(status ? { status } : {}) }), [page, activeSearch, status]);
+  const reload = useCallback(() => dispatch(fetchTrainingPrograms(params())), [dispatch, params]);
 
-  useEffect(() => { load(page, search, statusFilter); }, [page, statusFilter]); // eslint-disable-line
+  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
 
-  const handleSearch = (val) => {
-    setSearch(val);
+  const handleSearch = (value) => {
+    setSearch(value);
     clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => { setPage(1); load(1, val, statusFilter); }, 400);
+    debounceRef.current = setTimeout(() => { setPage(1); setActiveSearch(value.trim()); }, 350);
   };
 
-  const handleSetStatus = async (item, status) => {
+  const failureOf = (payload) => ({ message: payload?.message || 'The request failed', details: payload?.details || [] });
+
+  const handleSave = async (body, employeeIds) => {
+    if (drawer?.item) {
+      const result = await dispatch(updateTrainingProgram({ id: drawer.item._id, data: body }));
+      if (updateTrainingProgram.fulfilled.match(result)) {
+        showToast('Training updated', 'success');
+        setDrawer(null);
+        reload();
+        return undefined;
+      }
+      return failureOf(result.payload);
+    }
+    const result = await dispatch(createTrainingProgram(body));
+    if (!createTrainingProgram.fulfilled.match(result)) return failureOf(result.payload);
+    let message = `Training ${result.payload.trainingId} scheduled`;
+    let kind = 'success';
     try {
-      await dispatch(setTrainingStatus({ id: item._id, status })).unwrap();
-      addToast('Status updated', 'success');
+      await trainingService.enroll(result.payload._id, employeeIds);
+      message += ` with ${employeeIds.length} participant(s)`;
     } catch (err) {
-      addToast(err?.message || 'Failed', 'error');
+      message += `, but the participants could not be enrolled: ${apiError(err, 'add them from View Participants')}`;
+      kind = 'info';
+    }
+    showToast(message, kind);
+    setDrawer(null);
+    setPage(1);
+    reload();
+    return undefined;
+  };
+
+  const handleSetStatus = async (item, next) => {
+    const result = await dispatch(setTrainingStatus({ id: item._id, status: next }));
+    if (setTrainingStatus.fulfilled.match(result)) {
+      showToast(`${item.title} is now ${STATUS_STYLES[next]?.label || titleCase(next)}`, 'success');
+      reload();
+    } else {
+      showToast(result.payload?.message || 'The status could not be changed', 'error');
+    }
+  };
+
+  const handleCancel = async (reason) => {
+    const result = await dispatch(cancelTraining({ id: cancelItem._id, reason }));
+    if (cancelTraining.fulfilled.match(result)) {
+      showToast('Training cancelled', 'success');
+      setCancelItem(null);
+      reload();
+      return '';
+    }
+    return result.payload?.message || 'Failed to cancel';
+  };
+
+  const handleExport = async () => {
+    try {
+      const res = await trainingService.exportList({ format: 'csv', ...(activeSearch ? { q: activeSearch } : {}), ...(status ? { status } : {}) });
+      saveBlob(res.data, 'training-programs.csv');
+    } catch (err) {
+      showToast(await blobErrorMessage(err, 'Export failed'), 'error');
     }
   };
 
   const getMenuOptions = (item) => {
-    const opts = [
-      { label: 'View Participants', icon: FiUsers, onClick: () => setParticipantsTraining(item) },
-    ];
-    if (item.status === 'scheduled') {
-      opts.unshift(
-        { label: 'Edit', icon: FiEdit2, onClick: () => { setEditItem(item); setScheduleOpen(true); } },
-        { label: 'Start Training', icon: FiCheck, onClick: () => handleSetStatus(item, 'active') },
-        { label: 'Cancel Training', icon: FiX, color: '#EF4444', onClick: () => setCancelItem(item) },
-      );
-    } else if (item.status === 'active') {
-      opts.unshift({ label: 'Mark as Completed', icon: FiCheck, color: '#10B981', onClick: () => handleSetStatus(item, 'completed') });
-    } else if (item.status === 'completed') {
-      opts.unshift({ label: 'Start Evaluation', icon: FiFileText, onClick: () => handleSetStatus(item, 'evaluation') });
+    const opts = [];
+    if (canUpdate && item.status === 'scheduled') {
+      opts.push({ label: 'Edit Schedule', icon: FiEdit2, onClick: () => setDrawer({ item }) });
+    }
+    opts.push({ label: 'View Participants', icon: FiUsers, onClick: () => setParticipantsId(item._id) });
+    if (canUpdate) {
+      if (item.status === 'scheduled') {
+        opts.push({ label: 'Start Training', icon: FiCheck, onClick: () => handleSetStatus(item, 'active') });
+        opts.push({ label: 'Cancel Training', icon: FiX, color: '#EF4444', onClick: () => setCancelItem(item) });
+      } else if (item.status === 'active') {
+        opts.push({ label: 'Mark as Completed', icon: FiCheck, color: '#10B981', onClick: () => handleSetStatus(item, 'completed') });
+      } else if (item.status === 'completed') {
+        opts.push({ label: 'Start Evaluation', icon: FiFileText, onClick: () => handleSetStatus(item, 'evaluation') });
+      }
     }
     return opts;
   };
 
+  const participantsTraining = items.find((i) => i._id === participantsId);
+  if (participantsTraining) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+        <TrainingParticipants training={participantsTraining} showToast={showToast} onBack={() => setParticipantsId(null)} onChanged={reload} />
+      </div>
+    );
+  }
+
   const columns = [
-    { label: 'TRAINING ID', key: 'trainingId', render: (v) => <span style={{ color: '#1D4ED8', fontWeight: 600 }}>{v}</span> },
-    { label: 'TITLE', key: 'title', render: (v) => <span style={{ fontWeight: 500, color: '#0F172A' }}>{v}</span> },
+    { label: 'TRAINING ID', key: 'trainingId', render: (v) => <span style={{ color: '#475569', fontWeight: 600 }}>{v}</span> },
+    { label: 'TRAINING', key: 'title', render: (v) => <span style={{ fontWeight: 500, color: '#0F172A' }}>{v}</span> },
     { label: 'PROVIDER', key: 'providerName' },
-    { label: 'TYPE', key: 'trainingType', render: (v) => v ? v.replace('_', ' ') : '—' },
-    { label: 'VALIDITY', key: 'validityPeriod', render: (v) => v || '—' },
+    { label: 'DURATION', key: 'startDate', render: (_, row) => durationLabel(row.startDate, row.endDate) },
+    { label: 'VALIDITY PERIOD', key: 'validityPeriod', render: (v) => v || 'No Expiry' },
     { label: 'PARTICIPANTS', key: 'participantCount', render: (v) => v ?? 0 },
     { label: 'STATUS', key: 'status', render: (v) => <StatusBadge status={v} /> },
     {
       label: 'ACTIONS', key: 'actions', align: 'right',
       render: (_, row) => (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 16 }}>
-          <button onClick={() => setViewCourse(row)}
-            style={{ background: 'none', border: 'none', color: '#64748B', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}>
-            <FiEye size={17} />
-          </button>
-          <RowMenu item={row} options={getMenuOptions(row)} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+          <button className="icon-btn" onClick={() => setViewId(row._id)} title="View"><FiEye size={17} /></button>
+          <RowMenu options={getMenuOptions(row)} />
         </div>
-      )
-    }
+      ),
+    },
   ];
 
-  if (participantsTraining) {
-    return <ParticipantsView training={participantsTraining} onBack={() => setParticipantsTraining(null)} />;
-  }
-
-  const totalPages = meta ? meta.totalPages : 1;
+  const viewCourse = items.find((i) => i._id === viewId);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Training & Certifications</h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: 2, margin: 0 }}>Track employee training and certification programs</p>
-        </div>
-      </div>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {apiError && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.85rem' }}>
-          <FiAlertCircle size={16} /> {apiError.message}
-        </div>
-      )}
+      <div>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Training &amp; Certifications</h1>
+        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '2px 0 0 0' }}>Track employee training and certification programs</p>
+      </div>
 
       <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
-            <Input value={search} onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Search training title or ID..."
-              style={{ paddingLeft: 36, width: '100%' }} />
-            <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
-              <FiSearch size={15} />
-            </div>
+            <Input value={search} onChange={(e) => handleSearch(e.target.value)} placeholder="Search training, id, provider…" style={{ paddingLeft: 36, width: '100%' }} />
+            <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}><FiSearch size={15} /></div>
           </div>
           <div className="table-toolbar-actions">
-            <Select value={statusFilter}
-              options={[
-                { value: '', label: 'All Status' },
-                { value: 'scheduled', label: 'Scheduled' },
-                { value: 'active', label: 'Active' },
-                { value: 'completed', label: 'Completed' },
-                { value: 'evaluation', label: 'Evaluation' },
-                { value: 'cancelled', label: 'Cancelled' },
-              ]}
-              onChange={(v) => { setStatusFilter(v); setPage(1); }}
-            />
-            <button className="btn btn-primary"
-              onClick={() => { setEditItem(null); setScheduleOpen(true); }}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 18px',
-                backgroundColor: '#1D4ED8', color: '#fff', borderRadius: 6, fontWeight: 600, border: 'none' }}>
-              <FiPlus size={14} /> Schedule Training
+            <button className="btn btn-secondary" onClick={() => setFilterOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
+              <FiFilter size={14} /> Filter{status ? ' (1)' : ''}
             </button>
+            <button className="btn btn-secondary" onClick={handleExport} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
+              Export <FiDownload size={14} />
+            </button>
+            {canUploadCert && (
+              <button className="btn btn-secondary" onClick={() => setUploadOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
+                Upload <FiUpload size={14} />
+              </button>
+            )}
+            {canCreate && (
+              <button onClick={() => setDrawer({ item: null })} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 18px', backgroundColor: '#1D4ED8', color: '#fff', borderRadius: 6, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+                <FiPlus size={14} /> Schedule Training
+              </button>
+            )}
           </div>
         </div>
 
-        {loading ? (
+        {loadError ? (
+          <div style={{ padding: 24, textAlign: 'center', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8 }}>
+            <div style={{ marginBottom: 12 }}>{loadError}</div>
+            <button className="btn btn-secondary" onClick={reload}>Try again</button>
+          </div>
+        ) : loading ? (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <tbody>{Array.from({ length: 6 }).map((_, i) => <SkeletonRow key={i} />)}</tbody>
+            <tbody>{Array.from({ length: 6 }).map((_, i) => (
+              <tr key={i}>{Array.from({ length: 8 }).map((__, j) => <td key={j} style={{ padding: '12px 16px' }}><div style={{ height: 14, backgroundColor: '#E2E8F0', borderRadius: 4, width: '60%' }} /></td>)}</tr>
+            ))}</tbody>
           </table>
         ) : (
-          <DataTable columns={columns} data={items} selectable
-            selectedIds={selectedIds}
-            onSelectRow={(id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])}
-            onSelectAll={() => setSelectedIds(selectedIds.length === items.length ? [] : items.map(i => i._id))}
-            keyField="_id" emptyMessage="No training programs found." />
+          <DataTable columns={columns} data={items} selectable selectedIds={selectedIds}
+            onSelectRow={(id) => setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))}
+            onSelectAll={() => setSelectedIds(selectedIds.length === items.length ? [] : items.map((i) => i._id))}
+            keyField="_id" emptyMessage={activeSearch || status ? 'No training programs match your search or filter.' : 'No training programs scheduled yet.'} />
         )}
 
-        {totalPages > 1 && (
-          <Pagination currentPage={page} totalPages={totalPages} onPageChange={(p) => { setPage(p); }} />
-        )}
+        {meta?.totalPages > 1 && <Pagination currentPage={page} totalPages={meta.totalPages} onPageChange={setPage} />}
       </div>
 
-      {/* View Course Drawer */}
-      <Drawer isOpen={!!viewCourse} onClose={() => setViewCourse(null)}
-        title={<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FiBookOpen color="#3B82F6" /><span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#1E293B' }}>{viewCourse?.title}</span></div>}
-        subtitle={viewCourse?.trainingId} width="650px">
-        {viewCourse && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: 24 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <StatusBadge status={viewCourse.status} />
-              {viewCourse.status === 'scheduled' && (
-                <button className="btn btn-primary" onClick={() => { handleSetStatus(viewCourse, 'active'); setViewCourse(null); }}
-                  style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>Start Training</button>
+      {viewCourse && (
+        <Drawer isOpen onClose={() => setViewId(null)}
+          title={<div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><FiBookOpen color="#3B82F6" /><span style={{ fontSize: '1.1rem', fontWeight: 600, color: '#1E293B' }}>{viewCourse.title}</span></div>}
+          subtitle={viewCourse.trainingId} width="650px">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#64748B' }}>Status: <StatusBadge status={viewCourse.status} /></div>
+              {canUpdate && viewCourse.status === 'scheduled' && (
+                <button onClick={() => { handleSetStatus(viewCourse, 'active'); setViewId(null); }} style={{ padding: '8px 16px', backgroundColor: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}>Start Training</button>
               )}
-              {viewCourse.status === 'active' && (
-                <button onClick={() => { handleSetStatus(viewCourse, 'completed'); setViewCourse(null); }}
-                  style={{ backgroundColor: '#10B981', color: 'white', border: 'none', padding: '8px 16px', borderRadius: 6, fontSize: '0.85rem', fontWeight: 500, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              {canUpdate && viewCourse.status === 'active' && (
+                <button onClick={() => { handleSetStatus(viewCourse, 'completed'); setViewId(null); }} style={{ backgroundColor: '#10B981', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                   <FiCheck size={16} /> Mark as Completed
                 </button>
               )}
             </div>
-            <div style={{ border: '1px solid #3B82F6', borderRadius: 8, padding: 24, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 24 }}>
+            <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: 22, display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 22 }}>
               {[
-                ['TRAINING ID', viewCourse.trainingId],
-                ['PROVIDER TYPE', viewCourse.providerType],
-                ['PROVIDER NAME', viewCourse.providerName],
-                ['START DATE', viewCourse.startDate?.slice(0, 10)],
-                ['END DATE', viewCourse.endDate?.slice(0, 10)],
-                ['START TIME', viewCourse.startTime || '—'],
-                ['END TIME', viewCourse.endTime || '—'],
-                ['TRAINING TYPE', viewCourse.trainingType?.replace('_', ' ')],
-                ['LOCATION / PLATFORM', viewCourse.locationOrPlatform || '—'],
-                ['VALIDITY PERIOD', viewCourse.validityPeriod || '—'],
-                ['PARTICIPANTS', `${viewCourse.participantCount ?? 0} Employees`],
+                ['TRAINING', viewCourse.title], ['TRAINING ID', viewCourse.trainingId], ['PROVIDER TYPE', titleCase(viewCourse.providerType)],
+                ['PROVIDER NAME', viewCourse.providerName], ['START DATE', formatDate(viewCourse.startDate)], ['END DATE', formatDate(viewCourse.endDate)],
+                ['START TIME', viewCourse.startTime], ['END TIME', viewCourse.endTime], ['DURATION', durationLabel(viewCourse.startDate, viewCourse.endDate)],
+                ['TRAINING TYPE', titleCase(viewCourse.trainingType)], ['LOCATION / PLATFORM', viewCourse.locationOrPlatform], ['PARTICIPANTS', `${viewCourse.participantCount ?? 0} Employees`],
+                ['VALIDITY PERIOD', viewCourse.validityPeriod || 'No Expiry'], ['STATUS', STATUS_STYLES[viewCourse.status]?.label],
+                ...(viewCourse.cancellationReason ? [['CANCELLED BECAUSE', viewCourse.cancellationReason]] : []),
               ].map(([label, val]) => (
                 <div key={label}>
                   <p style={{ margin: 0, fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>{label}</p>
@@ -597,23 +468,33 @@ export default function TrainingCertifications() {
               ))}
             </div>
             {viewCourse.description && (
-              <div style={{ border: '1px dashed #3B82F6', padding: 20, borderRadius: 8, backgroundColor: '#F8FAFC' }}>
+              <div style={{ padding: 18, borderRadius: 8, backgroundColor: '#F8FAFC' }}>
                 <p style={{ margin: 0, fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>DESCRIPTION</p>
-                <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: '#334155', lineHeight: '1.6' }}>{viewCourse.description}</p>
+                <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: '#334155', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{viewCourse.description}</p>
               </div>
             )}
+            {viewCourse.renewalRequirements && (
+              <div style={{ padding: 18, borderRadius: 8, backgroundColor: '#F8FAFC' }}>
+                <p style={{ margin: 0, fontSize: '0.7rem', color: '#64748B', fontWeight: 600 }}>RENEWAL REQUIREMENTS</p>
+                <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem', color: '#334155', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{viewCourse.renewalRequirements}</p>
+              </div>
+            )}
+            <div>
+              <button className="btn btn-secondary" onClick={() => { setViewId(null); setParticipantsId(viewCourse._id); }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <FiUsers size={14} /> View Participants
+              </button>
+            </div>
           </div>
-        )}
-      </Drawer>
-
-      <ScheduleDrawer isOpen={scheduleOpen} onClose={() => { setScheduleOpen(false); setEditItem(null); }}
-        editItem={editItem} onSaved={() => { setScheduleOpen(false); setEditItem(null); load(page, search, statusFilter); }} />
-
-      {cancelItem && (
-        <CancelModal isOpen={!!cancelItem} onClose={() => setCancelItem(null)} training={cancelItem}
-          onCancelled={() => { setCancelItem(null); load(page, search, statusFilter); }} />
+        </Drawer>
       )}
-      <Toast />
+
+      {drawer && <ScheduleDrawer key={drawer.item?._id || 'new'} editItem={drawer.item} onClose={() => setDrawer(null)} onSave={handleSave} />}
+      {cancelItem && <CancelModal training={cancelItem} onClose={() => setCancelItem(null)} onConfirm={handleCancel} />}
+      {filterOpen && <FilterDrawer onClose={() => setFilterOpen(false)} value={status} onApply={(v) => { setPage(1); setStatus(v); }} />}
+      {uploadOpen && (
+        <EmployeeFileDialog kind="certification" onClose={() => setUploadOpen(false)}
+          onDone={(message) => { setUploadOpen(false); showToast(message, 'success'); }} />
+      )}
     </div>
   );
 }

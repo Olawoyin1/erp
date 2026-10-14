@@ -1,6 +1,3 @@
-import React from 'react';
-import Badge from '../../components/ui/Badge';
-
 export function GenericHRPage({ title, description, category = 'Human Resources', stats = [] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
