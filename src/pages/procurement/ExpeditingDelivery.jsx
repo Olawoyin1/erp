@@ -1,559 +1,416 @@
-import React, { useState } from 'react';
-import {
-  FiSearch, FiFilter, FiDownload, FiUpload, FiEye, FiMoreVertical,
-  FiTruck, FiCheckCircle, FiClock, FiAlertTriangle, FiPaperclip, FiDownloadCloud
-} from 'react-icons/fi';
-import DataTable from '../../components/ui/DataTable';
-import Pagination from '../../components/ui/Pagination';
+import { useMemo, useState } from 'react';
+import { FiUpload, FiPlus, FiEye, FiTruck, FiCheckCircle, FiClock, FiAlertTriangle, FiEdit2 } from 'react-icons/fi';
 import Modal from '../../components/ui/Modal';
-import { FormField } from '../../components/ui/FormField';
+import RowMenu from '../../components/ui/RowMenu';
+import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
-import { mockDeliveries } from '../../data/mockProcurement';
+import { usePermission } from '../../hooks/usePermission';
+import { deliveriesSlice } from '../../store/procurement/slices';
+import { apiError } from '../../services/apiHelpers';
+import { deliveryService } from '../../services/procurement.service';
+import {
+  countFilters, fieldErrorsOf, formatDate, formatDateTime, refId, refName, statValue, statChange, statusLabel, toQuantity, ymd, uploadStagedFiles,
+} from './shared/procUtils';
+import { useExport, useFetched, useLookups, useProcList, useRecord, useSelection } from './shared/procHooks';
+import {
+  Choice, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, Note, PageHeader, Panel, PrimaryButton, SecondaryButton,
+  StatTiles, StatusBadge, StatusLine, TabBar, TwoCol, ViewHeader,
+} from './shared/ProcUi';
+import { AttachField, AttachToRecordDialog, DocumentList } from './shared/ProcExtras';
 
-const ITEMS_PER_PAGE = 8;
+const STATUSES = ['in_production', 'ready_for_shipment', 'customs_clearance', 'in_transit', 'delivered', 'delayed'];
+const STATUS_OPTIONS = STATUSES.map((s) => ({ value: s, label: statusLabel(s) }));
 
-const deliveryStatusStyles = {
-  'In Transit':          { bg: '#E0F2FE', color: '#0284C7' },
-  'Delivered':           { bg: '#DCFCE7', color: '#16A34A' },
-  'In Production':       { bg: '#FEF3C7', color: '#D97706' },
-  'Delayed':             { bg: '#FEE2E2', color: '#DC2626' },
-  'Ready for Shipment':  { bg: '#EDE9FE', color: '#7C3AED' },
-  'Customs Clearance':   { bg: '#FEF3C7', color: '#D97706' }
-};
+const EXPORT_COLUMNS = [
+  { label: 'Delivery Ref', value: (d) => d.deliveryRef },
+  { label: 'PO No', value: (d) => refName(d.poId, 'poNo') },
+  { label: 'Vendor', value: (d) => refName(d.vendorId, 'vendorName') },
+  { label: 'Material', value: (d) => d.material },
+  { label: 'Quantity', value: (d) => d.quantity },
+  { label: 'Expected Delivery', value: (d) => ymd(d.expectedDeliveryDate) },
+  { label: 'Status', value: (d) => statusLabel(d.status) },
+  { label: 'Latest Note', value: (d) => d.statusNote || '' },
+];
 
-export default function ExpeditingDelivery() {
-  const [data, setData] = useState(mockDeliveries);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState([]);
+function NewDeliveryModal({ lookups, onClose, onSaved }) {
+  const orders = lookups.acknowledgedOrders || [];
+  const [form, setForm] = useState({ poId: '', material: '', quantity: '', due: '', location: '' });
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+  const order = orders.find((o) => o._id === form.poId);
 
-  // Modals & Drawers state
-  const [statusUpdateItem, setStatusUpdateItem] = useState(null);
-  const [newStatus, setNewStatus] = useState('In Production');
-  const [statusNote, setStatusNote] = useState('');
-
-  const [viewItem, setViewItem] = useState(null);
-  const [viewTab, setViewTab] = useState('details'); // 'details' | 'timeline' | 'documents'
-
-  const { toast, showToast, hideToast } = useToast();
-
-  const activeDeliveries = data.filter(d => d.status !== 'Delivered').length;
-  const dueThisWeek = 8;
-  const onTimeRate = '91%';
-  const delayedDeliveries = data.filter(d => d.status === 'Delayed').length || 3;
-
-  const filtered = data.filter(item => {
-    const q = search.toLowerCase();
-    return !q ||
-      item.deliveryRef.toLowerCase().includes(q) ||
-      item.poNo.toLowerCase().includes(q) ||
-      item.vendor.toLowerCase().includes(q) ||
-      item.material.toLowerCase().includes(q) ||
-      item.status.toLowerCase().includes(q);
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-
-  const handleUpdateStatus = () => {
-    if (!statusUpdateItem) return;
-
-    const updated = data.map(d => {
-      if (d.deliveryRef === statusUpdateItem.deliveryRef) {
-        const newEntry = {
-          status: newStatus,
-          date: `28/05/2025 • Just now — ${statusNote || 'Status updated'}`,
-          done: true
-        };
-        const currentTimeline = d.timeline || [];
-        return {
-          ...d,
-          status: newStatus,
-          timeline: [...currentTimeline, newEntry]
-        };
-      }
-      return d;
+  const pickOrder = (id) => {
+    const next = orders.find((o) => o._id === id);
+    const first = next?.materialServiceSpecification?.[0];
+    setForm({
+      poId: id,
+      material: first ? first.item : '',
+      quantity: first ? String(first.quantity) : '',
+      due: ymd(next?.expectedDeliveryDate),
+      location: refId(next?.deliveryLocation),
     });
-
-    setData(updated);
-    if (viewItem && viewItem.deliveryRef === statusUpdateItem.deliveryRef) {
-      setViewItem(prev => ({ ...prev, status: newStatus }));
-    }
-    setStatusUpdateItem(null);
-    setStatusNote('');
-    showToast(`Delivery status updated to ${newStatus}`, 'success');
   };
 
-  const columns = [
-    {
-      key: 'deliveryRef',
-      label: 'DELIVERY REF',
-      render: (v) => <span style={{ fontWeight: 500, color: '#334155' }}>{v}</span>
-    },
-    {
-      key: 'poNo',
-      label: 'PO NO',
-      render: (v) => <span style={{ color: '#475569' }}>{v}</span>
-    },
-    {
-      key: 'vendor',
-      label: 'VENDOR',
-      render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{v}</span>
-    },
-    {
-      key: 'material',
-      label: 'MATERIAL',
-      render: (v) => <span style={{ color: '#334155' }}>{v}</span>
-    },
-    {
-      key: 'expectedDelivery',
-      label: 'EXPECTED DELIVERY',
-      render: (v) => <span style={{ color: '#64748B' }}>{v}</span>
-    },
-    {
-      key: 'status',
-      label: 'STATUS',
-      render: (v) => {
-        const style = deliveryStatusStyles[v] || { bg: '#F1F5F9', color: '#64748B' };
-        return (
-          <span style={{
-            backgroundColor: style.bg,
-            color: style.color,
-            padding: '4px 14px',
-            borderRadius: '14px',
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            whiteSpace: 'nowrap'
-          }}>
-            {v}
-          </span>
-        );
+  const submit = async () => {
+    const next = {};
+    if (!form.poId) next.poId = 'Choose the acknowledged purchase order';
+    if (!form.material.trim()) next.material = 'Enter the material being delivered';
+    if (Number.isNaN(toQuantity(form.quantity))) next.quantity = 'Enter a quantity above zero';
+    if (!form.due) next.expectedDeliveryDate = 'Choose the expected delivery date';
+    if (!form.location) next.deliveryLocation = 'Choose the delivery location';
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    setError('');
+    try {
+      const res = await deliveryService.create({
+        poId: form.poId,
+        material: form.material.trim(),
+        quantity: toQuantity(form.quantity),
+        expectedDeliveryDate: form.due,
+        deliveryLocation: form.location,
+      });
+      let note = '';
+      const saved = res.data?.data;
+      if (files.length && saved?._id) {
+        const failed = await uploadStagedFiles(deliveryService, saved._id, files);
+        if (failed.length) note = ` Documents not attached: ${failed.join('; ')}`;
       }
-    },
+      onSaved(`Delivery ${saved?.deliveryRef || ''} is now being tracked.${note}`);
+    } catch (err) {
+      setError(apiError(err, 'The delivery could not be created'));
+      setErrors(fieldErrorsOf(err?.response?.data?.error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="New Delivery"
+      subtitle="Start tracking a delivery against an acknowledged purchase order."
+      maxWidth="600px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : 'Start Tracking'}</PrimaryButton>
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => e.preventDefault()}>
+        <Field label="Purchase order" required error={errors.poId} help="Only acknowledged orders can be tracked.">
+          <Choice
+            value={form.poId}
+            onChange={pickOrder}
+            searchable
+            placeholder="Select a purchase order"
+            options={orders.map((o) => ({ value: o._id, label: `${o.poNo}: ${refName(o.vendorId, 'vendorName')}` }))}
+            error={errors.poId}
+          />
+        </Field>
+        <Field label="Material" required error={errors.material} help={order && order.materialServiceSpecification.length > 1 ? 'This order has several lines; track one delivery per shipment.' : undefined}>
+          <Input value={form.material} onChange={(e) => set('material', e.target.value)} error={Boolean(errors.material)} />
+        </Field>
+        {order && order.materialServiceSpecification.length > 1 && (
+          <Field label="Fill from order line">
+            <Choice
+              value=""
+              onChange={(v) => {
+                const line = order.materialServiceSpecification[Number(v)];
+                if (line) setForm((f) => ({ ...f, material: line.item, quantity: String(line.quantity) }));
+              }}
+              placeholder="Pick a line to copy"
+              options={order.materialServiceSpecification.map((l, i) => ({ value: String(i), label: `${l.item} (${l.quantity} ${l.unit})` }))}
+            />
+          </Field>
+        )}
+        <TwoCol>
+          <Field label="Quantity" required error={errors.quantity}>
+            <Input value={form.quantity} inputMode="decimal" onChange={(e) => set('quantity', e.target.value)} error={Boolean(errors.quantity)} />
+          </Field>
+          <Field label="Expected delivery date" required error={errors.expectedDeliveryDate}>
+            <DatePicker value={form.due} onChange={(e) => set('due', e.target.value)} error={Boolean(errors.expectedDeliveryDate)} />
+          </Field>
+        </TwoCol>
+        <Field label="Delivery location" required error={errors.deliveryLocation}>
+          <Choice value={form.location} onChange={(v) => set('location', v)} searchable placeholder="Select a location" options={(lookups.locations || []).map((l) => ({ value: l._id, label: l.name }))} error={errors.deliveryLocation} />
+        </Field>
+        <Field label="Attach document (optional)">
+          <AttachField files={files} onChange={setFiles} disabled={busy} />
+        </Field>
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function UpdateStatusModal({ delivery, onClose, onSaved }) {
+  const [status, setStatus] = useState(delivery.status);
+  const [note, setNote] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+
+  const submit = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      await deliveryService.updateStatus(delivery._id, { status, ...(note.trim() ? { statusNote: note.trim() } : {}) });
+      onSaved(`Delivery ${delivery.deliveryRef} marked ${statusLabel(status)}`);
+    } catch (err) {
+      setError(apiError(err, 'The status could not be updated'));
+      setErrors(fieldErrorsOf(err?.response?.data?.error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Update Delivery Status"
+      subtitle={`${delivery.deliveryRef} • ${refName(delivery.poId, 'poNo')}`}
+      maxWidth="480px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Updating…' : 'Update'}</PrimaryButton>
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => e.preventDefault()}>
+        <div style={{ fontSize: '0.813rem', color: '#64748B', display: 'flex', alignItems: 'center', gap: 8 }}>
+          Current status: <StatusBadge status={delivery.status} />
+        </div>
+        <Field label="Delivery status" required error={errors.status}>
+          <Choice value={status} onChange={setStatus} options={STATUS_OPTIONS} />
+        </Field>
+        <Field label="Update note" error={errors.statusNote} help="Record exceptions such as a customs hold or a breakdown. A new note replaces the previous one; the full history stays on the timeline.">
+          <Textarea rows={3} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Enter update details..." />
+        </Field>
+        {delivery.statusNote && <Panel title="Previous note">{delivery.statusNote}</Panel>}
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function ViewDeliveryModal({ id, refreshKey, tab, onTab, canUpdate, onUpdate, onClose }) {
+  const { record, error, loading } = useRecord(deliveryService, id, refreshKey);
+  const timeline = useFetched(() => deliveryService.timeline(id), tab === 'timeline' ? `${id}:${refreshKey}` : null);
+  return (
+    <Modal isOpen onClose={onClose} title="" maxWidth="760px">
+      {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading delivery…</div>}
+      {error && <FormError message={error} />}
+      {record && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: -10 }}>
+          <ViewHeader icon={<FiTruck size={22} />} title={refName(record.vendorId, 'vendorName')} subtitle={`${record.deliveryRef} • ${refName(record.poId, 'poNo')}`}>
+            {canUpdate && <SecondaryButton icon={<FiEdit2 size={14} />} onClick={() => onUpdate(record)}>Update Status</SecondaryButton>}
+          </ViewHeader>
+          <StatusLine status={<StatusBadge status={record.status} />} />
+          <TabBar tabs={[{ id: 'details', label: 'Delivery Details' }, { id: 'timeline', label: 'Delivery Timeline' }, { id: 'documents', label: 'Documents' }]} active={tab} onChange={onTab} />
+
+          {tab === 'details' && (
+            <>
+              <DetailGrid
+                items={[
+                  ['Delivery reference', record.deliveryRef],
+                  ['Purchase order no', refName(record.poId, 'poNo')],
+                  ['Linked RFQ no', record.linkedRfqId ? refName(record.linkedRfqId, 'rfqId') : '—'],
+                  ['Vendor', refName(record.vendorId, 'vendorName')],
+                  ['Linked project', record.linkedProjectId ? refName(record.linkedProjectId, 'projectName') : 'None'],
+                  ['Material', record.material],
+                  ['Quantity', record.quantity],
+                  ['Expected delivery date', formatDate(record.expectedDeliveryDate)],
+                  ['Delivery location', refName(record.deliveryLocation, 'name')],
+                  ['Status', statusLabel(record.status)],
+                  record.deliveredAt ? ['Delivered on', formatDateTime(record.deliveredAt)] : null,
+                ]}
+              />
+              {record.statusNote && <Panel title="Latest note">{record.statusNote}</Panel>}
+            </>
+          )}
+
+          {tab === 'timeline' && (
+            <div style={{ background: '#F8FAFC', borderRadius: 10, border: '1px solid #E2E8F0', padding: 24 }}>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 16 }}>Delivery timeline</div>
+              {timeline.loading && <span style={{ color: '#64748B', fontSize: '0.84rem' }}>Loading timeline…</span>}
+              {timeline.error && <FormError message={timeline.error} />}
+              {!timeline.loading && !timeline.error && timeline.data.length === 0 && <span style={{ color: '#94A3B8', fontSize: '0.84rem' }}>No history recorded yet.</span>}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {timeline.data.map((entry, i) => (
+                  <div key={`${entry.at}-${i}`} style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                    <div style={{ width: 14, height: 14, borderRadius: '50%', marginTop: 4, flexShrink: 0, backgroundColor: entry.toStatus === 'delivered' ? '#10B981' : entry.toStatus === 'delayed' ? '#EF4444' : '#3B82F6' }} />
+                    <div>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A' }}>{entry.toStatus ? statusLabel(entry.toStatus) : entry.label}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: 2 }}>
+                        {formatDateTime(entry.at)}{entry.actor ? ` • ${entry.actor}` : ''}{entry.note ? ` — ${entry.note}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {tab === 'documents' && (
+            <>
+              <Note>Delivery documents added when the goods are inspected on receipt appear here as well.</Note>
+              <DocumentList key={record._id} api={deliveryService} id={record._id} canUpload={canUpdate} title="Delivery documents" />
+            </>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+export default function ExpeditingDelivery() {
+  const canCreate = usePermission('procurement.delivery.create');
+  const canUpdate = usePermission('procurement.delivery.update');
+
+  const list = useProcList(deliveriesSlice, { initialFilters: { status: '', late: '', vendorId: '', dateFrom: '', dateTo: '' } });
+  const selection = useSelection();
+  const { toast, showToast, hideToast } = useToast();
+  const { lookups } = useLookups(['locations', 'acknowledgedOrders', 'vendors']);
+  const exporter = useExport(deliveryService, list, selection, EXPORT_COLUMNS, 'delivery-status-log.csv');
+
+  const [newOpen, setNewOpen] = useState(false);
+  const [statusFor, setStatusFor] = useState(null);
+  const [viewId, setViewId] = useState(null);
+  const [viewTab, setViewTab] = useState('details');
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+
+  const refresh = () => { list.reload(); setRefreshKey((k) => k + 1); };
+
+  const columns = useMemo(() => [
+    { key: 'deliveryRef', label: 'DELIVERY REF', render: (v) => <span style={{ fontWeight: 500, color: '#334155' }}>{v}</span> },
+    { key: 'poId', label: 'PO NO', render: (v) => <span style={{ color: '#475569' }}>{refName(v, 'poNo')}</span> },
+    { key: 'vendorId', label: 'VENDOR', render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{refName(v, 'vendorName')}</span> },
+    { key: 'material', label: 'MATERIAL', render: (v) => <span style={{ color: '#334155' }}>{v}</span> },
+    { key: 'expectedDeliveryDate', label: 'EXPECTED DELIVERY', render: (v, row) => (
+      <span style={{ color: row.status !== 'delivered' && v && new Date(v) < new Date() ? '#DC2626' : '#64748B' }}>{formatDate(v)}</span>
+    ) },
+    { key: 'status', label: 'STATUS', render: (v) => <StatusBadge status={v} /> },
     {
       key: 'actions',
       label: 'ACTIONS',
       align: 'right',
       render: (_, row) => (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
-          <button
-            className="icon-btn"
-            onClick={() => { setViewItem(row); setViewTab('details'); }}
-            title="View Delivery Details"
-            style={{ color: '#64748B', cursor: 'pointer' }}
-          >
-            <FiEye size={16} />
-          </button>
-          <button
-            className="icon-btn"
-            onClick={() => {
-              setStatusUpdateItem(row);
-              setNewStatus(row.status || 'In Production');
-            }}
-            title="Update Delivery Status"
-            style={{ color: '#1E3A8A', cursor: 'pointer' }}
-          >
-            <FiMoreVertical size={16} />
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="icon-btn" title="View Delivery Details" aria-label="View delivery details" onClick={() => { setViewId(row._id); setViewTab('details'); }} style={{ color: '#64748B', cursor: 'pointer' }}><FiEye size={16} /></button>
+          {canUpdate ? <RowMenu items={[{ label: 'Update Delivery Status', icon: <FiEdit2 size={14} color="#1E3A8A" />, action: () => setStatusFor(row) }]} /> : <span style={{ width: 24 }} />}
         </div>
-      )
-    }
+      ),
+    },
+  ], [canUpdate]);
+
+  const onExport = async () => {
+    const message = await exporter.run();
+    if (message) showToast(message, 'error');
+    else showToast('Delivery status log exported', 'success');
+  };
+
+  const tiles = [
+    { label: 'ACTIVE DELIVERIES', value: statValue(list.stats, 'active_deliveries'), sub: 'Deliveries currently being monitored', icon: <FiTruck size={18} />, tone: 'blue' },
+    { label: 'DUE THIS WEEK', value: statValue(list.stats, 'due_this_week'), sub: 'Scheduled to arrive within next 7 days', icon: <FiClock size={18} />, tone: 'amber' },
+    {
+      label: 'ON-TIME DELIVERY RATE',
+      value: `${statValue(list.stats, 'on_time_rate')}%`,
+      sub: statChange(list.stats, 'on_time_rate') ? `Based on ${statChange(list.stats, 'on_time_rate')} completed deliveries` : 'No completed deliveries yet',
+      icon: <FiCheckCircle size={18} />,
+      tone: 'green',
+    },
+    { label: 'DELAYED DELIVERIES', value: statValue(list.stats, 'late_deliveries'), sub: 'Past the expected delivery date', subColor: '#DC2626', icon: <FiAlertTriangle size={18} />, tone: 'red' },
+  ];
+
+  const filterFields = [
+    { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+    { key: 'late', label: 'Timing', allLabel: 'All deliveries', options: [{ value: 'true', label: 'Past the expected date and not delivered' }] },
+    { key: 'vendorId', label: 'Vendor', options: (lookups.vendors || []).map((v) => ({ value: v._id, label: v.vendorName })) },
+    { key: 'dateFrom', label: 'Expected from', type: 'date' },
+    { key: 'dateTo', label: 'Expected to', type: 'date' },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Expediting & Delivery</h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-            Track vendor fulfilment, shipment progress, and scheduled deliveries to ensure materials arrive on time
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            className="btn btn-secondary"
-            onClick={() => showToast('Delivery tracking file imported', 'info')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', borderRadius: '8px' }}
+      <PageHeader title="Expediting & Delivery" subtitle="Track vendor fulfilment, shipment progress, and scheduled deliveries to ensure materials arrive on time">
+        {(canCreate || canUpdate) && <SecondaryButton icon={<FiUpload size={15} />} onClick={() => setUploadOpen(true)}>Upload</SecondaryButton>}
+      </PageHeader>
+
+      <StatTiles tiles={tiles} loading={list.statsLoading && !list.stats.length} error={Boolean(list.statsError)} />
+
+      <ListCard
+        list={list}
+        columns={columns}
+        emptyText="No delivery tracking records found."
+        selection={selection}
+        toolbar={(
+          <ListToolbar
+            search={list.searchText}
+            onSearch={list.onSearch}
+            placeholder="Search Delivery Ref, PO No, Vendor ..."
+            onFilter={() => setFilterOpen(true)}
+            filterCount={countFilters(list.filters)}
+            onExport={onExport}
+            exporting={exporter.exporting}
+            selectedCount={exporter.selectedCount}
           >
-            <FiUpload size={15} /> Upload
-          </button>
-        </div>
-      </div>
+            {canCreate && <PrimaryButton icon={<FiPlus size={16} />} onClick={() => setNewOpen(true)}>New Delivery</PrimaryButton>}
+          </ListToolbar>
+        )}
+      />
 
-      {/* Metric Cards matching screenshot */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>ACTIVE DELIVERIES</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{activeDeliveries}</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>Deliveries currently being monitored</div>
-          </div>
-          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
-            <FiTruck size={18} />
-          </div>
-        </div>
+      <FilterDrawer isOpen={filterOpen} onClose={() => setFilterOpen(false)} title="Filter Deliveries" subtitle="Narrow the delivery log." fields={filterFields} values={list.filters} onApply={list.applyFilters} />
 
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>DUE THIS WEEK</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{dueThisWeek}</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>Scheduled to arrive within next 7 days</div>
-          </div>
-          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706' }}>
-            <FiClock size={18} />
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>ON-TIME DELIVERY RATE</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{onTimeRate}</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '4px' }}>Deliveries completed on schedule</div>
-          </div>
-          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
-            <FiCheckCircle size={18} />
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>DELAYED DELIVERIES</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{delayedDeliveries}</div>
-            <div style={{ fontSize: '0.75rem', color: '#DC2626', marginTop: '4px' }}>Past the expected delivery date</div>
-          </div>
-          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
-            <FiAlertTriangle size={18} />
-          </div>
-        </div>
-      </div>
-
-      {/* Table Card */}
-      <div className="card" style={{ padding: '0', overflow: 'hidden', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
-        <div style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', width: '320px' }}>
-            <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search Delivery Ref, Type ..."
-              style={{
-                width: '100%',
-                padding: '9px 12px 9px 36px',
-                borderRadius: '8px',
-                border: '1px solid #E2E8F0',
-                fontSize: '0.813rem',
-                backgroundColor: '#FFFFFF',
-                outline: 'none'
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => showToast('Filters applied', 'info')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px' }}
-            >
-              <FiFilter size={15} /> Filter
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => showToast('Exporting delivery status logs...', 'success')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px' }}
-            >
-              <FiDownload size={15} /> Export
-            </button>
-          </div>
-        </div>
-
-        <div style={{ padding: '0 24px 16px' }}>
-          <DataTable
-            columns={columns}
-            data={paginated}
-            selectable
-            selectedIds={selectedIds}
-            onSelectRow={(id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-            onSelectAll={() => setSelectedIds(selectedIds.length === paginated.length ? [] : paginated.map(e => e.deliveryRef))}
-            keyField="deliveryRef"
-            emptyMessage="No delivery tracking records found."
-          />
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-        </div>
-      </div>
-
-      {/* ── UPDATE DELIVERY STATUS MODAL ── */}
-      {statusUpdateItem && (
-        <Modal
-          isOpen={!!statusUpdateItem}
-          onClose={() => setStatusUpdateItem(null)}
-          title="Update Delivery Status"
-          size="sm"
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div style={{ fontSize: '0.813rem', color: '#64748B' }}>
-              Current Status: <strong style={{ color: '#D97706' }}>{statusUpdateItem.status}</strong>
-            </div>
-
-            <FormField label="DELIVERY STATUS *" required>
-              <select
-                className="form-input"
-                value={newStatus}
-                onChange={(e) => setNewStatus(e.target.value)}
-              >
-                {['In Production', 'Ready for Shipment', 'Customs Clearance', 'In Transit', 'Delivered', 'Delayed'].map(s => (
-                  <option key={s} value={s}>{s}</option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label="UPDATE NOTE">
-              <textarea
-                className="form-input"
-                rows={3}
-                value={statusNote}
-                onChange={(e) => setStatusNote(e.target.value)}
-                placeholder="Enter update details..."
-              />
-            </FormField>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '12px', borderTop: '1px solid #F1F5F9' }}>
-              <button className="btn btn-secondary" onClick={() => setStatusUpdateItem(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleUpdateStatus}
-                style={{ backgroundColor: '#1E3A8A', color: '#FFFFFF', fontWeight: 600, padding: '9px 20px', borderRadius: '6px' }}
-              >
-                Update
-              </button>
-            </div>
-          </div>
-        </Modal>
+      {newOpen && (
+        <NewDeliveryModal
+          lookups={lookups}
+          onClose={() => setNewOpen(false)}
+          onSaved={(message) => { setNewOpen(false); showToast(message, 'success'); refresh(); }}
+        />
       )}
 
-      {/* ── VIEW DELIVERY DETAILS MODAL (3 Tabs: Delivery Details, Delivery Timeline, Documents) ── */}
-      {viewItem && (
-        <Modal
-          isOpen={!!viewItem}
-          onClose={() => setViewItem(null)}
-          title=""
-          size="lg"
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '-10px' }}>
-            {/* Header info */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: '10px', backgroundColor: '#EFF6FF',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1D4ED8'
-                }}>
-                  <FiTruck size={22} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                    {viewItem.vendor}
-                  </h3>
-                  <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
-                    {viewItem.deliveryRef} • {viewItem.poNo}
-                  </div>
-                </div>
-              </div>
+      {statusFor && (
+        <UpdateStatusModal
+          key={statusFor._id}
+          delivery={statusFor}
+          onClose={() => setStatusFor(null)}
+          onSaved={(message) => { setStatusFor(null); showToast(message, 'success'); refresh(); }}
+        />
+      )}
 
-              {/* Status bar */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#64748B' }}>
-                <span>Status:</span>
-                <span style={{
-                  backgroundColor: deliveryStatusStyles[viewItem.status]?.bg || '#F1F5F9',
-                  color: deliveryStatusStyles[viewItem.status]?.color || '#64748B',
-                  padding: '3px 12px',
-                  borderRadius: '12px',
-                  fontWeight: 600
-                }}>
-                  {viewItem.status}
-                </span>
-              </div>
-            </div>
+      {viewId && (
+        <ViewDeliveryModal
+          id={viewId}
+          refreshKey={refreshKey}
+          tab={viewTab}
+          onTab={setViewTab}
+          canUpdate={canUpdate}
+          onUpdate={setStatusFor}
+          onClose={() => setViewId(null)}
+        />
+      )}
 
-            {/* 3 Tabs */}
-            <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginTop: '6px' }}>
-              <button
-                onClick={() => setViewTab('details')}
-                style={{
-                  padding: '10px 24px',
-                  fontWeight: 600,
-                  fontSize: '0.875rem',
-                  border: 'none',
-                  background: 'none',
-                  cursor: 'pointer',
-                  borderBottom: viewTab === 'details' ? '2px solid #1E3A8A' : '2px solid transparent',
-                  color: viewTab === 'details' ? '#1E3A8A' : '#64748B'
-                }}
-              >
-                Delivery Details
-              </button>
-              <button
-                onClick={() => setViewTab('timeline')}
-                style={{
-                  padding: '10px 24px',
-                  fontWeight: 600,
-                  fontSize: '0.875rem',
-                  border: 'none',
-                  background: 'none',
-                  cursor: 'pointer',
-                  borderBottom: viewTab === 'timeline' ? '2px solid #1E3A8A' : '2px solid transparent',
-                  color: viewTab === 'timeline' ? '#1E3A8A' : '#64748B'
-                }}
-              >
-                Delivery Timeline
-              </button>
-              <button
-                onClick={() => setViewTab('documents')}
-                style={{
-                  padding: '10px 24px',
-                  fontWeight: 600,
-                  fontSize: '0.875rem',
-                  border: 'none',
-                  background: 'none',
-                  cursor: 'pointer',
-                  borderBottom: viewTab === 'documents' ? '2px solid #1E3A8A' : '2px solid transparent',
-                  color: viewTab === 'documents' ? '#1E3A8A' : '#64748B'
-                }}
-              >
-                Documents
-              </button>
-            </div>
-
-            {/* Tab 1: Delivery Details */}
-            {viewTab === 'details' && (
-              <div style={{
-                backgroundColor: '#F8FAFC',
-                borderRadius: '10px',
-                border: '1px solid #E2E8F0',
-                padding: '20px',
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '16px'
-              }}>
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>DELIVERY REFERENCE</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.deliveryRef}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>PURCHASE ORDER NO</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.poNo}</div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>LINKED RFQ NO</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.linkedRFQ || '—'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>VENDOR</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.vendor}</div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>LINKED PROJECT</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.linkedProject || 'LNG Expansion Project'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>MATERIAL</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.material}</div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>QUANTITY</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.quantity || '120 Pieces'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>EXPECTED DELIVERY DATE</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.expectedDelivery}</div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>DELIVERY LOCATION</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.deliveryLocation || 'PGSL Port Harcourt Yard'}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>STATUS</div>
-                  <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.status}</div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Delivery Timeline matching screenshot */}
-            {viewTab === 'timeline' && (
-              <div style={{ backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', padding: '24px' }}>
-                <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '16px' }}>
-                  DELIVERY TIMELINE
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'relative' }}>
-                  {(viewItem.timeline || []).map((tl, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '14px' }}>
-                      <div style={{
-                        width: 14, height: 14, borderRadius: '50%',
-                        backgroundColor: tl.done ? '#10B981' : tl.active ? '#3B82F6' : tl.delayed ? '#EF4444' : '#E2E8F0',
-                        marginTop: '4px', flexShrink: 0
-                      }} />
-                      <div>
-                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#0F172A' }}>
-                          {tl.status}
-                        </div>
-                        <div style={{ fontSize: '0.75rem', color: '#64748B', marginTop: '2px' }}>
-                          {tl.date}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Documents */}
-            {viewTab === 'documents' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {(viewItem.documents && viewItem.documents.length > 0) ? (
-                  viewItem.documents.map((doc, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '12px 16px',
-                        borderRadius: '8px',
-                        backgroundColor: '#F8FAFC',
-                        border: '1px solid #E2E8F0'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.813rem', color: '#334155' }}>
-                        <FiPaperclip size={16} color="#64748B" />
-                        <span>{doc.name} ({doc.size})</span>
-                      </div>
-                      <button
-                        className="icon-btn"
-                        onClick={() => showToast(`Downloading ${doc.name}`, 'success')}
-                      >
-                        <FiDownloadCloud size={16} color="#2563EB" />
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '24px', color: '#94A3B8' }}>No attached documents.</div>
-                )}
-              </div>
-            )}
-          </div>
-        </Modal>
+      {uploadOpen && (
+        <AttachToRecordDialog
+          api={deliveryService}
+          title="Upload Delivery Document"
+          recordNoun="delivery"
+          recordLabel={(d) => `${d.deliveryRef}: ${d.material}`}
+          onClose={() => setUploadOpen(false)}
+          onDone={(message) => { setUploadOpen(false); showToast(message, 'success'); setRefreshKey((k) => k + 1); }}
+        />
       )}
     </div>
   );

@@ -1,953 +1,482 @@
-import React, { useState, useRef, useEffect } from 'react';
-import {
-  FiSearch, FiFilter, FiDownload, FiUpload, FiPlus, FiEye, FiMoreVertical,
-  FiEdit, FiCheck, FiX, FiArrowRight, FiFileText, FiPaperclip, FiDownloadCloud
-} from 'react-icons/fi';
-import DataTable from '../../components/ui/DataTable';
-import Pagination from '../../components/ui/Pagination';
+import { useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { FiUpload, FiPlus, FiEye, FiEdit, FiCheck, FiX, FiArrowRight, FiFileText, FiTrash2 } from 'react-icons/fi';
 import Modal from '../../components/ui/Modal';
-import { Input, FormField } from '../../components/ui/FormField';
+import RowMenu from '../../components/ui/RowMenu';
+import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
-import { mockRequisitions } from '../../data/mockProcurement';
+import { usePermission } from '../../hooks/usePermission';
+import { selectCurrentUser } from '../../store/authSlice';
+import { requisitionsSlice } from '../../store/procurement/slices';
+import { apiError } from '../../services/apiHelpers';
+import { purchaseRequisitionService } from '../../services/procurement.service';
+import {
+  CATEGORIES, PRIORITIES, UNITS, countFilters, csvMoney, fieldErrorsOf, formatDate, fromKobo, money, refId, refName,
+  statusLabel, toKobo, toQuantity, toOptions, uploadStagedFiles, ymd,
+} from './shared/procUtils';
+import { useExport, useLookups, useProcList, useRecord, useRunAction, useSelection } from './shared/procHooks';
+import {
+  Choice, ConfirmModal, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, Note, PageHeader, Panel,
+  PrimaryButton, ReasonModal, RecordSummary, SecondaryButton, StatusBadge, StatusLine, TwoCol, ViewHeader,
+} from './shared/ProcUi';
+import { AttachField, AttachToRecordDialog, DocumentList } from './shared/ProcExtras';
+import RfqFormModal from './shared/RfqForm';
 
-const ITEMS_PER_PAGE = 8;
-const fmtCurrency = (n) => '₦' + Number(n).toLocaleString();
+const EXPORT_COLUMNS = [
+  { label: 'Requisition ID', value: (r) => r.requisitionId },
+  { label: 'Requested Material/Service', value: (r) => r.requestedMaterialService },
+  { label: 'Category', value: (r) => r.category },
+  { label: 'Department', value: (r) => refName(r.departmentId, 'name') },
+  { label: 'Requested By', value: (r) => refName(r.requestedBy, 'fullName') },
+  { label: 'Priority', value: (r) => r.priority },
+  { label: 'Quantity', value: (r) => r.quantity },
+  { label: 'Unit', value: (r) => r.unit },
+  { label: 'Estimated Budget (NGN)', value: (r) => csvMoney(r.estimatedBudget) },
+  { label: 'Request Date', value: (r) => ymd(r.requestDate) },
+  { label: 'Required Date', value: (r) => ymd(r.requiredDate) },
+  { label: 'Status', value: (r) => statusLabel(r.status) },
+];
 
-// Status styling according to screenshots
-const statusBadgeStyles = {
-  'Pending Approval': { bg: '#FEF3C7', color: '#D97706', border: 'none' },
-  'Draft':            { bg: '#F1F5F9', color: '#64748B', border: 'none' },
-  'Converted to RFQ': { bg: '#E0F2FE', color: '#0284C7', border: 'none' },
-  'Approved':         { bg: '#DCFCE7', color: '#16A34A', border: 'none' },
-  'Rejected':         { bg: '#FEE2E2', color: '#DC2626', border: 'none' }
-};
+const STATUS_OPTIONS = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'pending_approval', label: 'Pending Approval' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'converted_to_rfq', label: 'Converted to RFQ' },
+  { value: 'rejected', label: 'Rejected' },
+];
 
-const priorityStyles = {
-  'Hot':    { bg: '#FEE2E2', color: '#DC2626' },
-  'High':   { bg: '#FEE2E2', color: '#DC2626' },
-  'Medium': { bg: '#FEF3C7', color: '#D97706' },
-  'Low':    { bg: '#E0F2FE', color: '#0284C7' }
-};
+function blankForm(myEmployeeId) {
+  return {
+    material: '', category: 'Materials', department: '', quantity: '', unit: 'Pieces', budget: '', project: '',
+    priority: 'Medium', requestedBy: myEmployeeId || '', requiredDate: '', justification: '',
+  };
+}
+
+function formFromRecord(r) {
+  return {
+    material: r.requestedMaterialService || '', category: r.category || 'Materials', department: refId(r.departmentId),
+    quantity: String(r.quantity ?? ''), unit: r.unit || 'Pieces', budget: fromKobo(r.estimatedBudget), project: refId(r.projectId),
+    priority: r.priority || 'Medium', requestedBy: refId(r.requestedBy), requiredDate: ymd(r.requiredDate), justification: r.justification || '',
+  };
+}
+
+function RequisitionFormModal({ record, lookups, myEmployeeId, onClose, onSaved }) {
+  const editing = Boolean(record);
+  const [form, setForm] = useState(() => (record ? formFromRecord(record) : blankForm(myEmployeeId)));
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const validate = () => {
+    const next = {};
+    if (!form.material.trim()) next.requestedMaterialService = 'Describe the material or service';
+    if (!form.department) next.departmentId = 'Choose a department';
+    if (Number.isNaN(toQuantity(form.quantity))) next.quantity = 'Enter a quantity above zero';
+    if (Number.isNaN(toKobo(form.budget))) next.estimatedBudget = 'Enter the budget in naira, for example 1250000.50';
+    if (!form.requiredDate) next.requiredDate = 'Choose the required date';
+    if (!form.justification.trim()) next.justification = 'Give a justification';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const payload = () => ({
+    requestedMaterialService: form.material.trim(),
+    category: form.category,
+    departmentId: form.department,
+    quantity: toQuantity(form.quantity),
+    unit: form.unit,
+    estimatedBudget: toKobo(form.budget),
+    ...(form.project ? { projectId: form.project } : {}),
+    priority: form.priority,
+    ...(form.requestedBy ? { requestedBy: form.requestedBy } : {}),
+    requiredDate: form.requiredDate,
+    justification: form.justification.trim(),
+  });
+
+  const save = async (submit) => {
+    setError('');
+    if (!validate()) return;
+    setBusy(true);
+    try {
+      let saved;
+      if (editing) {
+        const res = await purchaseRequisitionService.update(record._id, payload());
+        saved = res.data?.data;
+        if (submit) await purchaseRequisitionService.submit(record._id);
+      } else {
+        const res = await purchaseRequisitionService.create({ ...payload(), submit });
+        saved = res.data?.data;
+      }
+      let note = '';
+      if (files.length && saved?._id) {
+        const failed = await uploadStagedFiles(purchaseRequisitionService, saved._id, files);
+        if (failed.length) note = ` Documents not attached: ${failed.join('; ')}`;
+      }
+      onSaved(`${editing ? 'Requisition updated' : submit ? 'Requisition submitted for approval' : 'Requisition saved as draft'}${submit && editing ? ' and submitted' : ''}.${note}`);
+    } catch (err) {
+      setError(apiError(err, 'The requisition could not be saved'));
+      setErrors(fieldErrorsOf(err?.response?.data?.error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={editing ? 'Edit Requisition' : 'New Requisition'}
+      subtitle={editing ? 'Only a draft can be edited.' : 'Submit a new procurement request for review and approval'}
+      maxWidth="720px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <SecondaryButton onClick={() => save(false)} disabled={busy}>{editing ? 'Save Changes' : 'Save as Draft'}</SecondaryButton>
+          <PrimaryButton onClick={() => save(true)} disabled={busy}>{editing ? 'Save and Submit' : 'Submit Requisition'}</PrimaryButton>
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => e.preventDefault()}>
+        <Field label="Requested material/service" required error={errors.requestedMaterialService}>
+          <Input value={form.material} onChange={(e) => set('material', e.target.value)} placeholder="e.g. Structural Steel Beams (IPE 300)" error={Boolean(errors.requestedMaterialService)} />
+        </Field>
+        <TwoCol>
+          <Field label="Category" required error={errors.category}>
+            <Choice value={form.category} onChange={(v) => set('category', v)} options={CATEGORIES} />
+          </Field>
+          <Field label="Department" required error={errors.departmentId}>
+            <Choice value={form.department} onChange={(v) => set('department', v)} searchable placeholder="Select a department" options={toOptions(lookups.departments, 'name')} error={errors.departmentId} />
+          </Field>
+        </TwoCol>
+        <TwoCol min={160}>
+          <Field label="Quantity" required error={errors.quantity}>
+            <Input value={form.quantity} inputMode="decimal" onChange={(e) => set('quantity', e.target.value)} error={Boolean(errors.quantity)} />
+          </Field>
+          <Field label="Unit" required error={errors.unit}>
+            <Choice value={form.unit} onChange={(v) => set('unit', v)} options={UNITS} />
+          </Field>
+          <Field label="Estimated budget (₦)" required error={errors.estimatedBudget}>
+            <Input value={form.budget} inputMode="decimal" onChange={(e) => set('budget', e.target.value.replace(/,/g, ''))} placeholder="0.00" error={Boolean(errors.estimatedBudget)} />
+          </Field>
+        </TwoCol>
+        <Field label="Project" error={errors.projectId} help="Select a project if this request is project-specific.">
+          <Choice
+            value={form.project}
+            onChange={(v) => set('project', v)}
+            searchable
+            placeholder="No project"
+            options={[{ value: '', label: 'No project' }, ...toOptions(lookups.projects, (p) => `${p.projectId}: ${p.projectName}`)]}
+          />
+        </Field>
+        <TwoCol>
+          <Field label="Priority" required error={errors.priority}>
+            <Choice value={form.priority} onChange={(v) => set('priority', v)} options={PRIORITIES} />
+          </Field>
+          <Field label="Requested by" error={errors.requestedBy} help="Defaults to you; choose a colleague to file on their behalf.">
+            <Choice value={form.requestedBy} onChange={(v) => set('requestedBy', v)} searchable placeholder="Select an employee" options={toOptions(lookups.employees, (e) => `${e.fullName} (${e.employeeId})`)} error={errors.requestedBy} />
+          </Field>
+        </TwoCol>
+        <TwoCol>
+          <Field label="Request date" help="Set automatically when the requisition is created.">
+            <Input value={editing ? formatDate(record.requestDate) : formatDate(new Date())} disabled />
+          </Field>
+          <Field label="Required date" required error={errors.requiredDate}>
+            <DatePicker value={form.requiredDate} onChange={(e) => set('requiredDate', e.target.value)} error={Boolean(errors.requiredDate)} />
+          </Field>
+        </TwoCol>
+        <Field label="Justification" required error={errors.justification}>
+          <Textarea rows={3} value={form.justification} onChange={(e) => set('justification', e.target.value)} error={Boolean(errors.justification)} />
+        </Field>
+        {!editing && (
+          <Field label="Attach document (optional)">
+            <AttachField files={files} onChange={setFiles} disabled={busy} />
+          </Field>
+        )}
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function ViewRequisitionModal({ id, refreshKey, actions, canDecide, ownRequest, canUpload, onClose }) {
+  const { record, error, loading } = useRecord(purchaseRequisitionService, id, refreshKey);
+  return (
+    <Modal isOpen onClose={onClose} title="" maxWidth="760px">
+      {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading requisition…</div>}
+      {error && <FormError message={error} />}
+      {record && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: -10 }}>
+          <ViewHeader icon={<FiFileText size={22} />} title={record.requestedMaterialService} subtitle={`${refName(record.requestedBy, 'fullName')} • ${record.requisitionId}`}>
+            {actions(record)}
+          </ViewHeader>
+          <StatusLine status={<StatusBadge status={record.status} />} />
+          {record.status === 'pending_approval' && canDecide && ownRequest(record) && (
+            <Note tone="amber">You raised this requisition, so another approver has to decide it.</Note>
+          )}
+          <DetailGrid
+            items={[
+              ['Requested material/service', record.requestedMaterialService],
+              ['Category', record.category],
+              ['Requisition ID', record.requisitionId],
+              ['Department', refName(record.departmentId, 'name')],
+              ['Quantity', `${record.quantity} ${record.unit}`],
+              ['Estimated budget', money(record.estimatedBudget)],
+              ['Priority', record.priority],
+              ['Project', record.projectId ? `${record.projectId.projectId || ''} ${record.projectId.projectName || ''}`.trim() : 'General'],
+              ['Requested by', refName(record.requestedBy, 'fullName')],
+              ['Request date', formatDate(record.requestDate)],
+              ['Required date', formatDate(record.requiredDate)],
+              ['Status', statusLabel(record.status)],
+            ]}
+          />
+          <Panel title="Justification">{record.justification || 'No justification entered.'}</Panel>
+          {record.status === 'rejected' && <Panel title="Rejection reason" tone="red">{record.rejectionReason || 'No reason was recorded.'}</Panel>}
+          <DocumentList key={record._id} api={purchaseRequisitionService} id={record._id} canUpload={canUpload && ['draft', 'pending_approval'].includes(record.status)} />
+        </div>
+      )}
+    </Modal>
+  );
+}
 
 export default function PurchaseRequests() {
-  const [data, setData] = useState(mockRequisitions);
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState([]);
-  
-  // Modals state
-  const [createModal, setCreateModal] = useState(false);
-  const [editItem, setEditItem] = useState(null);
-  const [viewItem, setViewItem] = useState(null);
-  const [activeMenuId, setActiveMenuId] = useState(null);
-  const menuRef = useRef();
+  const canCreate = usePermission('procurement.requisition.create');
+  const canUpdate = usePermission('procurement.requisition.update');
+  const canDelete = usePermission('procurement.requisition.delete');
+  const canDecide = usePermission('procurement.requisition.decide');
+  const canConvert = usePermission('procurement.rfq.create');
+  const user = useSelector(selectCurrentUser);
+  const myEmployeeId = (user?.employeeId && typeof user.employeeId === 'object' ? user.employeeId._id : user?.employeeId) || '';
+  const ownRequest = (r) => Boolean(myEmployeeId) && refId(r.requestedBy) === myEmployeeId;
 
+  const list = useProcList(requisitionsSlice, { initialFilters: { status: '', priority: '', category: '', departmentId: '', projectId: '', dateFrom: '', dateTo: '' } });
+  const run = useRunAction(requisitionsSlice);
+  const selection = useSelection();
   const { toast, showToast, hideToast } = useToast();
+  const { lookups } = useLookups(['departments', 'projects', 'employees', 'vendors', 'locations', 'approvedRequisitions']);
+  const exporter = useExport(purchaseRequisitionService, list, selection, EXPORT_COLUMNS, 'requisitions.csv');
 
-  // Close context menu on outside click
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setActiveMenuId(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+  const [formFor, setFormFor] = useState(null);
+  const [viewId, setViewId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [confirm, setConfirm] = useState(null);
+  const [convertFor, setConvertFor] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  // Form states for New Requisition
-  const [formData, setFormData] = useState({
-    materials: 'Structural Steel Beams (IPE 300)',
-    category: 'Materials',
-    department: 'HSE',
-    quantity: '25',
-    unit: 'Pieces',
-    estimatedBudget: '12500000',
-    project: 'LNG Expansion Project',
-    priority: 'High',
-    requestedBy: 'Chinonso Okafor',
-    requestDate: '22/05/26',
-    requiredDate: '29/05/26',
-    justification: 'Steel beams are required to complete the structural framework for Area B before mechanical installation begins.',
-    documents: [
-      { name: 'BOQ_Revision_03.pdf', size: '25MB' },
-      { name: 'Structural_Drawing.pdf', size: '25MB' }
-    ]
-  });
+  const refresh = () => { list.reload(); setRefreshKey((k) => k + 1); };
 
-  const categories = [
-    'Materials', 'Equipment', 'Services', 'PPE', 'Spare Parts', 'Office Supplies', 'IT Equipment', 'Consumables'
-  ];
-
-  const filtered = data.filter(item => {
-    const q = search.toLowerCase();
-    return !q ||
-      item.id.toLowerCase().includes(q) ||
-      item.materials.toLowerCase().includes(q) ||
-      item.department.toLowerCase().includes(q) ||
-      item.requestedBy.toLowerCase().includes(q) ||
-      item.status.toLowerCase().includes(q);
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
-  const paginated = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
-
-  const handleCreateSubmit = (asDraft = false) => {
-    const newReq = {
-      id: `PR-25-0${data.length + 1}`,
-      materials: formData.materials,
-      department: formData.department,
-      requestedBy: formData.requestedBy,
-      priority: formData.priority,
-      requestDate: formData.requestDate || '28/05/25',
-      requiredDate: formData.requiredDate || '10/06/25',
-      status: asDraft ? 'Draft' : 'Pending Approval',
-      category: formData.category,
-      quantity: Number(formData.quantity) || 1,
-      unit: formData.unit,
-      estimatedBudget: Number(formData.estimatedBudget) || 0,
-      project: formData.project,
-      justification: formData.justification,
-      documents: formData.documents
-    };
-
-    setData([newReq, ...data]);
-    setCreateModal(false);
-    showToast(asDraft ? 'Requisition saved as draft' : 'Requisition submitted successfully', 'success');
-  };
-
-  const handleEditSave = () => {
-    if (!editItem) return;
-    setData(data.map(item => item.id === editItem.id ? editItem : item));
-    setEditItem(null);
-    showToast('Requisition updated successfully', 'success');
-  };
-
-  const handleStatusChange = (id, newStatus, message) => {
-    setData(data.map(item => item.id === id ? { ...item, status: newStatus } : item));
-    setActiveMenuId(null);
-    if (viewItem && viewItem.id === id) {
-      setViewItem(prev => ({ ...prev, status: newStatus }));
+  const doAction = async (method, args, success) => {
+    setBusy(true);
+    setActionError('');
+    const res = await run(method, ...args);
+    setBusy(false);
+    if (res.ok) {
+      setConfirm(null);
+      showToast(success, 'success');
+      refresh();
+    } else {
+      setActionError(res.error);
+      if (!confirm) showToast(res.error, 'error');
     }
-    showToast(message || `Requisition status updated to ${newStatus}`, 'success');
+    return res.ok;
   };
 
-  const handleDelete = (id) => {
-    setData(data.filter(item => item.id !== id));
-    setActiveMenuId(null);
-    showToast('Requisition deleted successfully', 'success');
+  const menuItems = (row) => {
+    const items = [];
+    if (row.status === 'draft') {
+      if (canUpdate) {
+        items.push({ label: 'Edit Requisition', icon: <FiEdit size={14} color="#64748B" />, action: () => setFormFor(row) });
+        items.push({ label: 'Submit Requisition', icon: <FiCheck size={14} color="#16A34A" />, action: () => doAction('submit', [row._id], 'Requisition submitted for approval') });
+      }
+      if (canDelete) items.push({ label: 'Delete Requisition', icon: <FiTrash2 size={14} color="#DC2626" />, color: '#DC2626', action: () => { setActionError(''); setConfirm({ type: 'delete', row }); } });
+    }
+    if (row.status === 'pending_approval' && canDecide && !ownRequest(row)) {
+      items.push({ label: 'Approve Requisition', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => { setActionError(''); setConfirm({ type: 'approve', row }); } });
+      items.push({ label: 'Reject Requisition', icon: <FiX size={14} color="#DC2626" />, color: '#DC2626', action: () => { setActionError(''); setConfirm({ type: 'reject', row }); } });
+    }
+    if (row.status === 'approved' && canConvert) {
+      items.push({ label: 'Convert to RFQ/RFP', icon: <FiArrowRight size={14} color="#2563EB" />, action: () => setConvertFor(row) });
+    }
+    return items;
   };
 
-  const columns = [
-    {
-      key: 'id',
-      label: 'REQUISITION ID',
-      render: (v) => <span style={{ fontWeight: 500, color: '#334155' }}>{v}</span>
-    },
-    {
-      key: 'materials',
-      label: 'REQUESTED MATERIALS',
-      render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{v}</span>
-    },
-    {
-      key: 'department',
-      label: 'DEPARTMENT',
-      render: (v) => <span style={{ color: '#475569' }}>{v}</span>
-    },
-    {
-      key: 'requestedBy',
-      label: 'REQUESTED BY',
-      render: (v) => <span style={{ color: '#334155' }}>{v}</span>
-    },
-    {
-      key: 'priority',
-      label: 'PRIORITY',
-      render: (v) => {
-        const style = priorityStyles[v] || { bg: '#F1F5F9', color: '#64748B' };
-        return (
-          <span style={{
-            backgroundColor: style.bg,
-            color: style.color,
-            padding: '3px 12px',
-            borderRadius: '12px',
-            fontSize: '0.75rem',
-            fontWeight: 500
-          }}>
-            {v}
-          </span>
-        );
-      }
-    },
-    {
-      key: 'requestDate',
-      label: 'REQUEST DATE',
-      render: (v) => <span style={{ color: '#64748B' }}>{v}</span>
-    },
-    {
-      key: 'status',
-      label: 'STATUS',
-      render: (v) => {
-        const style = statusBadgeStyles[v] || { bg: '#F1F5F9', color: '#64748B' };
-        return (
-          <span style={{
-            backgroundColor: style.bg,
-            color: style.color,
-            padding: '4px 14px',
-            borderRadius: '14px',
-            fontSize: '0.75rem',
-            fontWeight: 500,
-            whiteSpace: 'nowrap'
-          }}>
-            {v}
-          </span>
-        );
-      }
-    },
+  const columns = useMemo(() => [
+    { key: 'requisitionId', label: 'REQUISITION ID', render: (v) => <span style={{ fontWeight: 500, color: '#334155' }}>{v}</span> },
+    { key: 'requestedMaterialService', label: 'REQUESTED MATERIALS', render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{v}</span> },
+    { key: 'departmentId', label: 'DEPARTMENT', render: (v) => <span style={{ color: '#475569' }}>{refName(v, 'name')}</span> },
+    { key: 'requestedBy', label: 'REQUESTED BY', render: (v) => <span style={{ color: '#334155' }}>{refName(v, 'fullName')}</span> },
+    { key: 'priority', label: 'PRIORITY', render: (v) => <StatusBadge status={v} label={v} /> },
+    { key: 'requestDate', label: 'REQUEST DATE', render: (v) => <span style={{ color: '#64748B' }}>{formatDate(v)}</span> },
+    { key: 'status', label: 'STATUS', render: (v) => <StatusBadge status={v} /> },
     {
       key: 'actions',
       label: 'ACTIONS',
       align: 'right',
       render: (_, row) => {
-        const isDraft = row.status === 'Draft';
-        const isPending = row.status === 'Pending Approval';
-        const isApproved = row.status === 'Approved';
-
+        const items = menuItems(row);
         return (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px', position: 'relative' }}>
-            {/* View Icon */}
-            <button
-              className="icon-btn"
-              title="View Requisition"
-              onClick={() => setViewItem(row)}
-              style={{ color: '#64748B', cursor: 'pointer' }}
-            >
-              <FiEye size={16} />
-            </button>
-
-            {/* Context Action Menu */}
-            {(isDraft || isPending || isApproved) && (
-              <div style={{ position: 'relative' }}>
-                <button
-                  className="icon-btn"
-                  onClick={() => setActiveMenuId(activeMenuId === row.id ? null : row.id)}
-                  style={{ color: '#64748B', cursor: 'pointer' }}
-                >
-                  <FiMoreVertical size={16} />
-                </button>
-
-                {activeMenuId === row.id && (
-                  <div
-                    ref={menuRef}
-                    style={{
-                      position: 'absolute',
-                      right: 0,
-                      top: '100%',
-                      marginTop: '4px',
-                      backgroundColor: '#FFFFFF',
-                      borderRadius: '8px',
-                      boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-                      border: '1px solid #E2E8F0',
-                      padding: '6px 0',
-                      zIndex: 60,
-                      width: '180px',
-                      textAlign: 'left'
-                    }}
-                  >
-                    {isDraft && (
-                      <>
-                        <div
-                          onClick={() => { setEditItem(row); setActiveMenuId(null); }}
-                          style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                          className="menu-item-hover"
-                        >
-                          <FiEdit size={14} color="#64748B" /> Edit Requisition
-                        </div>
-                        <div
-                          onClick={() => handleStatusChange(row.id, 'Pending Approval', 'Requisition submitted for approval')}
-                          style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                          className="menu-item-hover"
-                        >
-                          <FiCheck size={14} color="#16A34A" /> Submit Requisition
-                        </div>
-                        <div
-                          onClick={() => handleDelete(row.id)}
-                          style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#DC2626', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                          className="menu-item-hover"
-                        >
-                          <FiX size={14} color="#DC2626" /> Delete Requisition
-                        </div>
-                      </>
-                    )}
-
-                    {isPending && (
-                      <>
-                        <div
-                          onClick={() => handleStatusChange(row.id, 'Approved', 'Requisition approved successfully')}
-                          style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#16A34A', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                          className="menu-item-hover"
-                        >
-                          <FiCheck size={14} color="#16A34A" /> Approve Requisition
-                        </div>
-                        <div
-                          onClick={() => handleStatusChange(row.id, 'Rejected', 'Requisition rejected')}
-                          style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#DC2626', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                          className="menu-item-hover"
-                        >
-                          <FiX size={14} color="#DC2626" /> Reject Requisition
-                        </div>
-                      </>
-                    )}
-
-                    {isApproved && (
-                      <div
-                        onClick={() => handleStatusChange(row.id, 'Converted to RFQ', 'Requisition converted to RFQ')}
-                        style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
-                        className="menu-item-hover"
-                      >
-                        <FiArrowRight size={14} color="#2563EB" /> Convert to RFQ/RFP
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" className="icon-btn" title="View Requisition" aria-label="View requisition" onClick={() => setViewId(row._id)} style={{ color: '#64748B', cursor: 'pointer' }}><FiEye size={16} /></button>
+            {items.length > 0 ? <RowMenu items={items} /> : <span style={{ width: 24 }} />}
           </div>
         );
-      }
-    }
+      },
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [canUpdate, canDelete, canDecide, canConvert, myEmployeeId]);
+
+  const viewActions = (record) => {
+    return (
+      <>
+        {record.status === 'pending_approval' && canDecide && !ownRequest(record) && (
+          <>
+            <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => { setActionError(''); setConfirm({ type: 'approve', row: record }); }}>Approve Requisition</PrimaryButton>
+            <SecondaryButton danger icon={<FiX size={14} />} onClick={() => { setActionError(''); setConfirm({ type: 'reject', row: record }); }}>Reject</SecondaryButton>
+          </>
+        )}
+        {record.status === 'approved' && canConvert && (
+          <PrimaryButton icon={<FiArrowRight size={14} />} onClick={() => setConvertFor(record)}>Convert to RFQ/RFP</PrimaryButton>
+        )}
+        {record.status === 'draft' && canUpdate && <SecondaryButton icon={<FiEdit size={14} />} onClick={() => setFormFor(record)}>Edit</SecondaryButton>}
+      </>
+    );
+  };
+
+  const onExport = async () => {
+    const message = await exporter.run();
+    if (message) showToast(message, 'error');
+    else showToast(selection.ids.length ? `${selection.ids.length} selected requisitions exported` : 'Requisitions exported', 'success');
+  };
+
+  const filterFields = [
+    { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+    { key: 'priority', label: 'Priority', options: PRIORITIES.map((p) => ({ value: p, label: p })) },
+    { key: 'category', label: 'Category', options: CATEGORIES.map((c) => ({ value: c, label: c })) },
+    { key: 'departmentId', label: 'Department', options: toOptions(lookups.departments, 'name') },
+    { key: 'projectId', label: 'Project', options: toOptions(lookups.projects, (p) => p.projectName) },
+    { key: 'dateFrom', label: 'Requested from', type: 'date' },
+    { key: 'dateTo', label: 'Requested to', type: 'date' },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Header bar matching exact screenshot */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Requisition Tracker</h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-            Track and manage procurement requests submitted across all departments.
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            className="btn btn-secondary"
-            onClick={() => showToast('Import / Upload ready', 'info')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', borderRadius: '8px' }}
+      <PageHeader title="Requisition Tracker" subtitle="Track and manage procurement requests submitted across all departments.">
+        {(canCreate || canUpdate) && (
+          <SecondaryButton icon={<FiUpload size={15} />} onClick={() => setUploadOpen(true)}>Upload</SecondaryButton>
+        )}
+      </PageHeader>
+
+      <ListCard
+        list={list}
+        columns={columns}
+        emptyText="No requisitions found."
+        selection={selection}
+        toolbar={(
+          <ListToolbar
+            search={list.searchText}
+            onSearch={list.onSearch}
+            placeholder="Search Requisition ID, Department ..."
+            onFilter={() => setFilterOpen(true)}
+            filterCount={countFilters(list.filters)}
+            onExport={onExport}
+            exporting={exporter.exporting}
+            selectedCount={exporter.selectedCount}
           >
-            <FiUpload size={15} /> Upload
-          </button>
-        </div>
-      </div>
+            {canCreate && <PrimaryButton icon={<FiPlus size={16} />} onClick={() => setFormFor('new')}>New Requisition</PrimaryButton>}
+          </ListToolbar>
+        )}
+      />
 
-      {/* Table Card */}
-      <div className="card" style={{ padding: '0', overflow: 'hidden', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
-        {/* Search & Actions Bar */}
-        <div style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ position: 'relative', width: '320px' }}>
-            <FiSearch size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              placeholder="Search Requisition ID, Department ..."
-              style={{
-                width: '100%',
-                padding: '9px 12px 9px 36px',
-                borderRadius: '8px',
-                border: '1px solid #E2E8F0',
-                fontSize: '0.813rem',
-                backgroundColor: '#FFFFFF',
-                outline: 'none'
-              }}
-            />
-          </div>
+      <FilterDrawer isOpen={filterOpen} onClose={() => setFilterOpen(false)} title="Filter Requisitions" subtitle="Narrow the tracker by status, priority and more." fields={filterFields} values={list.filters} onApply={list.applyFilters} />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              className="btn btn-secondary"
-              onClick={() => showToast('Filters applied', 'info')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px' }}
-            >
-              <FiFilter size={15} /> Filter
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => showToast('Exporting requisitions report...', 'success')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '9px 16px', borderRadius: '8px' }}
-            >
-              <FiDownload size={15} /> Export
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => setCreateModal(true)}
-              style={{
-                backgroundColor: '#1E3A8A',
-                color: '#FFFFFF',
-                border: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '9px 18px',
-                borderRadius: '8px',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
-            >
-              <FiPlus size={16} /> New Requisition
-            </button>
-          </div>
-        </div>
-
-        {/* Data Table */}
-        <div style={{ padding: '0 24px 16px' }}>
-          <DataTable
-            columns={columns}
-            data={paginated}
-            selectable
-            selectedIds={selectedIds}
-            onSelectRow={(id) => setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])}
-            onSelectAll={() => setSelectedIds(selectedIds.length === paginated.length ? [] : paginated.map(e => e.id))}
-            keyField="id"
-            emptyMessage="No requisitions found matching search."
-          />
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-          />
-        </div>
-      </div>
-
-      {/* ── NEW REQUISITION MODAL ── */}
-      <Modal
-        isOpen={createModal}
-        onClose={() => setCreateModal(false)}
-        title="New Requisition"
-        size="lg"
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <p style={{ margin: '-8px 0 8px 0', fontSize: '0.813rem', color: '#64748B' }}>
-            Submit a new procurement request for review and approval
-          </p>
-
-          <FormField label="REQUESTED MATERIAL/SERVICE *" required>
-            <Input
-              value={formData.materials}
-              onChange={(e) => setFormData({ ...formData, materials: e.target.value })}
-              placeholder="e.g. Structural Steel Beams (IPE 300)"
-            />
-          </FormField>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <FormField label="CATEGORY *" required>
-              <select
-                className="form-input"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              >
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </FormField>
-
-            <FormField label="DEPARTMENT *" required>
-              <select
-                className="form-input"
-                value={formData.department}
-                onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-              >
-                {['HSE', 'Technical', 'Administration', 'Finance', 'Operations', 'Quality'].map(d => (
-                  <option key={d} value={d}>{d}</option>
-                ))}
-              </select>
-            </FormField>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: '16px' }}>
-            <FormField label="QUANTITY *" required>
-              <Input
-                type="number"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-              />
-            </FormField>
-
-            <FormField label="UNIT *" required>
-              <select
-                className="form-input"
-                value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-              >
-                {['Pieces', 'Tonnes', 'Units', 'Sets', 'Litres', 'Bags', 'Lots'].map(u => (
-                  <option key={u} value={u}>{u}</option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label="ESTIMATED BUDGET (₦) *" required>
-              <Input
-                type="number"
-                value={formData.estimatedBudget}
-                onChange={(e) => setFormData({ ...formData, estimatedBudget: e.target.value })}
-              />
-            </FormField>
-          </div>
-
-          <FormField label="PROJECT *" required>
-            <select
-              className="form-input"
-              value={formData.project}
-              onChange={(e) => setFormData({ ...formData, project: e.target.value })}
-            >
-              {['LNG Expansion Project', 'Offshore Safety Upgrade', 'HQ Facility Upgrade', 'Bonny Terminal Operations', 'Warri Base Camp'].map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
-            </select>
-            <span style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '4px', display: 'block' }}>
-              ⓘ Select a project if this request is project-specific.
-            </span>
-          </FormField>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <FormField label="PRIORITY *" required>
-              <select
-                className="form-input"
-                value={formData.priority}
-                onChange={(e) => setFormData({ ...formData, priority: e.target.value })}
-              >
-                {['High', 'Medium', 'Low', 'Hot'].map(pr => (
-                  <option key={pr} value={pr}>{pr}</option>
-                ))}
-              </select>
-            </FormField>
-
-            <FormField label="REQUESTED BY *" required>
-              <select
-                className="form-input"
-                value={formData.requestedBy}
-                onChange={(e) => setFormData({ ...formData, requestedBy: e.target.value })}
-              >
-                {['Chinonso Okafor', 'Chijioke Okafor', 'Zainab Mohammed', 'Obinna Nwosu', 'Adaobi Udo'].map(r => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </FormField>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <FormField label="REQUEST DATE">
-              <Input
-                type="text"
-                value={formData.requestDate}
-                onChange={(e) => setFormData({ ...formData, requestDate: e.target.value })}
-              />
-            </FormField>
-
-            <FormField label="REQUIRED DATE">
-              <Input
-                type="text"
-                value={formData.requiredDate}
-                onChange={(e) => setFormData({ ...formData, requiredDate: e.target.value })}
-                placeholder="DD/MM/YY"
-              />
-            </FormField>
-          </div>
-
-          <FormField label="JUSTIFICATION">
-            <textarea
-              className="form-input"
-              rows={3}
-              value={formData.justification}
-              onChange={(e) => setFormData({ ...formData, justification: e.target.value })}
-            />
-          </FormField>
-
-          {/* Upload Dropzone */}
-          <div>
-            <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#475569', marginBottom: '6px', display: 'block' }}>
-              ATTACH DOCUMENT (OPTIONAL)
-            </label>
-            <div
-              style={{
-                border: '1.5px dashed #CBD5E1',
-                borderRadius: '8px',
-                padding: '24px',
-                textAlign: 'center',
-                backgroundColor: '#F8FAFC',
-                cursor: 'pointer'
-              }}
-              onClick={() => showToast('Document selector triggered', 'info')}
-            >
-              <FiUpload size={24} color="#64748B" style={{ margin: '0 auto 8px' }} />
-              <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#1E293B' }}>Drop file here or click to browse</div>
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8' }}>PDF, DOCX, DWG, PNG, up to 50MB</div>
-            </div>
-
-            {/* Uploaded attachments preview */}
-            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {formData.documents.map((doc, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '10px 14px',
-                    borderRadius: '8px',
-                    backgroundColor: '#F8FAFC',
-                    border: '1px solid #E2E8F0'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#334155' }}>
-                    <FiPaperclip size={14} color="#64748B" />
-                    <span>{doc.name} ({doc.size})</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, documents: formData.documents.filter((_, i) => i !== idx) })}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#DC2626' }}
-                  >
-                    <FiX size={16} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Modal Footer Actions */}
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '16px', borderTop: '1px solid #F1F5F9' }}>
-            <button className="btn btn-secondary" onClick={() => setCreateModal(false)}>
-              Cancel
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => handleCreateSubmit(true)}
-              style={{ fontWeight: 600 }}
-            >
-              Save as Draft
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => handleCreateSubmit(false)}
-              style={{ backgroundColor: '#1E3A8A', color: '#FFFFFF', fontWeight: 600, padding: '9px 20px', borderRadius: '8px' }}
-            >
-              Submit Requisition
-            </button>
-          </div>
-        </div>
-      </Modal>
-
-      {/* ── EDIT REQUISITION MODAL ── */}
-      {editItem && (
-        <Modal
-          isOpen={!!editItem}
-          onClose={() => setEditItem(null)}
-          title="Edit Requisition"
-          size="lg"
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <FormField label="REQUESTED MATERIAL/SERVICE *" required>
-              <Input
-                value={editItem.materials}
-                onChange={(e) => setEditItem({ ...editItem, materials: e.target.value })}
-              />
-            </FormField>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <FormField label="CATEGORY *" required>
-                <select
-                  className="form-input"
-                  value={editItem.category || 'Materials'}
-                  onChange={(e) => setEditItem({ ...editItem, category: e.target.value })}
-                >
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </FormField>
-
-              <FormField label="DEPARTMENT *" required>
-                <Input
-                  value={editItem.department}
-                  onChange={(e) => setEditItem({ ...editItem, department: e.target.value })}
-                />
-              </FormField>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1.5fr', gap: '16px' }}>
-              <FormField label="QUANTITY *" required>
-                <Input
-                  type="number"
-                  value={editItem.quantity || 1}
-                  onChange={(e) => setEditItem({ ...editItem, quantity: e.target.value })}
-                />
-              </FormField>
-
-              <FormField label="UNIT *" required>
-                <Input
-                  value={editItem.unit || 'Pieces'}
-                  onChange={(e) => setEditItem({ ...editItem, unit: e.target.value })}
-                />
-              </FormField>
-
-              <FormField label="ESTIMATED BUDGET (₦) *" required>
-                <Input
-                  type="number"
-                  value={editItem.estimatedBudget || 0}
-                  onChange={(e) => setEditItem({ ...editItem, estimatedBudget: e.target.value })}
-                />
-              </FormField>
-            </div>
-
-            <FormField label="PROJECT *" required>
-              <Input
-                value={editItem.project || 'LNG Expansion Project'}
-                onChange={(e) => setEditItem({ ...editItem, project: e.target.value })}
-              />
-            </FormField>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-              <FormField label="PRIORITY *" required>
-                <select
-                  className="form-input"
-                  value={editItem.priority}
-                  onChange={(e) => setEditItem({ ...editItem, priority: e.target.value })}
-                >
-                  {['High', 'Medium', 'Low', 'Hot'].map(p => (
-                    <option key={p} value={p}>{p}</option>
-                  ))}
-                </select>
-              </FormField>
-
-              <FormField label="REQUESTED BY *" required>
-                <Input
-                  value={editItem.requestedBy}
-                  onChange={(e) => setEditItem({ ...editItem, requestedBy: e.target.value })}
-                />
-              </FormField>
-            </div>
-
-            <FormField label="JUSTIFICATION">
-              <textarea
-                className="form-input"
-                rows={3}
-                value={editItem.justification || ''}
-                onChange={(e) => setEditItem({ ...editItem, justification: e.target.value })}
-              />
-            </FormField>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', paddingTop: '16px', borderTop: '1px solid #F1F5F9' }}>
-              <button className="btn btn-secondary" onClick={() => setEditItem(null)}>
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleEditSave}
-                style={{ backgroundColor: '#1E3A8A', color: '#FFFFFF', fontWeight: 600, padding: '9px 20px', borderRadius: '8px' }}
-              >
-                Save Changes
-              </button>
-            </div>
-          </div>
-        </Modal>
+      {formFor && (
+        <RequisitionFormModal
+          key={formFor === 'new' ? 'new' : formFor._id}
+          record={formFor === 'new' ? null : formFor}
+          lookups={lookups}
+          myEmployeeId={myEmployeeId}
+          onClose={() => setFormFor(null)}
+          onSaved={(message) => { setFormFor(null); showToast(message, 'success'); refresh(); }}
+        />
       )}
 
-      {/* ── VIEW REQUISITION DETAILS MODAL ── */}
-      {viewItem && (
-        <Modal
-          isOpen={!!viewItem}
-          onClose={() => setViewItem(null)}
-          title=""
-          size="lg"
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '-10px' }}>
-            {/* Header info */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: '10px', backgroundColor: '#EFF6FF',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1D4ED8'
-                }}>
-                  <FiFileText size={22} />
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-                    {viewItem.materials}
-                  </h3>
-                  <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: '2px' }}>
-                    {viewItem.requestedBy} • {viewItem.id}
-                  </div>
-                </div>
-              </div>
+      {viewId && (
+        <ViewRequisitionModal
+          id={viewId}
+          refreshKey={refreshKey}
+          actions={viewActions}
+          canDecide={canDecide}
+          ownRequest={ownRequest}
+          canUpload={canUpdate || canCreate}
+          onClose={() => setViewId(null)}
+        />
+      )}
 
-              {/* Status Header Actions */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                {viewItem.status === 'Pending Approval' && (
-                  <>
-                    <button
-                      onClick={() => handleStatusChange(viewItem.id, 'Approved', 'Requisition approved')}
-                      style={{
-                        backgroundColor: '#16A34A', color: '#fff', border: 'none', padding: '8px 16px',
-                        borderRadius: '6px', fontWeight: 600, fontSize: '0.813rem', display: 'flex',
-                        alignItems: 'center', gap: '6px', cursor: 'pointer'
-                      }}
-                    >
-                      <FiCheck size={14} /> Approve Requisition
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(viewItem.id, 'Rejected', 'Requisition rejected')}
-                      style={{
-                        backgroundColor: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', padding: '8px 16px',
-                        borderRadius: '6px', fontWeight: 600, fontSize: '0.813rem', display: 'flex',
-                        alignItems: 'center', gap: '6px', cursor: 'pointer'
-                      }}
-                    >
-                      <FiX size={14} /> Reject
-                    </button>
-                  </>
-                )}
-                {viewItem.status === 'Approved' && (
-                  <button
-                    onClick={() => handleStatusChange(viewItem.id, 'Converted to RFQ', 'Requisition converted to RFQ')}
-                    style={{
-                      backgroundColor: '#1E3A8A', color: '#fff', border: 'none', padding: '8px 16px',
-                      borderRadius: '6px', fontWeight: 600, fontSize: '0.813rem', display: 'flex',
-                      alignItems: 'center', gap: '6px', cursor: 'pointer'
-                    }}
-                  >
-                    <FiArrowRight size={14} /> Convert to RFQ/RFP
-                  </button>
-                )}
-              </div>
-            </div>
+      {convertFor && (
+        <RfqFormModal
+          requisition={convertFor}
+          lookups={lookups}
+          canIssue
+          onClose={() => setConvertFor(null)}
+          onSaved={(message) => { setConvertFor(null); setViewId(null); showToast(message, 'success'); refresh(); }}
+        />
+      )}
 
-            {/* Status bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#64748B' }}>
-              <span>Status:</span>
-              <span style={{
-                backgroundColor: statusBadgeStyles[viewItem.status]?.bg || '#F1F5F9',
-                color: statusBadgeStyles[viewItem.status]?.color || '#64748B',
-                padding: '3px 12px',
-                borderRadius: '12px',
-                fontWeight: 600
-              }}>
-                {viewItem.status}
-              </span>
-            </div>
+      {uploadOpen && (
+        <AttachToRecordDialog
+          api={purchaseRequisitionService}
+          title="Upload Requisition Document"
+          recordNoun="requisition"
+          recordLabel={(r) => `${r.requisitionId}: ${r.requestedMaterialService}`}
+          onClose={() => setUploadOpen(false)}
+          onDone={(message) => { setUploadOpen(false); showToast(message, 'success'); setRefreshKey((k) => k + 1); }}
+        />
+      )}
 
-            {/* Requisition Details Grid */}
-            <div style={{
-              backgroundColor: '#F8FAFC',
-              borderRadius: '10px',
-              border: '1px solid #E2E8F0',
-              padding: '20px',
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '16px'
-            }}>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>REQUESTED MATERIAL/SERVICE</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.materials}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>CATEGORY</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.category || 'Materials'}</div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>REQUISITION ID</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.id}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>DEPARTMENT</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.department}</div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>QUANTITY</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.quantity} {viewItem.unit}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>ESTIMATED BUDGET</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#1E3A8A', marginTop: '4px' }}>{fmtCurrency(viewItem.estimatedBudget || 0)}</div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>PRIORITY</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.priority}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>PROJECT</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.project || 'General'}</div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>REQUESTED BY</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.requestedBy}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>REQUEST DATE</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.requestDate}</div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>REQUIRED DATE</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.requiredDate}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>STATUS</div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: '4px' }}>{viewItem.status}</div>
-              </div>
-            </div>
-
-            {/* Justification Box */}
-            <div style={{ backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', padding: '16px' }}>
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '6px' }}>
-                JUSTIFICATION
-              </div>
-              <p style={{ margin: 0, fontSize: '0.813rem', color: '#334155', lineHeight: 1.5 }}>
-                {viewItem.justification || 'No justification entered.'}
-              </p>
-            </div>
-
-            {/* Attached Documents */}
-            <div style={{ backgroundColor: '#F8FAFC', borderRadius: '10px', border: '1px solid #E2E8F0', padding: '16px' }}>
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', marginBottom: '12px' }}>
-                ATTACHED DOCUMENTS
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {(viewItem.documents || []).length > 0 ? (
-                  viewItem.documents.map((doc, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 14px',
-                        borderRadius: '8px',
-                        backgroundColor: '#FFFFFF',
-                        border: '1px solid #E2E8F0'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#334155' }}>
-                        <FiPaperclip size={14} color="#64748B" />
-                        <span>{doc.name} ({doc.size})</span>
-                      </div>
-                      <button
-                        className="icon-btn"
-                        onClick={() => showToast(`Downloading ${doc.name}`, 'success')}
-                        title="Download attachment"
-                      >
-                        <FiDownloadCloud size={15} color="#2563EB" />
-                      </button>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ fontSize: '0.813rem', color: '#94A3B8' }}>No attached documents.</div>
-                )}
-              </div>
-            </div>
-          </div>
-        </Modal>
+      {confirm?.type === 'approve' && (
+        <ConfirmModal
+          title="Approve Requisition?"
+          message="Once approved, procurement can convert this requisition into an RFQ/RFP."
+          detail={<RecordSummary rows={[['Requisition', confirm.row.requisitionId], ['Material', confirm.row.requestedMaterialService]]} />}
+          confirmLabel="Approve Requisition"
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => doAction('approve', [confirm.row._id], 'Requisition approved')}
+        />
+      )}
+      {confirm?.type === 'reject' && (
+        <ReasonModal
+          title="Reject Requisition?"
+          message="A rejected requisition cannot be edited or resubmitted; the requester has to raise a new one."
+          detail={<RecordSummary rows={[['Requisition', confirm.row.requisitionId], ['Material', confirm.row.requestedMaterialService]]} />}
+          label="Reason for rejection"
+          confirmLabel="Reject Requisition"
+          danger
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={(reason) => doAction('reject', [confirm.row._id, reason], 'Requisition rejected')}
+        />
+      )}
+      {confirm?.type === 'delete' && (
+        <ConfirmModal
+          title="Delete Requisition?"
+          message="This permanently removes the draft."
+          detail={<RecordSummary rows={[['Requisition', confirm.row.requisitionId], ['Material', confirm.row.requestedMaterialService]]} />}
+          confirmLabel="Delete Draft"
+          danger
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => doAction('remove', [confirm.row._id], 'Requisition deleted')}
+        />
       )}
     </div>
   );
