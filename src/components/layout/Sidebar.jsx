@@ -1,230 +1,42 @@
-import React, { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  FiGrid,
-  FiTrendingUp,
-  FiUsers,
-  FiSettings,
-  FiDollarSign,
-  FiTool,
-  FiCheckCircle,
-  FiAlertTriangle,
-  FiChevronDown,
-  FiChevronLeft,
-  FiChevronRight,
-  FiX,
-  FiArrowUp,
-  FiBarChart2,
-  FiShoppingCart,
-  FiShield,
-  FiLock,
-} from 'react-icons/fi';
-
-const navConfig = [
-  {
-    section: 'Overview',
-    items: [
-      { label: 'Dashboard', icon: <FiGrid size={17} />, path: '/dashboard' },
-      { label: 'Analytics', icon: <FiBarChart2 size={17} />, path: '/analytics' },
-    ],
-  },
-  {
-    section: 'Operations',
-    items: [
-      {
-        label: 'Administration',
-        icon: <FiSettings size={17} />,
-        path: '/administration',
-        collapsible: true,
-        children: [
-          { label: 'EDMS', path: '/administration/edms' },
-          { label: 'Assets & Supplies', path: '/administration/assets' },
-          { label: 'Administrative Requests', path: '/administration/requests' },
-          { label: 'Facility Maintenance', path: '/administration/maintenance' },
-          { label: 'Travel & Logistics', path: '/administration/travels' },
-          { label: 'Memos', path: '/administration/memos' },
-          { label: 'Waste & Disposal', path: '/administration/waste' },
-          { label: 'Requests', path: '/administration/admin-requests' },
-          { label: 'Tasks', path: '/administration/tasks' },
-          { label: 'Admin Documents', path: '/administration/documents' },
-          { label: 'Reports', path: '/administration/reports' },
-        ],
-      },
-      {
-        label: 'Human Resources',
-        icon: <FiUsers size={17} />,
-        path: '/hr',
-        collapsible: true,
-        children: [
-          { label: 'Employees', path: '/hr/employees' },
-          { label: 'Recruitment', path: '/hr/recruitment' },
-          { label: 'Onboarding', path: '/hr/onboarding' },
-          { label: 'Deployment', path: '/hr/deployment' },
-          { label: 'Training & Certifications', path: '/hr/certifications' },
-          { label: 'Leave Management', path: '/hr/leave' },
-          { label: 'Attendance & Timesheets', path: '/hr/attendance' },
-          { label: 'Payroll Inputs', path: '/hr/payroll' },
-          { label: 'Grievances & Discipline', path: '/hr/grievances' },
-          { label: 'Requests', path: '/hr/requests' },
-          { label: 'Tasks', path: '/hr/tasks' },
-          { label: 'Reports', path: '/hr/reports' },
-          { label: 'HR Documents', path: '/hr/documents' },
-          { label: 'Reports', path: '/hr/hr-reports' },
-        ],
-      },
-      {
-        label: 'Accounts & Finance',
-        icon: <FiDollarSign size={17} />,
-        path: '/finance',
-        collapsible: true,
-        children: [
-          { label: 'General Ledger', path: '/finance/ledger' },
-          { label: 'Budgeting & Forecasting', path: '/finance/budget' },
-          { label: 'Payables & Receivables', path: '/finance/ap-ar' },
-          { label: 'Invoicing & Billing', path: '/finance/invoicing' },
-          { label: 'Contracts & Claims', path: '/finance/contracts-claims' },
-          { label: 'Commercial Risks & Insurance', path: '/finance/risks-insurance' },
-          { label: 'Bank Reconciliation', path: '/finance/bank-reconciliation' },
-          { label: 'Tax Management', path: '/finance/tax' },
-          { label: 'Finance Requests & Forms', path: '/finance/forms' },
-          { label: 'Tasks', path: '/finance/tasks' },
-          { label: 'Financial Reports', path: '/finance/reports' },
-        ],
-      },
-      {
-        label: 'Business Development',
-        icon: <FiTrendingUp size={17} />,
-        path: '/bizdev',
-        collapsible: true,
-        children: [
-          { label: 'Client Pipeline', path: '/bizdev/pipeline' },
-          { label: 'RFQs & Tenders', path: '/bizdev/tenders' },
-          { label: 'Proposals', path: '/bizdev/proposals' },
-          { label: 'CRM Contacts', path: '/bizdev/crm' },
-        ],
-      },
-      {
-        label: 'Technical',
-        icon: <FiTool size={17} />,
-        path: '/technical',
-        collapsible: true,
-        children: [
-          { label: 'Projects', path: '/technical/projects' },
-          { label: 'Engineering Documents', path: '/technical/engineering-docs' },
-          { label: 'Calibration Records', path: '/technical/calibration' },
-          { label: 'Resource Allocation', path: '/technical/resources' },
-          { label: 'Tasks', path: '/technical/tasks' },
-          { label: 'Technical Reports', path: '/technical/reports' },
-        ],
-      },
-    ],
-  },
-  {
-    section: 'Compliance',
-    items: [
-      {
-        label: 'Quality System',
-        icon: <FiCheckCircle size={17} />,
-        path: '/quality',
-        collapsible: true,
-        children: [
-          { label: 'Audit Management', path: '/quality/audits' },
-          { label: 'Calibration Records', path: '/quality/calibration' },
-          { label: 'Materials Inspection', path: '/quality/inspections' },
-          { label: 'Tasks', path: '/quality/tasks' },
-          { label: 'QMS Documents', path: '/quality/documents' },
-          { label: 'Reports', path: '/quality/reports' },
-        ],
-      },
-      {
-        label: 'HSE',
-        icon: <FiAlertTriangle size={17} />,
-        path: '/hse',
-        collapsible: true,
-        children: [
-          { label: 'Training & Certificates', path: '/hse/training' },
-          { label: 'Safety Drills', path: '/hse/safety-drills' },
-          { label: 'Requests', path: '/hse/requests' },
-          { label: 'Reports', path: '/hse/reports' },
-          { label: 'HSE Documents', path: '/hse/documents' },
-          { label: 'Reports', path: '/hse/hse-reports' },
-        ],
-      },
-    ],
-  },
-  {
-    section: 'Supply Chain',
-    items: [
-      {
-        label: 'Procurement',
-        icon: <FiShoppingCart size={17} />,
-        path: '/procurement',
-        collapsible: true,
-        children: [
-          { label: 'Requisition Tracker', path: '/procurement/requests' },
-          { label: 'RFQ / RFP Management', path: '/procurement/rfq' },
-          { label: 'Purchase Order Tracking', path: '/procurement/orders' },
-          { label: 'Expediting & Delivery', path: '/procurement/expediting' },
-          { label: 'Vendor Management', path: '/procurement/vendors' },
-          { label: 'Inventory & Warehouse', path: '/procurement/inventory' },
-          { label: 'Tasks', path: '/procurement/tasks' },
-          { label: 'Procurement Documents', path: '/procurement/documents' },
-          { label: 'Reports', path: '/procurement/reports' },
-        ],
-      },
-    ],
-  },
-  {
-    section: 'User Management',
-    items: [
-      { label: 'Users', icon: <FiUsers size={17} />, path: '/users' },
-      { label: 'Roles & Permissions', icon: <FiLock size={17} />, path: '/roles' },
-    ],
-  },
-  {
-    section: 'System',
-    items: [
-      { label: 'Settings', icon: <FiSettings size={17} />, path: '/settings' },
-    ],
-  },
-];
+import { FiChevronDown, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
+import { usePermissions } from '../../hooks/usePermission';
+import { NAV, filterNav } from './navConfig';
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [openSections, setOpenSections] = useState({ '/hr': true });
+  const { can } = usePermissions();
 
-  const toggleSection = (path) => {
-    setOpenSections((prev) => ({ ...prev, [path]: !prev[path] }));
+  // Only what the signed-in user may open: no entries, and no empty module sections, for the rest.
+  const menu = useMemo(() => filterNav(NAV, can), [can]);
+
+  const [openSections, setOpenSections] = useState({});
+
+  const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
+  const isGroupActive = (item) => item.children?.some((child) => isActive(child.path));
+  const isSectionOpen = (item) => openSections[item.path] ?? !!isGroupActive(item);
+
+  const toggleSection = (item) => {
+    setOpenSections((prev) => ({ ...prev, [item.path]: !isSectionOpen(item) }));
   };
 
-  const isActive = (path) => location.pathname === path;
-  const isChildActive = (children) => children.some((c) => location.pathname.startsWith(c.path));
-
-  const handleItemClick = (item) => {
-    if (collapsed) {
-      onToggle();
-      if (item.collapsible && !openSections[item.path]) {
-        setOpenSections((prev) => ({ ...prev, [item.path]: true }));
-      }
-      if (!item.collapsible) {
-        navigate(item.path);
-        if (onMobileClose) onMobileClose();
-      }
-      return;
-    }
-
-    if (item.collapsible) {
-      toggleSection(item.path);
-    } else {
-      navigate(item.path);
-      if (onMobileClose) onMobileClose();
-    }
-  };
-
-  const handleChildClick = (path) => {
+  const goTo = (path) => {
     navigate(path);
     if (onMobileClose) onMobileClose();
+  };
+
+  const handleItemClick = (item) => {
+    const hasChildren = !!item.children?.length;
+    if (collapsed) {
+      onToggle();
+      if (hasChildren) setOpenSections((prev) => ({ ...prev, [item.path]: true }));
+      else goTo(item.path);
+      return;
+    }
+    if (hasChildren) toggleSection(item);
+    else goTo(item.path);
   };
 
   return (
@@ -246,37 +58,39 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
         </div>
 
         <nav className="sidebar-nav">
-          {navConfig.map((section) => (
+          {menu.map((section) => (
             <div key={section.section}>
               <div className="sidebar-section-label">{section.section}</div>
               {section.items.map((item) => {
-                const isItemActive = isActive(item.path) || (item.children?.length && isChildActive(item.children));
-                const isOpen = !!openSections[item.path];
+                const Icon = item.icon;
+                const hasChildren = !!item.children?.length;
+                const itemActive = hasChildren ? isGroupActive(item) : isActive(item.path);
+                const open = hasChildren && isSectionOpen(item);
 
                 return (
                   <div key={item.path}>
                     <div
-                      className={`sidebar-item ${isItemActive ? 'active' : ''}`}
+                      className={`sidebar-item ${itemActive ? 'active' : ''}`}
                       onClick={() => handleItemClick(item)}
                       title={collapsed ? item.label : ''}
                     >
-                      <span className="sidebar-item-icon">{item.icon}</span>
+                      <span className="sidebar-item-icon"><Icon size={17} /></span>
                       <span className="sidebar-item-label">{item.label}</span>
-                      {item.collapsible && (
-                        <span className={`sidebar-chevron ${isOpen ? 'open' : ''}`}>
+                      {hasChildren && (
+                        <span className={`sidebar-chevron ${open ? 'open' : ''}`}>
                           <FiChevronDown size={14} />
                         </span>
                       )}
                     </div>
 
-                    {item.children?.length > 0 && (
-                      <div className={`sidebar-sub ${isOpen ? 'open' : ''}`}>
+                    {hasChildren && (
+                      <div className={`sidebar-sub ${open ? 'open' : ''}`}>
                         <div className="sidebar-sub-content">
                           {item.children.map((child) => (
                             <div
                               key={child.path}
-                              className={`sidebar-sub-item ${isActive(child.path) || location.pathname === child.path ? 'active' : ''}`}
-                              onClick={() => handleChildClick(child.path)}
+                              className={`sidebar-sub-item ${isActive(child.path) ? 'active' : ''}`}
+                              onClick={() => goTo(child.path)}
                             >
                               {child.label}
                             </div>
@@ -290,13 +104,6 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
             </div>
           ))}
         </nav>
-
-        <div className="sidebar-footer">
-          <div className="sidebar-upgrade-btn">
-            <FiArrowUp size={14} />
-            <span>Upgrade Plan</span>
-          </div>
-        </div>
       </aside>
     </>
   );

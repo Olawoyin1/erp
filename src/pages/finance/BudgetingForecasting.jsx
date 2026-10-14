@@ -1,549 +1,375 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import {
-  FiSearch, FiFilter, FiDownload, FiPlus, FiEye, FiMoreVertical,
-  FiEdit2, FiCheck, FiX, FiCheckCircle, FiFileText, FiClock
+  FiPlus, FiEye, FiEdit2, FiCheck, FiX, FiSend, FiTrash2, FiDownload, FiDollarSign, FiActivity, FiTrendingUp, FiBarChart2,
 } from 'react-icons/fi';
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
-import Badge from '../../components/ui/Badge';
-import Drawer from '../../components/ui/Drawer';
 import Modal from '../../components/ui/Modal';
-import { Input, FormField, Select } from '../../components/ui/FormField';
+import Drawer from '../../components/ui/Drawer';
+import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
-import { mockBudgets } from '../../data/mockFinance';
+import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
+import { usePermission } from '../../hooks/usePermission';
+import { apiError, populatedName } from '../../services/apiHelpers';
+import { budgetService } from '../../services/finance.service';
+import { budgetsSlice } from '../../store/finance/slices';
+import {
+  Choice, ConfirmModal, DataState, DetailGrid, DrawerStatusBar, Field, FilterDrawer, FormBody, FormError, ListToolbar, MoneyInput, Note,
+  PageHeader, Panel, PrimaryButton, ReasonModal, SecondaryButton, StatTiles, StatusBadge, TabBar, Tag, TwoCol,
+} from './shared/FinanceUi';
+import { AttachField, DocumentUploads, HistoryList } from './shared/FinanceRecordExtras';
+import {
+  compactMoney, countFilters, csvMoney, downloadFile, exportRowsCsv, fieldErrorsOf, formatDate, fromKobo, money, statValue, statusLabel, toKobo,
+  today, uploadStagedFiles, ymd,
+} from './shared/financeUtils';
+import { useProjectOptions } from './shared/useRefOptions';
+import { useFinanceList, useRunAction } from './shared/useFinanceList';
+import { useRecord } from './shared/useRecord';
 
-const ITEMS_PER_PAGE = 10;
-const fmt = (n) => '₦' + Number(n).toLocaleString();
+const TYPES = ['CapEx', 'Opex'];
+const STATUSES = ['draft', 'pending_approval', 'active', 'rejected', 'closed'];
+const refId = (v) => (v && typeof v === 'object' ? v._id : v) || '';
 
-const BUDGET_TYPES = ['All Types', 'CapEx', 'Opex'];
-const BUDGET_STATUSES = ['All Statuses', 'Active', 'Pending Approval', 'Closed', 'Draft'];
+function BudgetFormModal({ budget, canSubmit, onClose, onSaved }) {
+  const editing = Boolean(budget);
+  const activeEdit = editing && budget.status === 'active';
+  const run = useRunAction(budgetsSlice);
+  const projects = useProjectOptions();
+  const [form, setForm] = useState(() => (editing ? {
+    budgetType: budget.budgetType, project: refId(budget.project), budgetPeriod: budget.budgetPeriod, currency: budget.currency || 'NGN',
+    approvedBudget: fromKobo(budget.approvedBudget), forecastAmount: fromKobo(budget.forecastAmount), startDate: ymd(budget.startDate),
+    endDate: ymd(budget.endDate), description: budget.description || '',
+  } : {
+    budgetType: 'CapEx', project: '', budgetPeriod: '', currency: 'NGN', approvedBudget: '', forecastAmount: '', startDate: today(), endDate: '', description: '',
+  }));
+  const [files, setFiles] = useState([]);
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
-function RowMenu({ items }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef();
+  const validate = () => {
+    const next = {};
+    if (!form.project) next.project = 'Select the project';
+    if (!form.budgetPeriod.trim()) next.budgetPeriod = 'Enter the budget period, e.g. FY 2026';
+    if (form.approvedBudget === '' || Number.isNaN(toKobo(form.approvedBudget)) || toKobo(form.approvedBudget) <= 0) next.approvedBudget = 'Enter the approved budget';
+    if (form.forecastAmount !== '' && (Number.isNaN(toKobo(form.forecastAmount)) || toKobo(form.forecastAmount) < 0)) next.forecastAmount = 'Enter a valid amount';
+    if (!form.startDate) next.startDate = 'Choose the start date';
+    if (!form.endDate) next.endDate = 'Choose the end date';
+    if (form.startDate && form.endDate && form.startDate > form.endDate) next.startDate = 'Must be on or before the end date';
+    return next;
+  };
 
-  useEffect(() => {
-    const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+  const save = async (submitAfter) => {
+    const found = validate();
+    setErrors(found);
+    setFormError('');
+    if (Object.keys(found).length) return;
+    const full = {
+      budgetType: form.budgetType, project: form.project, budgetPeriod: form.budgetPeriod.trim(), currency: form.currency,
+      approvedBudget: toKobo(form.approvedBudget), startDate: form.startDate, endDate: form.endDate,
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+    if (form.forecastAmount !== '') full.forecastAmount = toKobo(form.forecastAmount);
+    if (form.description.trim()) full.description = form.description.trim();
+    let body = full;
+    if (activeEdit) {
+      body = {};
+      if (full.forecastAmount !== undefined && full.forecastAmount !== budget.forecastAmount) body.forecastAmount = full.forecastAmount;
+      if ((full.description || '') !== (budget.description || '')) body.description = full.description || '';
+      if (Object.keys(body).length === 0) { onSaved('No changes to save', []); return; }
+    }
+    setBusy(true);
+    let result = editing ? await run('update', budget._id, body) : await run('create', body);
+    if (!result.ok) {
+      setBusy(false);
+      setErrors(fieldErrorsOf(result.payload));
+      setFormError(result.error);
+      return;
+    }
+    const saved = result.data;
+    let failed = [];
+    if (files.length && saved?._id) failed = await uploadStagedFiles(budgetService, saved._id, files);
+    if (submitAfter && saved?._id) {
+      result = await run('submit', saved._id);
+      if (!result.ok) {
+        setBusy(false);
+        onSaved(`${saved.budgetId} saved as a draft, but it could not be submitted: ${result.error}`, failed, 'error');
+        return;
+      }
+    }
+    setBusy(false);
+    onSaved(editing ? 'Budget updated successfully' : submitAfter ? `${saved?.budgetId} submitted for approval` : `${saved?.budgetId} saved as a draft`, failed);
+  };
 
   return (
-    <div style={{ position: 'relative' }} ref={ref}>
-      <button className="icon-btn" onClick={() => setOpen((v) => !v)}>
-        <FiMoreVertical size={16} />
-      </button>
-      {open && (
-        <div style={{
-          position: 'absolute', right: 0, top: '100%', marginTop: '4px',
-          backgroundColor: '#FFFFFF', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-          border: '1px solid #E2E8F0', padding: '6px 0', zIndex: 50, width: '180px'
-        }}>
-          {items.map((it, idx) => (
-            <div
-              key={idx}
-              onClick={() => { it.onClick(); setOpen(false); }}
-              style={{
-                padding: '8px 14px', fontSize: '0.813rem', color: it.danger ? '#DC2626' : '#334155',
-                display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontFamily: 'var(--font)'
-              }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = it.danger ? '#FEE2E2' : '#F8FAFC')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#FFFFFF')}
-            >
-              {it.icon} {it.label}
-            </div>
-          ))}
+    <Modal isOpen onClose={onClose} title={editing ? `Edit Budget ${budget.budgetId}` : 'Create Budget'} subtitle="Create a new budget for planning and approval" maxWidth="680px">
+      <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
+        {activeEdit && <Note tone="amber">This budget is active. Only the forecast amount and description can be changed; the approved amount, project and dates are what was signed off.</Note>}
+        <TwoCol>
+          <Field label="Budget ID"><Input value={editing ? budget.budgetId : 'Assigned on save'} disabled /></Field>
+          <Field label="Budget type" required><Choice value={form.budgetType} onChange={(v) => set('budgetType', v)} options={TYPES} disabled={activeEdit} /></Field>
+        </TwoCol>
+        <Field label="Project" required error={errors.project}>
+          <Choice value={form.project} onChange={(v) => set('project', v)} options={projects.options} searchable disabled={activeEdit} placeholder={projects.loading ? 'Loading projects…' : 'Select project'} error={errors.project} />
+        </Field>
+        <TwoCol>
+          <Field label="Budget period" required error={errors.budgetPeriod}><Input value={form.budgetPeriod} onChange={(e) => set('budgetPeriod', e.target.value)} placeholder="e.g. FY 2026" disabled={activeEdit} error={Boolean(errors.budgetPeriod)} /></Field>
+          <Field label="Currency"><Choice value={form.currency} onChange={(v) => set('currency', v)} options={['NGN', 'USD', 'EUR', 'GBP']} disabled={activeEdit} /></Field>
+        </TwoCol>
+        <TwoCol>
+          <Field label="Approved budget" required error={errors.approvedBudget}><MoneyInput value={form.approvedBudget} onChange={(v) => set('approvedBudget', v)} disabled={activeEdit} error={errors.approvedBudget} /></Field>
+          <Field label="Forecast amount" error={errors.forecastAmount}><MoneyInput value={form.forecastAmount} onChange={(v) => set('forecastAmount', v)} error={errors.forecastAmount} /></Field>
+        </TwoCol>
+        <TwoCol>
+          <Field label="Start date" required error={errors.startDate}><DatePicker value={form.startDate} onChange={(e) => set('startDate', e.target.value)} disabled={activeEdit} error={Boolean(errors.startDate)} /></Field>
+          <Field label="End date" required error={errors.endDate}><DatePicker value={form.endDate} onChange={(e) => set('endDate', e.target.value)} disabled={activeEdit} error={Boolean(errors.endDate)} /></Field>
+        </TwoCol>
+        <Field label="Description (optional)"><Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Annual budget for civil works, equipment procurement and mobilisation." /></Field>
+        {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
+        <FormError message={formError} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          {editing ? (
+            <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>
+          ) : (
+            <>
+              <SecondaryButton onClick={() => save(false)} disabled={busy}>Save as Draft</SecondaryButton>
+              {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Budget'}</PrimaryButton>}
+            </>
+          )}
         </div>
-      )}
-    </div>
+      </FormBody>
+    </Modal>
+  );
+}
+
+function BudgetDrawer({ budgetId, perms, refreshKey, onClose, onAction }) {
+  const [tab, setTab] = useState('details');
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+  const { record: b, loading, error } = useRecord(budgetService, budgetId, refreshKey);
+
+  const exportPdf = async () => {
+    setExporting(true);
+    setExportError('');
+    const failure = await downloadFile(() => budgetService.pdf(budgetId), `${b?.budgetId || 'budget'}.pdf`);
+    if (failure) setExportError(failure);
+    setExporting(false);
+  };
+
+  return (
+    <Drawer isOpen onClose={onClose} title={b ? b.budgetId : 'Budget'} subtitle={b?.budgetType} width="560px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
+      <DataState loading={loading} error={error} empty={!loading && !error && !b}>
+        {b && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <DrawerStatusBar status={<StatusBadge status={b.status} />}>
+              {b.status === 'draft' && perms.update && <PrimaryButton icon={<FiSend size={13} />} onClick={() => onAction('submit', b)}>Submit for Approval</PrimaryButton>}
+              {b.status === 'pending_approval' && perms.decide && <PrimaryButton icon={<FiCheck size={13} />} onClick={() => onAction('approve', b)}>Approve</PrimaryButton>}
+              {b.status === 'pending_approval' && perms.decide && <SecondaryButton danger icon={<FiX size={13} />} onClick={() => onAction('reject', b)}>Reject</SecondaryButton>}
+              {b.status === 'active' && perms.decide && <PrimaryButton icon={<FiCheck size={13} />} onClick={() => onAction('close', b)}>Close Budget</PrimaryButton>}
+              {['draft', 'active'].includes(b.status) && perms.update && <SecondaryButton icon={<FiEdit2 size={13} />} onClick={() => onAction('edit', b)}>Edit Budget</SecondaryButton>}
+              <SecondaryButton icon={<FiDownload size={13} />} onClick={exportPdf} disabled={exporting}>{exporting ? 'Exporting…' : 'Download'}</SecondaryButton>
+            </DrawerStatusBar>
+            {exportError && <FormError message={exportError} />}
+            {b.status === 'rejected' && b.rejectionReason && <Note tone="amber">Rejected: {b.rejectionReason}</Note>}
+            {b.status === 'closed' && b.closeReason && <Note tone="amber">Closed: {b.closeReason}</Note>}
+            <TabBar tabs={[{ id: 'details', label: 'Budget Details' }, { id: 'history', label: 'History' }]} active={tab} onChange={setTab} />
+            {tab === 'details' && (
+              <>
+                <DetailGrid items={[
+                  ['Budget ID', b.budgetId],
+                  ['Budget type', b.budgetType],
+                  ['Project', populatedName(b.project)],
+                  ['Budget period', b.budgetPeriod],
+                  ['Currency', b.currency],
+                  ['Approved budget', money(b.approvedBudget, b.currency)],
+                  ['Forecast amount', b.forecastAmount == null ? '—' : money(b.forecastAmount, b.currency)],
+                  ['Actual spend (from the ledger)', money(b.actualSpend, b.currency)],
+                  ['Variance', money(b.variance, b.currency)],
+                  ['Start date', formatDate(b.startDate)],
+                  ['End date', formatDate(b.endDate)],
+                  ['Status', statusLabel(b.status)],
+                ]} />
+                <Panel title="Description">{b.description || 'No description recorded.'}</Panel>
+                <DocumentUploads key={b._id} api={budgetService} id={b._id} canEdit={['draft', 'active'].includes(b.status) && perms.update} />
+              </>
+            )}
+            {tab === 'history' && <HistoryList key={b._id + refreshKey} api={budgetService} id={b._id} />}
+          </div>
+        )}
+      </DataState>
+    </Drawer>
   );
 }
 
 export default function BudgetingForecasting() {
-  const [data, setData] = useState(mockBudgets);
-  const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState('All Types');
-  const [statusFilter, setStatusFilter] = useState('All Statuses');
-
   const { toast, showToast, hideToast } = useToast();
+  const canView = usePermission('finance.budget.view');
+  const perms = { create: usePermission('finance.budget.create'), update: usePermission('finance.budget.update'), decide: usePermission('finance.budget.decide') };
+  const list = useFinanceList(budgetsSlice, { initialFilters: { budgetType: '', status: '' }, enabled: canView });
+  const run = useRunAction(budgetsSlice);
+  const projects = useProjectOptions();
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [formFor, setFormFor] = useState(null);
+  const [viewId, setViewId] = useState(null);
+  const [dialog, setDialog] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+  const [localKey, setLocalKey] = useState(0);
+  const { reload } = list;
 
-  // Modals & Drawers
-  const [createModal, setCreateModal] = useState(false);
-  const [editItem, setEditItem] = useState(null);
-  const [viewItem, setViewItem] = useState(null);
+  const refreshAll = () => { reload(); setLocalKey((k) => k + 1); };
 
-  const emptyForm = {
-    budgetId: `PGSL-BUD-0${data.length + 2}`,
-    type: 'CapEx',
-    project: '',
-    period: 'FY 2026',
-    currency: 'NGN',
-    approvedBudget: '',
-    forecastAmount: '',
-    startDate: new Date().toISOString().slice(0, 10),
-    endDate: '2027-06-30',
-    description: '',
-    doc: ''
+  const afterSave = (message, failedUploads, tone) => {
+    setFormFor(null);
+    refreshAll();
+    if (failedUploads?.length) showToast(`${message}. Some documents were not uploaded: ${failedUploads.join('; ')}`, 'error');
+    else showToast(message, tone || 'success');
   };
 
-  const [form, setForm] = useState(emptyForm);
-
-  const filteredData = data.filter(b => {
-    const q = search.toLowerCase();
-    const matchesSearch = !q || b.budgetId.toLowerCase().includes(q) || b.project.toLowerCase().includes(q);
-    const matchesType = typeFilter === 'All Types' || b.type === typeFilter;
-    const matchesStatus = statusFilter === 'All Statuses' || b.status === statusFilter;
-    return matchesSearch && matchesType && matchesStatus;
-  });
-
-  const totalPages = Math.max(1, Math.ceil(filteredData.length / ITEMS_PER_PAGE));
-  const paginated = filteredData.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
-  const handleSelectRow = (id) => {
-    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
+  const simple = async (method, b, message, ...extra) => {
+    setBusy(true);
+    setActionError('');
+    const result = await run(method, b._id, ...extra);
+    setBusy(false);
+    if (!result.ok) { setActionError(result.error); return; }
+    setDialog(null);
+    if (method === 'remove') setViewId(null);
+    refreshAll();
+    showToast(message, 'success');
   };
 
-  const handleSelectAll = () => {
-    if (selectedIds.length === paginated.length) setSelectedIds([]);
-    else setSelectedIds(paginated.map((b) => b.id));
+  const handleAction = (kind, b) => {
+    setActionError('');
+    if (kind === 'edit') setFormFor(b);
+    else setDialog({ kind, b });
   };
 
-  const handleSave = (e) => {
-    e.preventDefault();
-    if (!form.project || !form.approvedBudget) {
-      showToast('Please specify project name and budget amount.', 'error');
-      return;
+  const download = async (b) => {
+    const failure = await downloadFile(() => budgetService.pdf(b._id), `${b.budgetId}.pdf`);
+    if (failure) showToast(failure, 'error');
+  };
+
+  const exportList = async () => {
+    setExporting(true);
+    try {
+      const count = await exportRowsCsv({
+        filename: 'budgets.csv',
+        fetchPage: (n) => budgetService.list({ ...list.params, page: n, limit: 100 }),
+        columns: [
+          { label: 'Budget ID', value: (r) => r.budgetId },
+          { label: 'Project', value: (r) => populatedName(r.project) },
+          { label: 'Type', value: (r) => r.budgetType },
+          { label: 'Period', value: (r) => r.budgetPeriod },
+          { label: 'Currency', value: (r) => r.currency },
+          { label: 'Approved Budget', value: (r) => csvMoney(r.approvedBudget) },
+          { label: 'Actual Spend', value: (r) => csvMoney(r.actualSpend) },
+          { label: 'Variance', value: (r) => csvMoney(r.variance) },
+          { label: 'Forecast Amount', value: (r) => csvMoney(r.forecastAmount) },
+          { label: 'Status', value: (r) => statusLabel(r.status) },
+        ],
+      });
+      showToast(`Exported ${count} budget${count === 1 ? '' : 's'}`, 'success');
+    } catch (err) {
+      showToast(apiError(err, 'Export failed'), 'error');
     }
-    if (editItem) {
-      setData(data.map(d => d.id === editItem.id ? { ...d, ...form } : d));
-      showToast('Budget allocation updated successfully', 'success');
-      setEditItem(null);
-    } else {
-      const newBudget = {
-        id: Date.now(),
-        ...form,
-        approvedBudget: Number(form.approvedBudget),
-        actualSpend: 0,
-        variance: Number(form.approvedBudget),
-        status: 'Pending Approval'
-      };
-      setData([newBudget, ...data]);
-      showToast('New budget proposal created for approval', 'success');
-      setCreateModal(false);
+    setExporting(false);
+  };
+
+  const menuFor = (b) => {
+    const items = [];
+    if (b.status === 'pending_approval' && perms.decide) {
+      items.push({ label: 'Approve Budget', icon: <FiCheck size={14} />, color: '#16A34A', action: () => handleAction('approve', b) });
+      items.push({ label: 'Reject Budget', icon: <FiX size={14} />, color: '#DC2626', action: () => handleAction('reject', b) });
     }
-    setForm(emptyForm);
+    if (b.status === 'draft' && perms.update) {
+      items.push({ label: 'Edit Budget', icon: <FiEdit2 size={14} />, action: () => handleAction('edit', b) });
+      items.push({ label: 'Submit for Approval', icon: <FiSend size={14} />, color: '#16A34A', action: () => handleAction('submit', b) });
+      items.push({ label: 'Delete Budget', icon: <FiTrash2 size={14} />, color: '#DC2626', action: () => handleAction('delete', b) });
+    }
+    if (b.status === 'active') {
+      if (perms.update) items.push({ label: 'Edit Budget', icon: <FiEdit2 size={14} />, action: () => handleAction('edit', b) });
+      if (perms.decide) items.push({ label: 'Close Budget', icon: <FiCheck size={14} />, action: () => handleAction('close', b) });
+    }
+    if (b.status === 'closed') items.push({ label: 'Download Budget', icon: <FiDownload size={14} />, action: () => download(b) });
+    return items;
   };
 
   const columns = [
+    { key: 'budgetId', label: 'BUDGET ID', render: (v, row) => <span style={{ color: '#1D4ED8', fontWeight: 600, cursor: 'pointer' }} onClick={() => setViewId(row._id)}>{v}</span> },
+    { key: 'project', label: 'PROJECT', render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{populatedName(v)}</span> },
+    { key: 'budgetType', label: 'BUDGET TYPE', render: (v) => <Tag tone={v === 'CapEx' ? 'blue' : 'purple'}>{v}</Tag> },
+    { key: 'approvedBudget', label: 'APPROVED BUDGET', render: (v, row) => <span style={{ fontWeight: 600 }}>{money(v, row.currency)}</span> },
+    { key: 'actualSpend', label: 'ACTUAL SPEND', render: (v, row) => <span style={{ color: '#1D4ED8', fontWeight: 600 }}>{money(v, row.currency)}</span> },
+    { key: 'variance', label: 'VARIANCE', render: (v, row) => <span style={{ fontWeight: 600, color: v >= 0 ? '#16A34A' : '#DC2626' }}>{money(v, row.currency)}</span> },
+    { key: 'forecastAmount', label: 'FORECAST AMOUNT', render: (v, row) => (v == null ? '—' : money(v, row.currency)) },
+    { key: 'status', label: 'STATUS', render: (v) => <StatusBadge status={v} /> },
     {
-      key: 'budgetId',
-      label: 'BUDGET CODE',
-      render: (val, row) => (
-        <span
-          style={{ color: '#1D4ED8', fontWeight: 600, cursor: 'pointer' }}
-          onClick={() => setViewItem(row)}
-        >
-          {val}
-        </span>
-      )
+      key: 'actions', label: 'ACTIONS', align: 'right',
+      render: (_, row) => {
+        const entries = menuFor(row);
+        return (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+            <button type="button" className="icon-btn" onClick={() => setViewId(row._id)} title="View budget" aria-label="View budget"><FiEye size={15} /></button>
+            {entries.length > 0 && <RowMenu items={entries} />}
+          </div>
+        );
+      },
     },
-    {
-      key: 'project',
-      label: 'PROJECT / COST CENTER',
-      render: (val) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{val}</span>
-    },
-    {
-      key: 'type',
-      label: 'TYPE',
-      render: (val) => (
-        <span style={{
-          padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 600,
-          background: val === 'CapEx' ? '#EFF6FF' : '#F5F3FF',
-          color: val === 'CapEx' ? '#1D4ED8' : '#7C3AED'
-        }}>
-          {val}
-        </span>
-      )
-    },
-    {
-      key: 'approvedBudget',
-      label: 'APPROVED BUDGET',
-      render: (val) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{fmt(val)}</span>
-    },
-    {
-      key: 'actualSpend',
-      label: 'ACTUAL SPEND',
-      render: (val) => <span>{fmt(val)}</span>
-    },
-    {
-      key: 'variance',
-      label: 'VARIANCE',
-      render: (val) => (
-        <span style={{ fontWeight: 600, color: val >= 0 ? '#16A34A' : '#DC2626' }}>
-          {fmt(val)}
-        </span>
-      )
-    },
-    { key: 'period', label: 'PERIOD' },
-    {
-      key: 'status',
-      label: 'STATUS',
-      render: (val) => <Badge status={val} />
-    },
-    {
-      key: 'actions',
-      label: 'ACTIONS',
-      align: 'right',
-      render: (_, row) => (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-          <button className="icon-btn" onClick={() => setViewItem(row)} title="View Budget Details">
-            <FiEye size={15} />
-          </button>
-          <RowMenu
-            items={[
-              {
-                icon: <FiEye size={14} />,
-                label: 'View Details',
-                onClick: () => setViewItem(row)
-              },
-              {
-                icon: <FiEdit2 size={14} />,
-                label: 'Edit Allocation',
-                onClick: () => { setEditItem(row); setForm(row); }
-              },
-              {
-                icon: <FiCheck size={14} />,
-                label: 'Approve Budget',
-                onClick: () => {
-                  setData(data.map(d => d.id === row.id ? { ...d, status: 'Active' } : d));
-                  showToast('Budget allocation approved', 'success');
-                }
-              },
-              {
-                icon: <FiX size={14} />,
-                label: 'Close Budget Period',
-                danger: true,
-                onClick: () => {
-                  setData(data.map(d => d.id === row.id ? { ...d, status: 'Closed' } : d));
-                  showToast('Budget period closed', 'info');
-                }
-              }
-            ]}
-          />
-        </div>
-      )
-    }
   ];
 
+  const tiles = [
+    { label: 'Total budget value', value: compactMoney(statValue(list.stats, 'total_budget_value')), sub: 'Approved project budgets (active, NGN)', icon: <FiDollarSign size={15} />, tone: 'green' },
+    { label: 'Actual spend', value: compactMoney(statValue(list.stats, 'actual_spend')), sub: 'Total expenditure to date (ledger)', icon: <FiActivity size={15} />, tone: 'amber' },
+    { label: 'Forecast at completion', value: compactMoney(statValue(list.stats, 'forecast_at_completion')), sub: 'Projected final project cost', icon: <FiTrendingUp size={15} />, tone: 'red' },
+    { label: 'Budget variance', value: compactMoney(statValue(list.stats, 'budget_variance')), sub: 'Forecast less approved (positive = overrun)', icon: <FiBarChart2 size={15} />, tone: 'blue' },
+  ];
+
+  if (!canView) return <div className="card" style={{ padding: 24, color: '#64748B' }}>You do not have permission to view budgets.</div>;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+      <PageHeader title="Budgeting & Forecasting" subtitle="Plan project budgets, monitor actual spending, forecast remaining costs, and identify budget variance" />
+      <StatTiles tiles={tiles} loading={list.statsLoading && list.stats.length === 0} error={Boolean(list.statsError)} />
 
-      {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
-            Budgeting & Forecasting
-          </h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', marginTop: '2px', margin: 0 }}>
-            CapEx and OpEx project budgeting, burn rates, and financial variances
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            className="btn btn-secondary"
-            onClick={() => showToast('Exporting budget report...', 'info')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
-            <FiDownload size={14} /> Export
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={() => { setForm(emptyForm); setCreateModal(true); }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: '6px',
-              backgroundColor: '#1D4ED8', color: '#FFFFFF', borderRadius: '6px', fontWeight: 600, border: 'none'
-            }}
-          >
-            <FiPlus size={14} /> New Budget
-          </button>
-        </div>
+      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+        <ListToolbar search={list.searchText} onSearch={list.onSearch} placeholder="Search budget ID, project, period…" onFilter={() => setFilterOpen(true)} filterCount={countFilters(list.filters)} onExport={exportList} exporting={exporting}>
+          {perms.create && <PrimaryButton icon={<FiPlus size={14} />} onClick={() => setFormFor('new')}>Create Budget</PrimaryButton>}
+        </ListToolbar>
+        <DataState loading={list.loading && list.items.length === 0} error={list.error} empty={!list.loading && list.items.length === 0} emptyText="No budgets found." onRetry={list.reload}>
+          <DataTable columns={columns} data={list.items} keyField="_id" emptyMessage="No budgets found." />
+        </DataState>
+        <Pagination currentPage={list.meta?.page || list.page} totalPages={list.meta?.totalPages || 1} onPageChange={list.setPage} />
       </div>
 
-      {/* Main Table Card */}
-      <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden' }}>
-        <div className="table-toolbar">
-          <div className="table-toolbar-search">
-            <Input
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Search budgets, project code..."
-              style={{ paddingLeft: '36px', width: '100%' }}
-            />
-            <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}>
-              <FiSearch size={15} />
-            </div>
-          </div>
+      <FilterDrawer
+        isOpen={filterOpen} onClose={() => setFilterOpen(false)} title="Filter Budgets" subtitle="Refine by classification, approval state and project"
+        fields={[
+          { key: 'budgetType', label: 'Expenditure type', options: TYPES.map((t) => ({ value: t, label: t })), allLabel: 'All types' },
+          { key: 'status', label: 'Status', options: STATUSES.map((s) => ({ value: s, label: statusLabel(s) })), allLabel: 'All statuses' },
+          { key: 'project', label: 'Project', options: projects.options.map((p) => ({ value: p.value, label: p.label })), allLabel: 'All projects' },
+        ]}
+        values={{ project: '', ...list.filters }} onApply={list.applyFilters}
+      />
+      {viewId && <BudgetDrawer budgetId={viewId} perms={perms} refreshKey={localKey} onClose={() => setViewId(null)} onAction={handleAction} />}
+      {formFor && <BudgetFormModal budget={formFor === 'new' ? null : formFor} canSubmit={perms.update} onClose={() => setFormFor(null)} onSaved={afterSave} />}
 
-          <div className="table-toolbar-actions">
-            <button
-              className="btn btn-secondary"
-              onClick={() => setFilterOpen(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
-            >
-              <FiFilter size={14} /> Filter
-            </button>
-            <button
-              className="btn btn-secondary"
-              onClick={() => showToast('Exporting spreadsheet...', 'info')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}
-            >
-              <FiDownload size={14} /> Export
-            </button>
-          </div>
-        </div>
-
-        {/* Base Enterprise DataTable */}
-        <DataTable
-          columns={columns}
-          data={paginated}
-          selectable
-          selectedIds={selectedIds}
-          onSelectRow={handleSelectRow}
-          onSelectAll={handleSelectAll}
-          keyField="id"
-          emptyMessage="No budgets found matching query."
-        />
-
-        <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-      </div>
-
-      {/* ─── SLIDE-OVER DRAWER: VIEW BUDGET DETAILS ─── */}
-      <Drawer
-        isOpen={!!viewItem}
-        onClose={() => setViewItem(null)}
-        title={viewItem ? `${viewItem.budgetId} – ${viewItem.project}` : ''}
-        subtitle="Approved budget burn rate and variance breakdown"
-        width="520px"
-        footer={(
-          <button
-            className="btn btn-secondary"
-            style={{ width: '100%', padding: '8px 16px', borderRadius: '6px', fontSize: '0.85rem' }}
-            onClick={() => setViewItem(null)}
-          >
-            Close
-          </button>
-        )}
-      >
-        {viewItem && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-              <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase' }}>Approved</span>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#0F172A', marginTop: '2px' }}>{fmt(viewItem.approvedBudget)}</div>
-              </div>
-              <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase' }}>Spent</span>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#D97706', marginTop: '2px' }}>{fmt(viewItem.actualSpend)}</div>
-              </div>
-              <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                <span style={{ fontSize: '0.72rem', color: '#64748B', textTransform: 'uppercase' }}>Variance</span>
-                <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#16A34A', marginTop: '2px' }}>{fmt(viewItem.variance)}</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '0.85rem' }}>
-              <div><strong style={{ color: '#64748B' }}>Category Type:</strong> {viewItem.type}</div>
-              <div><strong style={{ color: '#64748B' }}>Fiscal Period:</strong> {viewItem.period}</div>
-              <div><strong style={{ color: '#64748B' }}>Effective Dates:</strong> {viewItem.startDate} to {viewItem.endDate}</div>
-              <div><strong style={{ color: '#64748B' }}>Status:</strong> <Badge status={viewItem.status} /></div>
-            </div>
-
-            <div>
-              <strong style={{ fontSize: '0.813rem', color: '#64748B', display: 'block', marginBottom: '6px' }}>Proposal Notes</strong>
-              <div style={{ background: '#F8FAFC', padding: '12px', borderRadius: '6px', fontSize: '0.813rem', color: '#1E293B', lineHeight: 1.5, border: '1px solid #E2E8F0' }}>
-                {viewItem.description || 'No description recorded.'}
-              </div>
-            </div>
-
-            {viewItem.doc && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#EFF6FF', padding: '10px 14px', borderRadius: '6px', color: '#1D4ED8', fontSize: '0.813rem' }}>
-                <FiFileText size={16} />
-                <span>Proposal Attachment: {viewItem.doc}</span>
-              </div>
-            )}
-          </div>
-        )}
-      </Drawer>
-
-      {/* Filter Drawer */}
-      <Drawer
-        isOpen={filterOpen}
-        onClose={() => setFilterOpen(false)}
-        title="Filter Budgets"
-        subtitle="Refine by expenditure classification and approval state"
-        width="420px"
-        footer={(
-          <>
-            <button
-              className="btn btn-secondary"
-              style={{ flex: 1, padding: '8px 16px', borderRadius: '6px', fontSize: '0.85rem' }}
-              onClick={() => { setTypeFilter('All Types'); setStatusFilter('All Statuses'); setFilterOpen(false); }}
-            >
-              Reset
-            </button>
-            <button
-              className="btn btn-primary"
-              style={{ flex: 1, padding: '8px 16px', borderRadius: '6px', fontSize: '0.85rem', backgroundColor: '#1D4ED8' }}
-              onClick={() => setFilterOpen(false)}
-            >
-              Apply Filters
-            </button>
-          </>
-        )}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <FormField label="Expenditure Type">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #E2E8F0', padding: '10px 12px', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
-              {BUDGET_TYPES.map((t) => (
-                <label key={t} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#1E293B', cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="btype"
-                    checked={typeFilter === t}
-                    onChange={() => setTypeFilter(t)}
-                    style={{ accentColor: '#1D4ED8', cursor: 'pointer' }}
-                  />
-                  {t}
-                </label>
-              ))}
-            </div>
-          </FormField>
-
-          <FormField label="Status">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', border: '1px solid #E2E8F0', padding: '10px 12px', borderRadius: '6px', backgroundColor: '#F8FAFC' }}>
-              {BUDGET_STATUSES.map((s) => (
-                <label key={s} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.813rem', color: '#1E293B', cursor: 'pointer' }}>
-                  <input
-                    type="radio"
-                    name="bstat"
-                    checked={statusFilter === s}
-                    onChange={() => setStatusFilter(s)}
-                    style={{ accentColor: '#1D4ED8', cursor: 'pointer' }}
-                  />
-                  {s}
-                </label>
-              ))}
-            </div>
-          </FormField>
-        </div>
-      </Drawer>
-
-      {/* Modal: New / Edit Budget */}
-      {(createModal || editItem) && (
-        <Modal
-          isOpen={true}
-          onClose={() => { setCreateModal(false); setEditItem(null); }}
-          title={editItem ? "Edit Budget Allocation" : "Create Budget Allocation Proposal"}
-        >
-          <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <FormField label="Budget Code">
-                <Input value={form.budgetId} disabled />
-              </FormField>
-              <FormField label="Type">
-                <select
-                  value={form.type}
-                  onChange={(e) => setForm({ ...form, type: e.target.value })}
-                  style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.813rem' }}
-                >
-                  <option value="CapEx">CapEx</option>
-                  <option value="Opex">Opex</option>
-                </select>
-              </FormField>
-            </div>
-
-            <FormField label="Project / Cost Center Name">
-              <Input
-                value={form.project}
-                onChange={(e) => setForm({ ...form, project: e.target.value })}
-                placeholder="e.g. Lekki Deep Sea Port Expansion"
-                required
-              />
-            </FormField>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <FormField label="Approved Budget (NGN)">
-                <Input
-                  type="number"
-                  value={form.approvedBudget}
-                  onChange={(e) => setForm({ ...form, approvedBudget: e.target.value })}
-                  placeholder="3,000,000,000"
-                  required
-                />
-              </FormField>
-              <FormField label="Fiscal Period">
-                <Input
-                  value={form.period}
-                  onChange={(e) => setForm({ ...form, period: e.target.value })}
-                  placeholder="e.g. FY 2026"
-                />
-              </FormField>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <FormField label="Start Date">
-                <Input
-                  type="date"
-                  value={form.startDate}
-                  onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-                />
-              </FormField>
-              <FormField label="End Date">
-                <Input
-                  type="date"
-                  value={form.endDate}
-                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                />
-              </FormField>
-            </div>
-
-            <FormField label="Description">
-              <textarea
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                rows={3}
-                style={{ width: '100%', padding: '8px 12px', border: '1px solid #CBD5E1', borderRadius: '6px', fontSize: '0.813rem', fontFamily: 'var(--font)' }}
-                placeholder="Expenditure scope and justifications..."
-              />
-            </FormField>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '12px' }}>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => { setCreateModal(false); setEditItem(null); }}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ backgroundColor: '#1D4ED8' }}
-              >
-                {editItem ? "Save Changes" : "Submit Proposal"}
-              </button>
-            </div>
-          </form>
-        </Modal>
+      {dialog?.kind === 'submit' && (
+        <ConfirmModal title="Submit for approval?" message="You cannot edit the budget once it is submitted." detail={dialog.b.budgetId} confirmLabel="Submit" busy={busy} error={actionError} onClose={() => setDialog(null)} onConfirm={() => simple('submit', dialog.b, `${dialog.b.budgetId} submitted for approval`)} />
+      )}
+      {dialog?.kind === 'approve' && (
+        <ConfirmModal title="Approve budget?" message="The budget becomes active and starts tracking actual spend from the ledger." detail={`${dialog.b.budgetId} – ${populatedName(dialog.b.project)}`} confirmLabel="Approve Budget" busy={busy} error={actionError} onClose={() => setDialog(null)} onConfirm={() => simple('approve', dialog.b, `${dialog.b.budgetId} approved`)} />
+      )}
+      {dialog?.kind === 'delete' && (
+        <ConfirmModal title="Delete draft budget?" message="This draft budget will be permanently removed. This action cannot be undone." detail={`${dialog.b.budgetId} – ${populatedName(dialog.b.project)}`} confirmLabel="Delete Budget" danger busy={busy} error={actionError} onClose={() => setDialog(null)} onConfirm={() => simple('remove', dialog.b, `${dialog.b.budgetId} deleted`)} />
+      )}
+      {dialog?.kind === 'reject' && (
+        <ReasonModal title="Reject Budget?" message="Are you sure you want to reject this budget? Please provide a reason before continuing." detail={dialog.b.budgetId} label="Reason for rejection" confirmLabel="Reject Budget" danger busy={busy} error={actionError} onClose={() => setDialog(null)} onConfirm={(reason) => simple('reject', dialog.b, `${dialog.b.budgetId} rejected`, reason)} />
+      )}
+      {dialog?.kind === 'close' && (
+        <ReasonModal title="Close budget?" message="No further spend is tracked against a closed budget." detail={`${dialog.b.budgetId} – ${populatedName(dialog.b.project)}`} label="Reason for closing" confirmLabel="Close Budget" busy={busy} error={actionError} onClose={() => setDialog(null)} onConfirm={(reason) => simple('close', dialog.b, `${dialog.b.budgetId} closed`, reason)} />
       )}
     </div>
   );

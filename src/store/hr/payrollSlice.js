@@ -1,165 +1,85 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { payrollService } from '../../services/hr.service';
+import { payrollService, statutoryService } from '../../services/hr.service';
+import { idempotencyHeaders } from '../../services/apiHelpers';
+
+const failure = (err, fallback) => {
+  const e = err.response?.data?.error;
+  return {
+    message: e?.message || fallback,
+    code: e?.code,
+    details: e?.details || [],
+    status: err.response?.status,
+  };
+};
+
+const listThunk = (type, call, fallback) =>
+  createAsyncThunk(type, async (params, { rejectWithValue }) => {
+    try {
+      const res = await call(params);
+      return { data: res.data.data, meta: res.data.meta };
+    } catch (err) {
+      return rejectWithValue(failure(err, fallback));
+    }
+  });
+
+const writeThunk = (type, call, fallback) =>
+  createAsyncThunk(type, async (arg, { rejectWithValue }) => {
+    try {
+      const res = await call(arg);
+      return res.data.data;
+    } catch (err) {
+      return rejectWithValue(failure(err, fallback));
+    }
+  });
 
 // ─── Salary Structures ────────────────────────────────────────────────────────
-export const fetchSalaryStructures = createAsyncThunk(
-  'payroll/fetchStructures',
-  async (params, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.listStructures(params);
-      return { data: res.data.data, meta: res.data.meta };
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to load salary structures' });
-    }
-  }
-);
-
-export const createSalaryStructure = createAsyncThunk(
-  'payroll/createStructure',
-  async (data, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.createStructure(data);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to create salary structure' });
-    }
-  }
-);
-
-export const updateSalaryStructure = createAsyncThunk(
-  'payroll/updateStructure',
-  async ({ id, data }, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.updateStructure(id, data);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to update salary structure' });
-    }
-  }
-);
-
-export const toggleStructureStatus = createAsyncThunk(
-  'payroll/toggleStructureStatus',
-  async ({ id, status }, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.setStructureStatus(id, status);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to update status' });
-    }
-  }
-);
-
-export const duplicateStructure = createAsyncThunk(
-  'payroll/duplicateStructure',
-  async (id, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.duplicateStructure(id);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to duplicate structure' });
-    }
-  }
-);
+export const fetchSalaryStructures = listThunk('payroll/fetchStructures', (p) => payrollService.listStructures(p), 'Failed to load salary structures');
+export const createSalaryStructure = writeThunk('payroll/createStructure', (d) => payrollService.createStructure(d), 'Failed to create salary structure');
+export const updateSalaryStructure = writeThunk('payroll/updateStructure', ({ id, data }) => payrollService.updateStructure(id, data), 'Failed to update salary structure');
+export const toggleStructureStatus = writeThunk('payroll/toggleStructureStatus', ({ id, status }) => payrollService.setStructureStatus(id, status), 'Failed to update status');
+export const duplicateStructure = writeThunk('payroll/duplicateStructure', (id) => payrollService.duplicateStructure(id), 'Failed to duplicate structure');
 
 // ─── Tax Definitions ──────────────────────────────────────────────────────────
-export const fetchTaxDefinitions = createAsyncThunk(
-  'payroll/fetchTaxDefs',
-  async (params, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.listTaxDefs(params);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to load tax definitions' });
-    }
+export const fetchTaxDefinitions = createAsyncThunk('payroll/fetchTaxDefs', async (params, { rejectWithValue }) => {
+  try {
+    const res = await payrollService.listTaxDefs(params);
+    return res.data.data;
+  } catch (err) {
+    return rejectWithValue(failure(err, 'Failed to load tax definitions'));
   }
-);
-
-export const createTaxDefinition = createAsyncThunk(
-  'payroll/createTaxDef',
-  async (data, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.createTaxDef(data);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to create tax definition' });
-    }
-  }
-);
-
-export const updateTaxDefinition = createAsyncThunk(
-  'payroll/updateTaxDef',
-  async ({ id, data }, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.updateTaxDef(id, data);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to update tax definition' });
-    }
-  }
-);
+});
+export const createTaxDefinition = writeThunk('payroll/createTaxDef', (d) => payrollService.createTaxDef(d), 'Failed to create tax definition');
+export const updateTaxDefinition = writeThunk('payroll/updateTaxDef', ({ id, data }) => payrollService.updateTaxDef(id, data), 'Failed to update tax definition');
 
 // ─── Payslips ─────────────────────────────────────────────────────────────────
-export const fetchPayslips = createAsyncThunk(
-  'payroll/fetchPayslips',
-  async (params, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.listPayslips(params);
-      return { data: res.data.data, meta: res.data.meta };
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to load payslips' });
-    }
+export const fetchPayslips = listThunk('payroll/fetchPayslips', (p) => payrollService.listPayslips(p), 'Failed to load payslips');
+export const createPayslip = writeThunk('payroll/createPayslip', (d) => payrollService.createPayslip(d, idempotencyHeaders()), 'Failed to create payslip');
+
+export const fetchMyPayslips = createAsyncThunk('payroll/fetchMyPayslips', async (_, { rejectWithValue }) => {
+  try {
+    const res = await payrollService.myPayslips();
+    return res.data.data;
+  } catch (err) {
+    return rejectWithValue(failure(err, 'Failed to load your payslips'));
   }
-);
+});
 
 // ─── Payroll Runs ─────────────────────────────────────────────────────────────
-export const fetchPayrollRuns = createAsyncThunk(
-  'payroll/fetchRuns',
-  async (params, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.listRuns(params);
-      return { data: res.data.data, meta: res.data.meta };
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to load payroll runs' });
-    }
-  }
-);
+export const fetchPayrollRuns = listThunk('payroll/fetchRuns', (p) => payrollService.listRuns(p), 'Failed to load payroll runs');
+export const fetchPayrollStats = writeThunk('payroll/fetchStats', () => payrollService.runStats(), 'Failed to load payroll figures');
+export const createPayrollRun = writeThunk('payroll/createRun', (d) => payrollService.createRun(d, idempotencyHeaders()), 'Failed to generate payroll run');
+export const approvePayrollRun = writeThunk('payroll/approveRun', (id) => payrollService.approveRun(id, idempotencyHeaders()), 'Failed to approve payroll run');
+export const rejectPayrollRun = writeThunk('payroll/rejectRun', ({ id, reason }) => payrollService.rejectRun(id, reason), 'Failed to reject payroll run');
 
-export const createPayrollRun = createAsyncThunk(
-  'payroll/createRun',
-  async (data, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.createRun(data);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to generate payroll run' });
-    }
-  }
-);
+// ─── Statutory configuration ──────────────────────────────────────────────────
+export const fetchStatutoryConfig = writeThunk('payroll/fetchStatutory', () => statutoryService.getConfig(), 'Failed to load statutory configuration');
+export const createStatutoryVersion = writeThunk('payroll/createStatutory', (d) => statutoryService.createVersion(d), 'Failed to save statutory configuration');
+export const confirmStatutoryVersion = writeThunk('payroll/confirmStatutory', (id) => statutoryService.confirm(id), 'Failed to confirm statutory configuration');
 
-export const approvePayrollRun = createAsyncThunk(
-  'payroll/approveRun',
-  async (id, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.approveRun(id);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to approve payroll run' });
-    }
-  }
-);
-
-export const rejectPayrollRun = createAsyncThunk(
-  'payroll/rejectRun',
-  async ({ id, reason }, { rejectWithValue }) => {
-    try {
-      const res = await payrollService.rejectRun(id, reason);
-      return res.data.data;
-    } catch (err) {
-      return rejectWithValue(err.response?.data?.error || { message: 'Failed to reject payroll run' });
-    }
-  }
-);
+const replaceById = (list, item) => {
+  const idx = list.findIndex((i) => i._id === item._id);
+  if (idx !== -1) list[idx] = { ...list[idx], ...item };
+};
 
 const payrollSlice = createSlice({
   name: 'payroll',
@@ -167,55 +87,52 @@ const payrollSlice = createSlice({
     structures: [], structuresMeta: null, structuresLoading: false,
     taxDefs: [], taxDefsLoading: false,
     payslips: [], payslipsMeta: null, payslipsLoading: false,
+    myPayslips: [], myPayslipsLoading: false, myPayslipsError: null,
     runs: [], runsMeta: null, runsLoading: false,
+    stats: null,
+    statutory: null, statutoryLoading: false,
     error: null,
   },
   reducers: { clearError(state) { state.error = null; } },
   extraReducers: (builder) => {
+    const loading = (thunk, flag) =>
+      builder
+        .addCase(thunk.pending, (s) => { s[flag] = true; s.error = null; })
+        .addCase(thunk.rejected, (s, a) => { s[flag] = false; s.error = a.payload || { message: 'Request failed' }; });
+
+    loading(fetchSalaryStructures, 'structuresLoading');
+    loading(fetchTaxDefinitions, 'taxDefsLoading');
+    loading(fetchPayslips, 'payslipsLoading');
+    loading(fetchPayrollRuns, 'runsLoading');
+    loading(fetchStatutoryConfig, 'statutoryLoading');
+
     builder
-      // Structures
-      .addCase(fetchSalaryStructures.pending,   (s) => { s.structuresLoading = true; s.error = null; })
       .addCase(fetchSalaryStructures.fulfilled, (s, a) => { s.structuresLoading = false; s.structures = a.payload.data; s.structuresMeta = a.payload.meta; })
-      .addCase(fetchSalaryStructures.rejected,  (s, a) => { s.structuresLoading = false; s.error = a.payload; })
+      .addCase(toggleStructureStatus.fulfilled, (s, a) => replaceById(s.structures, a.payload))
+      .addCase(updateSalaryStructure.fulfilled, (s, a) => replaceById(s.structures, a.payload))
 
-      .addCase(createSalaryStructure.fulfilled, (s, a) => { s.structures.unshift(a.payload); })
-      .addCase(updateSalaryStructure.fulfilled, (s, a) => {
-        const idx = s.structures.findIndex(i => i._id === a.payload._id);
-        if (idx !== -1) s.structures[idx] = a.payload;
-      })
-      .addCase(toggleStructureStatus.fulfilled, (s, a) => {
-        const idx = s.structures.findIndex(i => i._id === a.payload._id);
-        if (idx !== -1) s.structures[idx] = a.payload;
-      })
-      .addCase(duplicateStructure.fulfilled, (s, a) => { s.structures.unshift(a.payload); })
-
-      // Tax Defs
-      .addCase(fetchTaxDefinitions.pending,   (s) => { s.taxDefsLoading = true; })
       .addCase(fetchTaxDefinitions.fulfilled, (s, a) => { s.taxDefsLoading = false; s.taxDefs = a.payload; })
-      .addCase(fetchTaxDefinitions.rejected,  (s) => { s.taxDefsLoading = false; })
-      .addCase(createTaxDefinition.fulfilled, (s, a) => { s.taxDefs.unshift(a.payload); })
-      .addCase(updateTaxDefinition.fulfilled, (s, a) => {
-        const idx = s.taxDefs.findIndex(i => i._id === a.payload._id);
-        if (idx !== -1) s.taxDefs[idx] = a.payload;
-      })
+      .addCase(updateTaxDefinition.fulfilled, (s, a) => replaceById(s.taxDefs, a.payload))
 
-      // Payslips
-      .addCase(fetchPayslips.pending,   (s) => { s.payslipsLoading = true; })
       .addCase(fetchPayslips.fulfilled, (s, a) => { s.payslipsLoading = false; s.payslips = a.payload.data; s.payslipsMeta = a.payload.meta; })
-      .addCase(fetchPayslips.rejected,  (s) => { s.payslipsLoading = false; })
 
-      // Runs
-      .addCase(fetchPayrollRuns.pending,   (s) => { s.runsLoading = true; })
+      .addCase(fetchMyPayslips.pending, (s) => { s.myPayslipsLoading = true; s.myPayslipsError = null; })
+      .addCase(fetchMyPayslips.fulfilled, (s, a) => { s.myPayslipsLoading = false; s.myPayslips = a.payload || []; })
+      .addCase(fetchMyPayslips.rejected, (s, a) => { s.myPayslipsLoading = false; s.myPayslips = []; s.myPayslipsError = a.payload || { message: 'Failed to load your payslips' }; })
+
       .addCase(fetchPayrollRuns.fulfilled, (s, a) => { s.runsLoading = false; s.runs = a.payload.data; s.runsMeta = a.payload.meta; })
-      .addCase(fetchPayrollRuns.rejected,  (s) => { s.runsLoading = false; })
-      .addCase(createPayrollRun.fulfilled, (s, a) => { s.runs.unshift(a.payload); })
-      .addCase(approvePayrollRun.fulfilled, (s, a) => {
-        const idx = s.runs.findIndex(i => i._id === a.payload._id);
-        if (idx !== -1) s.runs[idx] = a.payload;
+      .addCase(fetchPayrollStats.fulfilled, (s, a) => { s.stats = a.payload; })
+      .addCase(approvePayrollRun.fulfilled, (s, a) => replaceById(s.runs, a.payload))
+      .addCase(rejectPayrollRun.fulfilled, (s, a) => replaceById(s.runs, a.payload))
+
+      .addCase(fetchStatutoryConfig.fulfilled, (s, a) => { s.statutoryLoading = false; s.statutory = a.payload; })
+      .addCase(createStatutoryVersion.fulfilled, (s, a) => {
+        if (s.statutory) s.statutory.versions = [a.payload, ...s.statutory.versions];
       })
-      .addCase(rejectPayrollRun.fulfilled, (s, a) => {
-        const idx = s.runs.findIndex(i => i._id === a.payload._id);
-        if (idx !== -1) s.runs[idx] = a.payload;
+      .addCase(confirmStatutoryVersion.fulfilled, (s, a) => {
+        if (!s.statutory) return;
+        replaceById(s.statutory.versions, a.payload);
+        if (s.statutory.effective?._id === a.payload._id) s.statutory.effective = a.payload;
       });
   },
 });
@@ -229,8 +146,14 @@ export const selectTaxDefsLoading    = (s) => s.payroll.taxDefsLoading;
 export const selectPayslips          = (s) => s.payroll.payslips;
 export const selectPayslipsMeta      = (s) => s.payroll.payslipsMeta;
 export const selectPayslipsLoading   = (s) => s.payroll.payslipsLoading;
+export const selectMyPayslips        = (s) => s.payroll.myPayslips;
+export const selectMyPayslipsLoading = (s) => s.payroll.myPayslipsLoading;
+export const selectMyPayslipsError   = (s) => s.payroll.myPayslipsError;
 export const selectRuns              = (s) => s.payroll.runs;
 export const selectRunsMeta          = (s) => s.payroll.runsMeta;
 export const selectRunsLoading       = (s) => s.payroll.runsLoading;
+export const selectPayrollStats      = (s) => s.payroll.stats;
+export const selectStatutory         = (s) => s.payroll.statutory;
+export const selectStatutoryLoading  = (s) => s.payroll.statutoryLoading;
 export const selectPayrollError      = (s) => s.payroll.error;
 export default payrollSlice.reducer;

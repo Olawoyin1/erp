@@ -1,261 +1,181 @@
-import React, { useState } from 'react';
-import {
-  FiDownload, FiPieChart, FiBarChart2, FiTrendingUp, FiTarget,
-  FiFileText, FiCheckCircle, FiDollarSign, FiAward, FiAlertCircle
-} from 'react-icons/fi';
+import { useState } from 'react';
+import { FiDownload, FiDollarSign, FiTarget, FiCheckCircle, FiFileText } from 'react-icons/fi';
 import Toast, { useToast } from '../../components/ui/Toast';
-import { mockProcurementAnalytics } from '../../data/mockProcurement';
+import { procurementReportService } from '../../services/procurement.service';
+import { compactMoney, downloadFile, money } from './shared/procUtils';
+import { useFetched } from './shared/procHooks';
+import { DataState, PageHeader, SecondaryButton, StatTiles } from './shared/ProcUi';
+
+const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#7C3AED', '#EF4444', '#0EA5E9', '#64748B'];
+
+const tileOf = (report, key) => (report?.tiles || []).find((t) => t.key === key)?.value ?? 0;
+const chartOf = (report, key) => (report?.charts || []).find((c) => c.key === key)?.series || [];
+
+function Card({ title, subtitle, badge, children }) {
+  return (
+    <div className="card" style={{ padding: 24, backgroundColor: '#FFFFFF', borderRadius: 12, minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{title}</h3>
+        {badge && <span style={{ fontSize: '0.75rem', backgroundColor: '#F1F5F9', padding: '3px 10px', borderRadius: 12, color: '#64748B', fontWeight: 600, whiteSpace: 'nowrap' }}>{badge}</span>}
+      </div>
+      {subtitle && <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '0 0 18px' }}>{subtitle}</p>}
+      {children}
+    </div>
+  );
+}
+
+function MiniStat({ label, value, caption }) {
+  return (
+    <div style={{ backgroundColor: '#F8FAFC', padding: 14, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+      <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', marginTop: 4 }}>{value}</div>
+      {caption && <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 2 }}>{caption}</div>}
+    </div>
+  );
+}
+
+function HBars({ rows, format = (v) => v, empty = 'No data yet.' }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  if (!rows.length) return <div style={{ color: '#94A3B8', fontSize: '0.84rem', padding: '12px 0' }}>{empty}</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {rows.map((row, i) => (
+        <div key={row.label}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.813rem', marginBottom: 6, gap: 8 }}>
+            <span style={{ color: '#334155', fontWeight: 500 }}>{row.label}</span>
+            <span style={{ color: '#0F172A', fontWeight: 700 }}>{format(row.value)}</span>
+          </div>
+          <div style={{ width: '100%', height: 8, backgroundColor: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ width: `${(row.value / max) * 100}%`, height: '100%', backgroundColor: COLORS[i % COLORS.length], borderRadius: 4, transition: 'width 0.5s' }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function monthLabel(key) {
+  const [year, month] = key.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+}
 
 export default function ProcurementReports() {
-  const { kpis, monthlyRevenueWon, rfqPerformance, commercialConversion, tenderOutcome } = mockProcurementAnalytics;
+  const [nonce, setNonce] = useState(0);
+  const { data: report, error, loading } = useFetched(() => procurementReportService.get(), 'report', nonce);
   const { toast, showToast, hideToast } = useToast();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const ready = report && !Array.isArray(report);
+
+  const exportAs = async (format) => {
+    setMenuOpen(false);
+    setExporting(true);
+    const message = await downloadFile(() => procurementReportService.exportFile(format), `procurement-report.${format}`);
+    setExporting(false);
+    if (message) showToast(message, 'error');
+    else showToast(`Procurement report exported as ${format.toUpperCase()}`, 'success');
+  };
+
+  const months = ready ? report.monthlyPoValue : [];
+  const monthMax = Math.max(1, ...months.map((m) => m.acknowledged + m.pipeline));
+  const tasks = ready ? report.tasks : { total: 0, resolved: 0, overdue: 0 };
+
+  const tiles = ready
+    ? [
+        { label: 'TOTAL PO VALUE', value: compactMoney(tileOf(report, 'total_po_value')), sub: `${tileOf(report, 'open_requisitions')} open requisitions`, icon: <FiDollarSign size={18} />, tone: 'blue' },
+        { label: 'RFQ AWARD RATE', value: `${tileOf(report, 'rfq_award_rate')}%`, sub: `${report.rfqPerformance.submittedRfqs} RFQs issued or later`, icon: <FiTarget size={18} />, tone: 'purple' },
+        { label: 'ON-TIME DELIVERY RATE', value: `${tileOf(report, 'on_time_delivery_rate')}%`, sub: `${tileOf(report, 'active_vendors')} active vendors`, icon: <FiCheckCircle size={18} />, tone: 'green' },
+        { label: 'TEAM TASKS RESOLVED', value: `${tasks.resolved}/${tasks.total}`, sub: tasks.overdue ? `${tasks.overdue} overdue` : 'No overdue tasks', subColor: tasks.overdue ? '#DC2626' : undefined, icon: <FiFileText size={18} />, tone: 'amber' },
+      ]
+    : [];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Top Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Reports — Procurement</h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-            Monitor procurement performance through operational reports and procurement analytics
-          </p>
-        </div>
-        <div>
-          <button
-            className="btn btn-secondary"
-            onClick={() => showToast('Exporting executive report...', 'success')}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '9px 16px', borderRadius: '8px' }}
-          >
-            <FiDownload size={15} /> Export
-          </button>
-        </div>
-      </div>
-
-      {/* Top 4 KPI Cards matching exact screenshot */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>TOTAL PIPELINE VALUE</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{kpis.totalPipelineValue}</div>
-            <div style={{ fontSize: '0.75rem', color: '#16A34A', marginTop: '4px', fontWeight: 600 }}>↗ {kpis.pipelineGrowth}</div>
-          </div>
-          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB' }}>
-            <FiDollarSign size={18} />
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>OPPORTUNITY CONVERSION</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{kpis.opportunityConversion}</div>
-            <div style={{ fontSize: '0.75rem', color: '#16A34A', marginTop: '4px', fontWeight: 600 }}>↗ {kpis.conversionGrowth}</div>
-          </div>
-          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#FAF5FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7C3AED' }}>
-            <FiTarget size={18} />
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>RFQ PROPOSAL SUCCESS</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{kpis.rfqProposalSuccess}</div>
-            <div style={{ fontSize: '0.75rem', color: '#16A34A', marginTop: '4px', fontWeight: 600 }}>↗ {kpis.proposalPrecision}</div>
-          </div>
-          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
-            <FiCheckCircle size={18} />
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>TEAM TASKS RESOLVED</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A', marginTop: '4px' }}>{kpis.teamTasksResolved}</div>
-            <div style={{ fontSize: '0.75rem', color: '#DC2626', marginTop: '4px', fontWeight: 600 }}>⚠ {kpis.taskAlert}</div>
-          </div>
-          <div style={{ width: 36, height: 36, borderRadius: '8px', backgroundColor: '#FFFBEB', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#D97706' }}>
-            <FiFileText size={18} />
-          </div>
-        </div>
-      </div>
-
-      {/* Row 1 Charts: Monthly Revenue Won & RFQ Performance */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px' }}>
-        {/* Monthly Revenue Won Bar Chart */}
-        <div className="card" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Monthly Revenue Won</h3>
-            <span style={{ fontSize: '0.75rem', backgroundColor: '#F1F5F9', padding: '3px 10px', borderRadius: '12px', color: '#64748B', fontWeight: 600 }}>
-              Contracts YTD
-            </span>
-          </div>
-          <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '0 0 20px 0' }}>
-            Total volume of awarded & pipeline projects
-          </p>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '16px', fontSize: '0.8rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: 12, height: 12, backgroundColor: '#EF4444', borderRadius: '2px' }} />
-              <span style={{ color: '#475569', fontWeight: 500 }}>Awarded</span>
+      <PageHeader title="Reports — Procurement" subtitle="Monitor procurement performance through operational reports and procurement analytics">
+        <div style={{ position: 'relative' }}>
+          <SecondaryButton icon={<FiDownload size={15} />} onClick={() => setMenuOpen((o) => !o)} disabled={exporting || !ready}>{exporting ? 'Exporting…' : 'Export'}</SecondaryButton>
+          {menuOpen && (
+            <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: '#fff', borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0', padding: '6px 0', zIndex: 60, minWidth: 160 }}>
+              {['csv', 'xlsx'].map((format) => (
+                <div key={format} className="menu-item-hover" onClick={() => exportAs(format)} style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#334155', cursor: 'pointer' }}>
+                  Export as {format.toUpperCase()}
+                </div>
+              ))}
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <div style={{ width: 12, height: 12, backgroundColor: '#1E40AF', borderRadius: '2px' }} />
-              <span style={{ color: '#475569', fontWeight: 500 }}>Pipeline</span>
-            </div>
-          </div>
-
-          {/* Bar Chart Visualization */}
-          <div style={{ height: '200px', display: 'flex', alignItems: 'flex-end', gap: '18px', borderBottom: '1px solid #E2E8F0', paddingBottom: '10px' }}>
-            {monthlyRevenueWon.map((m, i) => (
-              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '160px', width: '100%', justifyContent: 'center' }}>
-                  <div
-                    style={{
-                      width: '40%',
-                      backgroundColor: '#EF4444',
-                      height: `${(m.awarded / 200) * 100}%`,
-                      borderRadius: '4px 4px 0 0',
-                      transition: 'height 0.4s'
-                    }}
-                    title={`Awarded: ₦${m.awarded}M`}
-                  />
-                  <div
-                    style={{
-                      width: '40%',
-                      backgroundColor: '#1E40AF',
-                      height: `${(m.pipeline / 200) * 100}%`,
-                      borderRadius: '4px 4px 0 0',
-                      transition: 'height 0.4s'
-                    }}
-                    title={`Pipeline: ₦${m.pipeline}M`}
-                  />
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, marginTop: '8px' }}>{m.month}</div>
-              </div>
-            ))}
-          </div>
+          )}
         </div>
+      </PageHeader>
 
-        {/* RFQ Performance */}
-        <div className="card" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>RFQ Performance</h3>
-          <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '4px 0 20px 0' }}>
-            RFQ feedback speed & accuracy analysis pipeline
-          </p>
+      <DataState loading={loading} error={error} empty={false} onRetry={() => setNonce((n) => n + 1)}>
+        {ready && (
+          <>
+            <StatTiles tiles={tiles} />
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-            <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>SUBMITTED RFQS</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>{rfqPerformance.submittedRfqs}</div>
-              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Estimations completed directly</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+              <Card title="Monthly Purchase Order Value" subtitle="Orders acknowledged by the vendor against orders still awaiting acknowledgement" badge="Last 6 months">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 16, fontSize: '0.8rem' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, backgroundColor: '#10B981', borderRadius: 2 }} />Acknowledged</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, backgroundColor: '#1E40AF', borderRadius: 2 }} />Awaiting acknowledgement</span>
+                </div>
+                <div style={{ height: 200, display: 'flex', alignItems: 'flex-end', gap: 14, borderBottom: '1px solid #E2E8F0', paddingBottom: 10 }}>
+                  {months.map((m) => (
+                    <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 160, width: '100%', justifyContent: 'center' }}>
+                        <div title={`Acknowledged: ${money(m.acknowledged)}`} style={{ width: '40%', backgroundColor: '#10B981', height: `${(m.acknowledged / monthMax) * 100}%`, borderRadius: '4px 4px 0 0', minHeight: m.acknowledged ? 2 : 0 }} />
+                        <div title={`Awaiting acknowledgement: ${money(m.pipeline)}`} style={{ width: '40%', backgroundColor: '#1E40AF', height: `${(m.pipeline / monthMax) * 100}%`, borderRadius: '4px 4px 0 0', minHeight: m.pipeline ? 2 : 0 }} />
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, marginTop: 8 }}>{monthLabel(m.month)}</div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card title="RFQ Performance" subtitle="How sourcing requests are progressing and what they were awarded for">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+                  <MiniStat label="Submitted RFQs" value={report.rfqPerformance.submittedRfqs} caption="Issued, evaluated, awarded or cancelled" />
+                  <MiniStat label="Awarded value" value={compactMoney(report.rfqPerformance.awardedValue)} caption="Winning quotations" />
+                </div>
+                <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>Status distribution</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {report.rfqPerformance.statusDistribution.map((s, i) => (
+                    <div key={s.status} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.813rem' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#334155' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: COLORS[i % COLORS.length] }} />{s.label}
+                      </span>
+                      <span style={{ fontWeight: 600, color: '#0F172A' }}>{s.count} RFQ <span style={{ color: '#94A3B8', fontWeight: 400 }}>({compactMoney(s.value)})</span></span>
+                    </div>
+                  ))}
+                </div>
+              </Card>
             </div>
-            <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>RFQ VALUE YTD</div>
-              <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>{rfqPerformance.rfqValueYtd}</div>
-              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Estimations completed directly</div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+              <Card title="Procurement Pipeline Funnel" subtitle="How requisitions progress to orders, acknowledgement and delivery" badge={`${report.pipelineFunnel[0]?.count ?? 0} requisitions`}>
+                <HBars rows={report.pipelineFunnel.map((f) => ({ label: f.stage, value: f.count }))} />
+              </Card>
+
+              <Card title="Purchase Order Outcomes" subtitle="Where purchase orders stand with vendors">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+                  <MiniStat label="Acknowledged" value={report.poOutcomes.acknowledged} caption={`Out of ${report.poOutcomes.totalTracked} orders`} />
+                  <MiniStat label="Awaiting acknowledgement" value={report.poOutcomes.awaitingAcknowledgement} caption={`${report.poOutcomes.cancelled} cancelled`} />
+                </div>
+                <HBars rows={report.poOutcomes.byStatus.map((s) => ({ label: s.label, value: s.value }))} format={compactMoney} />
+              </Card>
             </div>
-          </div>
 
-          <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', marginBottom: '10px' }}>
-            STATUS DISTRIBUTION VOLUME
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {rfqPerformance.statusDistribution.map((s, idx) => (
-              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.813rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: '#2563EB' }} />
-                  <span style={{ color: '#334155' }}>{s.label}</span>
-                </div>
-                <div style={{ fontWeight: 600, color: '#0F172A' }}>
-                  {s.count} RFQ <span style={{ color: '#94A3B8', fontWeight: 400 }}>({s.value})</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Row 2 Charts: Commercial Conversion Pipeline Funnel & Tender Outcome Analysis */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: '20px' }}>
-        {/* Commercial Conversion Pipeline Funnel */}
-        <div className="card" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-            <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Commercial Conversion Pipeline Funnel</h3>
-            <span style={{ fontSize: '0.75rem', backgroundColor: '#F1F5F9', padding: '3px 10px', borderRadius: '12px', color: '#64748B', fontWeight: 600 }}>
-              32 cases
-            </span>
-          </div>
-          <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '0 0 20px 0' }}>
-            Survival rates of opportunities from registration to close sign-off
-          </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            {commercialConversion.map((item, idx) => (
-              <div key={idx}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.813rem', marginBottom: '6px' }}>
-                  <span style={{ color: '#334155', fontWeight: 500 }}>{item.stage}</span>
-                  <span style={{ color: '#0F172A', fontWeight: 700 }}>{item.count}</span>
-                </div>
-                <div style={{ width: '100%', height: '8px', backgroundColor: '#F1F5F9', borderRadius: '4px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${item.pct}%`,
-                      height: '100%',
-                      backgroundColor: item.color,
-                      borderRadius: '4px',
-                      transition: 'width 0.5s'
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Tender Outcome Analysis */}
-        <div className="card" style={{ padding: '24px', backgroundColor: '#FFFFFF', borderRadius: '12px' }}>
-          <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Tender Outcome Analysis</h3>
-          <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '4px 0 20px 0' }}>
-            Win ratio breakdown & procurement bidding outcome metrics
-          </p>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '20px' }}>
-            <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>OVERALL BIDS WON</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0F172A', marginTop: '4px' }}>{tenderOutcome.overallBidsWon}</div>
-              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Out of {tenderOutcome.totalBidsTracked} tracked</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+              <Card title="Purchase Order Value by Category" subtitle="Non-cancelled orders">
+                <HBars rows={chartOf(report, 'po_value_by_category').map((s) => ({ label: s.label, value: s.value }))} format={compactMoney} empty="No purchase orders yet." />
+              </Card>
+              <Card title="Requisitions by Category" subtitle="Every requisition raised">
+                <HBars rows={chartOf(report, 'requisitions_by_category').map((s) => ({ label: s.label, value: s.value }))} empty="No requisitions yet." />
+              </Card>
             </div>
-            <div style={{ backgroundColor: '#F8FAFC', padding: '14px', borderRadius: '8px', border: '1px solid #E2E8F0', textAlign: 'center' }}>
-              <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>AWAITING DECISION</div>
-              <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#D97706', marginTop: '4px' }}>{tenderOutcome.awaitingDecision}</div>
-              <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: '2px' }}>Bids submitted</div>
-            </div>
-          </div>
-
-          {/* Outcome breakdown bars */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            {tenderOutcome.categories.map((cat, idx) => (
-              <div key={idx}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.813rem', marginBottom: '4px' }}>
-                  <span style={{ color: '#334155' }}>{cat.label}</span>
-                  <span style={{ fontWeight: 700, color: '#0F172A' }}>{cat.amount}</span>
-                </div>
-                <div style={{ width: '100%', height: '6px', backgroundColor: '#F1F5F9', borderRadius: '3px', overflow: 'hidden' }}>
-                  <div
-                    style={{
-                      width: `${(parseFloat(cat.amount.replace(/[^0-9.]/g, '')) / 60) * 100}%`,
-                      height: '100%',
-                      backgroundColor: cat.color,
-                      borderRadius: '3px'
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+          </>
+        )}
+      </DataState>
     </div>
   );
 }

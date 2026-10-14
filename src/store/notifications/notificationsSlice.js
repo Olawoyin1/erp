@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { notificationService } from '../../services/notifications.service';
+import { apiError } from '../../services/apiHelpers';
 
 // ─── Async Thunks ─────────────────────────────────────────────────────────────
 
@@ -10,9 +11,9 @@ export const fetchUnreadCount = createAsyncThunk(
       const { data } = await notificationService.unreadCount();
       return data.data.count;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to fetch count');
+      return rejectWithValue(apiError(err, 'Failed to fetch count'));
     }
-  }
+  },
 );
 
 export const fetchNotifications = createAsyncThunk(
@@ -22,9 +23,9 @@ export const fetchNotifications = createAsyncThunk(
       const { data } = await notificationService.list(params);
       return { notifications: data.data, meta: data.meta };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to load notifications');
+      return rejectWithValue(apiError(err, 'Failed to load notifications'));
     }
-  }
+  },
 );
 
 export const markNotificationRead = createAsyncThunk(
@@ -34,9 +35,9 @@ export const markNotificationRead = createAsyncThunk(
       await notificationService.markRead(id);
       return id;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to mark read');
+      return rejectWithValue(apiError(err, 'Failed to mark read'));
     }
-  }
+  },
 );
 
 export const markAllNotificationsRead = createAsyncThunk(
@@ -46,9 +47,9 @@ export const markAllNotificationsRead = createAsyncThunk(
       await notificationService.markAllRead();
       return true;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to mark all read');
+      return rejectWithValue(apiError(err, 'Failed to mark all read'));
     }
-  }
+  },
 );
 
 // ─── Slice ────────────────────────────────────────────────────────────────────
@@ -60,50 +61,60 @@ const notificationsSlice = createSlice({
     meta: { page: 1, limit: 20, total: 0, totalPages: 1 },
     loading: false,
     error: null,
+    actionError: null,
   },
   reducers: {
-    // Allow uiSlice / other slices to push an unread count update
     setUnreadCount(state, action) {
       state.unreadCount = action.payload;
     },
+    clearNotificationActionError(state) {
+      state.actionError = null;
+    },
   },
   extraReducers: (builder) => {
-    // fetchUnreadCount
     builder.addCase(fetchUnreadCount.fulfilled, (state, action) => {
       state.unreadCount = action.payload;
     });
 
-    // fetchNotifications
     builder
-      .addCase(fetchNotifications.pending, (state) => { state.loading = true; state.error = null; })
+      .addCase(fetchNotifications.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.loading = false;
         state.notifications = action.payload.notifications;
-        state.meta = action.payload.meta;
-        // Sync unread count from the full list too (page 1 only)
-        state.unreadCount = action.payload.notifications.filter((n) => !n.readAt).length;
+        state.meta = action.payload.meta || state.meta;
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
 
-    // markNotificationRead — flip the local readAt
-    builder.addCase(markNotificationRead.fulfilled, (state, action) => {
-      const n = state.notifications.find((x) => x._id === action.payload);
-      if (n && !n.readAt) {
-        n.readAt = new Date().toISOString();
-        state.unreadCount = Math.max(0, state.unreadCount - 1);
-      }
-    });
+    builder
+      .addCase(markNotificationRead.fulfilled, (state, action) => {
+        const n = state.notifications.find((x) => x._id === action.payload);
+        if (n && !n.readAt) {
+          n.readAt = new Date().toISOString();
+          state.unreadCount = Math.max(0, state.unreadCount - 1);
+        }
+      })
+      .addCase(markNotificationRead.rejected, (state, action) => {
+        state.actionError = action.payload;
+      });
 
-    // markAllRead — zero out all
-    builder.addCase(markAllNotificationsRead.fulfilled, (state) => {
-      state.notifications.forEach((n) => { if (!n.readAt) n.readAt = new Date().toISOString(); });
-      state.unreadCount = 0;
-    });
+    builder
+      .addCase(markAllNotificationsRead.fulfilled, (state) => {
+        state.notifications.forEach((n) => {
+          if (!n.readAt) n.readAt = new Date().toISOString();
+        });
+        state.unreadCount = 0;
+      })
+      .addCase(markAllNotificationsRead.rejected, (state, action) => {
+        state.actionError = action.payload;
+      });
   },
 });
 
-export const { setUnreadCount } = notificationsSlice.actions;
+export const { setUnreadCount, clearNotificationActionError } = notificationsSlice.actions;
 export default notificationsSlice.reducer;

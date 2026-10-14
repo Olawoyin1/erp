@@ -1,65 +1,27 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
-  FiSearch, FiFilter, FiDownload, FiUpload,
-  FiEye, FiClock, FiCheckCircle, FiAlertCircle,
-  FiUsers, FiActivity,
-} from 'react-icons/fi';
+import { FiSearch, FiFilter, FiDownload, FiUpload, FiEye, FiClock, FiCheckCircle, FiAlertCircle, FiUsers, FiActivity, FiLogIn, FiLogOut } from 'react-icons/fi';
 import DataTable from '../../../components/ui/DataTable';
 import Pagination from '../../../components/ui/Pagination';
-import Badge from '../../../components/ui/Badge';
 import Drawer from '../../../components/ui/Drawer';
 import Modal from '../../../components/ui/Modal';
 import Toast, { useToast } from '../../../components/ui/Toast';
-import { FormField, Input, Select, Textarea, DatePicker } from '../../../components/ui/FormField';
+import { FormField, Input, Select, DatePicker } from '../../../components/ui/FormField';
 import {
-  fetchAttendance,
-  fetchAttendanceStats,
-  clockIn,
-  clockOut,
-  logAttendance,
-  approveOvertime,
+  fetchAttendance, fetchAttendanceStats, clockIn, clockOut, logAttendance, approveOvertime,
 } from '../../../store/hr/attendanceSlice';
+import { attendanceService } from '../../../services/hr.service';
+import { selectCurrentUser } from '../../../store/authSlice';
+import { apiError, titleCase } from '../../../services/apiHelpers';
+import { usePermission } from '../../../hooks/usePermission';
+import { saveBlob, blobErrorMessage, fullName } from '../hrUtils';
+import ImportDialog from '../ImportDialog';
+import LogAttendanceDrawer from './LogAttendanceDrawer';
+import { lagosToday, fmtTime, fmtDay, fmtHours, longDay } from './attendanceUtils';
 
 const ITEMS_PER_PAGE = 10;
+const idOf = (ref) => (ref && typeof ref === 'object' ? ref._id : ref);
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-function fmtTime(iso) {
-  if (!iso) return '--:--';
-  return new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-}
-
-function fmtDate(iso) {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function todayISO() {
-  return new Date().toISOString().split('T')[0];
-}
-
-function todayLabel() {
-  return new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-}
-
-function getName(field) {
-  if (!field) return '—';
-  if (typeof field === 'string') return field;
-  return field.fullName || field.name || '—';
-}
-
-function getLocation(field) {
-  if (!field) return '—';
-  if (typeof field === 'string') return field;
-  return field.name || '—';
-}
-
-function capitalize(s) {
-  if (!s) return '—';
-  return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
-}
-
-// ─── Status colour mapping ─────────────────────────────────────────────────
 const STATUS_CONFIG = {
   present:   { color: '#16A34A', bg: '#DCFCE7', label: 'Present' },
   late:      { color: '#D97706', bg: '#FEF3C7', label: 'Late' },
@@ -67,136 +29,60 @@ const STATUS_CONFIG = {
   absent:    { color: '#DC2626', bg: '#FEF2F2', label: 'Absent' },
   on_leave:  { color: '#7C3AED', bg: '#F5F3FF', label: 'On Leave' },
 };
+const STATUS_FILTERS = [{ value: '', label: 'All statuses' }, ...Object.entries(STATUS_CONFIG).map(([value, c]) => ({ value, label: c.label }))];
 
 function StatusBadge({ status }) {
-  const cfg = STATUS_CONFIG[status] || { color: '#64748B', bg: '#F1F5F9', label: capitalize(status) };
-  return (
-    <span style={{
-      padding: '3px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600,
-      color: cfg.color, backgroundColor: cfg.bg, whiteSpace: 'nowrap',
-    }}>
-      {cfg.label}
-    </span>
-  );
+  const cfg = STATUS_CONFIG[status] || { color: '#64748B', bg: '#F1F5F9', label: titleCase(status) };
+  return <span style={{ padding: '3px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600, color: cfg.color, backgroundColor: cfg.bg, whiteSpace: 'nowrap' }}>{cfg.label}</span>;
 }
 
-// ─── Log Attendance Drawer ────────────────────────────────────────────────────
-function LogAttendanceDrawer({ isOpen, onClose, onSubmit }) {
-  const [form, setForm] = useState({
-    employeeId: '', locationId: '', date: todayISO(),
-    clockIn: '', clockOut: '', status: 'completed', remarks: '',
-  });
-  const [submitting, setSubmitting] = useState(false);
-  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+function RecordDetailModal({ record, canApprove, ownRecord, onClose, onApproveOvertime }) {
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const hasOvertime = record.overtimeHours > 0;
+  const emp = record.employeeId || {};
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!form.employeeId || !form.date || !form.status) return;
-    setSubmitting(true);
-    const payload = {
-      employeeId: form.employeeId,
-      date: form.date,
-      status: form.status,
-      ...(form.locationId && { locationId: form.locationId }),
-      ...(form.clockIn && { clockIn: `${form.date}T${form.clockIn}:00.000Z` }),
-      ...(form.clockOut && { clockOut: `${form.date}T${form.clockOut}:00.000Z` }),
-      ...(form.remarks && { remarks: form.remarks }),
-    };
-    await onSubmit(payload);
-    setSubmitting(false);
+  const approve = async () => {
+    setBusy(true);
+    setError('');
+    const message = await onApproveOvertime(record._id);
+    setBusy(false);
+    if (message) setError(message);
   };
 
-  const footer = (
-    <>
-      <button type="button" onClick={onClose} style={{ padding: '8px 20px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#fff', color: '#475569', fontSize: '0.875rem', cursor: 'pointer', fontWeight: 500 }}>Cancel</button>
-      <button type="submit" form="log-att-form" disabled={submitting} style={{ padding: '8px 22px', borderRadius: 6, border: 'none', backgroundColor: '#1D4ED8', color: '#fff', fontSize: '0.875rem', fontWeight: 600, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}>
-        {submitting ? 'Logging…' : 'Log Attendance'}
-      </button>
-    </>
-  );
-
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="Log Attendance" subtitle="Manually record attendance for an employee" width="480px" footer={footer}>
-      <form id="log-att-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <FormField label="Employee ID" required>
-          <Input value={form.employeeId} onChange={(e) => set('employeeId', e.target.value)} placeholder="MongoDB _id of employee" required />
-        </FormField>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <FormField label="Date" required>
-            <DatePicker value={form.date} onChange={(e) => set('date', e.target.value)} />
-          </FormField>
-          <FormField label="Status" required>
-            <Select value={form.status} onChange={(e) => set('status', e.target.value)}
-              options={[
-                { value: 'present', label: 'Present' },
-                { value: 'late', label: 'Late' },
-                { value: 'completed', label: 'Completed' },
-                { value: 'absent', label: 'Absent' },
-                { value: 'on_leave', label: 'On Leave' },
-              ]}
-            />
-          </FormField>
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          <FormField label="Clock In (local)">
-            <Input type="time" value={form.clockIn} onChange={(e) => set('clockIn', e.target.value)} />
-          </FormField>
-          <FormField label="Clock Out (local)">
-            <Input type="time" value={form.clockOut} onChange={(e) => set('clockOut', e.target.value)} />
-          </FormField>
-        </div>
-        <FormField label="Remarks">
-          <Textarea rows={3} value={form.remarks} onChange={(e) => set('remarks', e.target.value)} placeholder="e.g. Approved late start — generator maintenance delay" />
-        </FormField>
-      </form>
-    </Drawer>
-  );
-}
-
-// ─── Record Detail Modal ───────────────────────────────────────────────────────
-function RecordDetailModal({ record, onClose, onApproveOvertime }) {
-  if (!record) return null;
-  const hasOvertime = record.overtimeHours > 0;
-  const overtimeApproved = record.overtimeApproved;
-
-  return (
-    <Modal isOpen={true} onClose={onClose} title="Attendance Record" subtitle={`${getName(record.employeeId)} · ${fmtDate(record.date)}`} maxWidth="480px"
-      footer={
-        hasOvertime && !overtimeApproved ? (
-          <button onClick={() => onApproveOvertime(record._id)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 6, border: 'none', backgroundColor: '#16A34A', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}>
-            <FiCheckCircle size={14} /> Approve Overtime
-          </button>
-        ) : null
-      }
-    >
+    <Modal isOpen onClose={onClose} title={fullName(emp)} subtitle={emp.employeeId} maxWidth="520px"
+      footer={hasOvertime && !record.overtimeApproved && canApprove && !ownRecord ? (
+        <button onClick={approve} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 6, border: 'none', backgroundColor: '#16A34A', color: '#fff', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}>
+          <FiCheckCircle size={14} /> {busy ? 'Approving…' : 'Approve Overtime'}
+        </button>
+      ) : null}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#64748B' }}>Status: <StatusBadge status={record.status} /></div>
+        {error && <div style={{ padding: '10px 12px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.8rem' }}>{error}</div>}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px', border: '1px solid #E2E8F0', borderRadius: 8, padding: 16 }}>
           {[
-            ['Employee',   getName(record.employeeId)],
-            ['Date',       fmtDate(record.date)],
-            ['Status',     <StatusBadge status={record.status} />],
-            ['Location',   getLocation(record.locationId)],
-            ['Clock In',   fmtTime(record.clockIn)],
-            ['Clock Out',  fmtTime(record.clockOut)],
-            ['Hours Worked', record.hoursWorked != null ? `${record.hoursWorked} hrs` : '—'],
-            ['Overtime',   record.overtimeHours > 0 ? `${record.overtimeHours} hrs` : '—'],
+            ['EMPLOYEE', fullName(emp)], ['EMPLOYEE ID', emp.employeeId],
+            ['DEPARTMENT', record.departmentName || emp.departmentId?.name], ['POSITION', emp.position],
+            ['DATE', fmtDay(record.date)], ['LOCATION', record.locationId?.name],
+            ['CLOCK IN', fmtTime(record.clockIn)], ['CLOCK OUT', fmtTime(record.clockOut)],
+            ['HOURS WORKED', fmtHours(record.hoursWorked)], ['OVERTIME', hasOvertime ? fmtHours(record.overtimeHours) : '—'],
           ].map(([label, value]) => (
             <div key={label}>
-              <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 4 }}>{label}</div>
-              <div style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{value}</div>
+              <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, letterSpacing: '0.5px', marginBottom: 4 }}>{label}</div>
+              <div style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{value || '—'}</div>
             </div>
           ))}
         </div>
         {hasOvertime && (
-          <div style={{ padding: '10px 14px', borderRadius: 6, backgroundColor: overtimeApproved ? '#F0FDF4' : '#FFFBEB', border: `1px solid ${overtimeApproved ? '#BBF7D0' : '#FDE68A'}`, fontSize: '0.813rem', color: overtimeApproved ? '#166534' : '#92400E', display: 'flex', alignItems: 'center', gap: 8 }}>
-            {overtimeApproved ? <FiCheckCircle size={14} /> : <FiAlertCircle size={14} />}
-            {overtimeApproved ? 'Overtime approved' : 'Overtime pending approval'}
+          <div style={{ padding: '10px 14px', borderRadius: 6, backgroundColor: record.overtimeApproved ? '#F0FDF4' : '#FFFBEB', border: `1px solid ${record.overtimeApproved ? '#BBF7D0' : '#FDE68A'}`, fontSize: '0.813rem', color: record.overtimeApproved ? '#166534' : '#92400E', display: 'flex', alignItems: 'center', gap: 8 }}>
+            {record.overtimeApproved ? <FiCheckCircle size={14} /> : <FiAlertCircle size={14} />}
+            {record.overtimeApproved ? 'Overtime approved' : ownRecord ? 'Overtime pending approval by someone else' : 'Overtime pending approval'}
           </div>
         )}
         {record.remarks && (
           <div>
-            <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>Remarks</div>
+            <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, letterSpacing: '0.5px', marginBottom: 6 }}>REMARKS</div>
             <div style={{ padding: '10px 12px', backgroundColor: '#F8FAFC', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: '0.875rem', color: '#334155', lineHeight: 1.5 }}>{record.remarks}</div>
           </div>
         )}
@@ -205,295 +91,315 @@ function RecordDetailModal({ record, onClose, onApproveOvertime }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+function FilterDrawer({ onClose, value, locations, onApply }) {
+  const [draft, setDraft] = useState(value);
+  return (
+    <Drawer isOpen onClose={onClose} title="Filter attendance" width="380px"
+      footer={
+        <>
+          <button onClick={() => { onApply({ status: '', locationId: '' }); onClose(); }} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Clear</button>
+          <button onClick={() => { onApply(draft); onClose(); }} style={{ padding: '8px 20px', backgroundColor: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}>Apply</button>
+        </>
+      }>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <FormField label="Status"><Select value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))} options={STATUS_FILTERS} /></FormField>
+        <FormField label="Location">
+          <Select value={draft.locationId} searchable onChange={(e) => setDraft((d) => ({ ...d, locationId: e.target.value }))}
+            options={[{ value: '', label: 'All locations' }, ...locations.map((l) => ({ value: l._id, label: l.name }))]} />
+        </FormField>
+      </div>
+    </Drawer>
+  );
+}
+
 export default function AttendanceTimesheets() {
   const dispatch = useDispatch();
   const { toast, showToast, hideToast } = useToast();
-  const { user } = useSelector((s) => s.auth);
-  const { records, meta, stats, statsLoading, loading, clockedIn, clockedOut, todayRecord, clockLoading } = useSelector((s) => s.attendance);
+  const user = useSelector(selectCurrentUser);
+  const { records, meta, stats, statsLoading, loading, error: loadError } = useSelector((s) => s.attendance);
+  const ownEmployeeId = idOf(user?.employeeId) || '';
 
-  const [search, setSearch]         = useState('');
+  const canClock = usePermission('hr.attendance.create');
+  const canLog = usePermission('hr.attendance.log');
+  const canApprove = usePermission('hr.attendance.approve');
+
+  const today = lagosToday();
+  const [search, setSearch] = useState('');
+  const [activeSearch, setActiveSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState([]);
-  const [logOpen, setLogOpen]       = useState(false);
-  const [viewRecord, setViewRecord] = useState(null);
-  const [dateFilter, setDateFilter] = useState(todayISO());
+  const [logOpen, setLogOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const [viewId, setViewId] = useState(null);
+  const [dateFilter, setDateFilter] = useState(today);
+  const [filters, setFilters] = useState({ status: '', locationId: '' });
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [locations, setLocations] = useState([]);
+  const [clockLocation, setClockLocation] = useState('');
+  const [clockBusy, setClockBusy] = useState(false);
+  const [mine, setMine] = useState({ record: null, loading: !!ownEmployeeId, error: '' });
+  const [mineTick, setMineTick] = useState(0);
+  const debounceRef = useRef(null);
 
-  // Load today's stats + today's attendance list on mount
-  const loadData = useCallback(() => {
+  const listParams = useCallback(() => ({
+    page: currentPage, limit: ITEMS_PER_PAGE, date: dateFilter,
+    ...(activeSearch ? { q: activeSearch } : {}),
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.locationId ? { locationId: filters.locationId } : {}),
+  }), [currentPage, dateFilter, activeSearch, filters]);
+
+  const reload = useCallback(() => {
+    dispatch(fetchAttendance(listParams()));
     dispatch(fetchAttendanceStats(dateFilter));
-    dispatch(fetchAttendance({ page: currentPage, limit: ITEMS_PER_PAGE, date: dateFilter, ...(search ? { q: search } : {}) }));
-  }, [dispatch, dateFilter, currentPage, search]);
+    setMineTick((n) => n + 1);
+  }, [dispatch, listParams, dateFilter]);
+
+  useEffect(() => { dispatch(fetchAttendance(listParams())); }, [dispatch, listParams]);
+  useEffect(() => { dispatch(fetchAttendanceStats(dateFilter)); }, [dispatch, dateFilter]);
+  useEffect(() => () => clearTimeout(debounceRef.current), []);
 
   useEffect(() => {
-    const t = setTimeout(loadData, search ? 300 : 0);
-    return () => clearTimeout(t);
-  }, [loadData]);
+    let cancelled = false;
+    attendanceService.locations()
+      .then((res) => { if (!cancelled) setLocations(res.data?.data || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
-  // ─── Clock In / Out ──────────────────────────────────────────────────────────
-  const handleClockIn = async () => {
-    const result = await dispatch(clockIn());
-    if (result.meta.requestStatus === 'fulfilled') {
-      showToast('Clocked in successfully', 'success');
-      loadData();
-    } else {
-      showToast(result.payload || 'Clock-in failed', 'error');
-    }
+  useEffect(() => {
+    if (!ownEmployeeId) return undefined;
+    let cancelled = false;
+    attendanceService.list({ employeeId: ownEmployeeId, date: today, limit: 1 })
+      .then((res) => { if (!cancelled) setMine({ record: res.data?.data?.[0] || null, loading: false, error: '' }); })
+      .catch((err) => { if (!cancelled) setMine({ record: null, loading: false, error: apiError(err, 'Your attendance could not be loaded') }); });
+    return () => { cancelled = true; };
+  }, [ownEmployeeId, today, mineTick]);
+
+  const handleSearch = (value) => {
+    setSearch(value);
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => { setCurrentPage(1); setActiveSearch(value.trim()); }, 350);
   };
 
-  const handleClockOut = async () => {
-    const result = await dispatch(clockOut());
-    if (result.meta.requestStatus === 'fulfilled') {
-      showToast('Clocked out successfully', 'success');
-      loadData();
+  const myRecord = mine.record;
+  const clockedIn = !!myRecord?.clockIn;
+  const clockedOut = !!myRecord?.clockOut;
+
+  const handleClock = async () => {
+    setClockBusy(true);
+    if (clockedIn && !clockedOut) {
+      const result = await dispatch(clockOut());
+      if (clockOut.fulfilled.match(result)) showToast('Clocked out successfully', 'success');
+      else showToast(result.payload?.message || 'Clock-out failed', 'error');
     } else {
-      showToast(result.payload || 'Clock-out failed', 'error');
+      if (!clockLocation) { showToast('Choose your location before clocking in', 'error'); setClockBusy(false); return; }
+      const result = await dispatch(clockIn(clockLocation));
+      if (clockIn.fulfilled.match(result)) showToast('Clocked in successfully', 'success');
+      else showToast(result.payload?.message || 'Clock-in failed', 'error');
     }
+    setClockBusy(false);
+    reload();
   };
 
-  // ─── Log Attendance ──────────────────────────────────────────────────────────
-  const handleLogSubmit = async (payload) => {
-    const result = await dispatch(logAttendance(payload));
-    if (result.meta.requestStatus === 'fulfilled') {
+  const handleLog = async (body) => {
+    const result = await dispatch(logAttendance(body));
+    if (logAttendance.fulfilled.match(result)) {
       setLogOpen(false);
       showToast('Attendance logged successfully', 'success');
-      loadData();
-    } else {
-      showToast(result.payload || 'Log failed', 'error');
+      reload();
+      return undefined;
     }
+    return result.payload || { message: 'Log failed', details: [] };
   };
 
-  // ─── Approve Overtime ────────────────────────────────────────────────────────
   const handleApproveOvertime = async (id) => {
     const result = await dispatch(approveOvertime(id));
-    if (result.meta.requestStatus === 'fulfilled') {
+    if (approveOvertime.fulfilled.match(result)) {
       showToast('Overtime approved', 'success');
-      setViewRecord(null);
-      loadData();
-    } else {
-      showToast(result.payload || 'Approval failed', 'error');
+      setViewId(null);
+      reload();
+      return '';
+    }
+    return result.payload?.message || 'Approval failed';
+  };
+
+  const handleExport = async () => {
+    try {
+      const params = { date: dateFilter };
+      if (activeSearch) params.q = activeSearch;
+      if (filters.status) params.status = filters.status;
+      if (filters.locationId) params.locationId = filters.locationId;
+      const res = await attendanceService.exportList(params);
+      saveBlob(res.data, `attendance-${dateFilter}.csv`);
+    } catch (err) {
+      showToast(await blobErrorMessage(err, 'Export failed'), 'error');
     }
   };
 
-  // ─── Stat cards from API ─────────────────────────────────────────────────────
   const statMap = Object.fromEntries((stats || []).map((s) => [s.key, s.value]));
+  const isToday = dateFilter === today;
   const statCards = [
-    { title: 'PRESENT TODAY',  value: statMap.present ?? '—',   subtitle: 'Employees clocked in today',      icon: <FiUsers size={14} />,    color: '#16A34A', bg: '#D1FAE5' },
-    { title: 'LATE ARRIVALS',  value: statMap.late ?? '—',      subtitle: 'Clocked in after scheduled time',  icon: <FiClock size={14} />,    color: '#D97706', bg: '#FEF3C7' },
-    { title: 'ABSENT TODAY',   value: statMap.absent ?? '—',    subtitle: 'No attendance record for today',   icon: <FiAlertCircle size={14} />, color: '#DC2626', bg: '#FEE2E2' },
-    { title: 'OVERTIME HOURS', value: statMap.overtime_hours != null ? `${statMap.overtime_hours} hrs` : '—',
-      subtitle: 'Total approved overtime hours', icon: <FiActivity size={14} />, color: '#1D4ED8', bg: '#DBEAFE' },
+    { title: isToday ? 'PRESENT TODAY' : 'PRESENT', value: statMap.present, subtitle: 'Employees successfully clocked in', icon: <FiUsers size={14} />, color: '#16A34A', bg: '#D1FAE5' },
+    { title: 'LATE ARRIVALS', value: statMap.late, subtitle: 'Clocked in after scheduled start time', icon: <FiClock size={14} />, color: '#D97706', bg: '#FEF3C7' },
+    { title: isToday ? 'ABSENT TODAY' : 'ABSENT', value: statMap.absent, subtitle: 'Recorded as absent', icon: <FiAlertCircle size={14} />, color: '#DC2626', bg: '#FEE2E2' },
+    { title: 'OVERTIME HOURS', value: statMap.overtime_hours != null ? `${statMap.overtime_hours} hrs` : undefined, subtitle: 'Total approved overtime hours', icon: <FiActivity size={14} />, color: '#1D4ED8', bg: '#DBEAFE' },
   ];
 
-  // ─── My status panel (current user) ─────────────────────────────────────────
-  const myClockInTime  = todayRecord?.clockIn  ? fmtTime(todayRecord.clockIn)  : '--:--';
-  const myClockOutTime = todayRecord?.clockOut ? fmtTime(todayRecord.clockOut) : '--:--';
-  const myHoursWorked  = todayRecord?.hoursWorked != null ? `${todayRecord.hoursWorked} hrs` : '0 hrs';
-  const myStatus       = todayRecord?.status || (clockedIn ? 'present' : null);
+  const viewRecord = records.find((r) => r._id === viewId);
+  const filterCount = Object.values(filters).filter(Boolean).length;
 
-  // ─── Clock button state ──────────────────────────────────────────────────────
-  let clockBtnLabel = 'Clock In';
-  let clockBtnColor = '#10B981';
-  let clockBtnHandler = handleClockIn;
-  let clockBtnDisabled = clockLoading;
-  if (clockedIn && !clockedOut) {
-    clockBtnLabel = clockLoading ? 'Clocking Out…' : 'Clock Out';
-    clockBtnColor = '#EF4444';
-    clockBtnHandler = handleClockOut;
-  } else if (clockedOut) {
-    clockBtnLabel = 'Completed';
-    clockBtnColor = '#64748B';
-    clockBtnDisabled = true;
-  } else if (clockLoading) {
-    clockBtnLabel = 'Clocking In…';
-  }
-
-  // ─── Table columns ───────────────────────────────────────────────────────────
   const columns = [
-    {
-      key: 'employeeId', label: 'EMPLOYEE',
-      render: (val) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{getName(val)}</span>,
-    },
-    {
-      key: 'employeeId', label: 'EMP ID',
-      render: (val) => <span style={{ color: '#64748B', fontSize: '0.78rem' }}>{val?.employeeId || '—'}</span>,
-    },
-    {
-      key: 'locationId', label: 'LOCATION',
-      render: (val) => <span style={{ color: '#475569' }}>{getLocation(val)}</span>,
-    },
-    {
-      key: 'clockIn', label: 'CLOCK IN', nowrap: true,
-      render: (val) => <span style={{ color: '#475569', fontFamily: 'monospace', fontSize: '0.85rem' }}>{fmtTime(val)}</span>,
-    },
-    {
-      key: 'clockOut', label: 'CLOCK OUT', nowrap: true,
-      render: (val) => <span style={{ color: '#475569', fontFamily: 'monospace', fontSize: '0.85rem' }}>{fmtTime(val)}</span>,
-    },
-    {
-      key: 'hoursWorked', label: 'HRS WORKED',
-      render: (val) => <span style={{ color: '#334155', fontWeight: 500 }}>{val != null ? `${val} hrs` : '—'}</span>,
-    },
+    { key: 'emp', label: 'EMPLOYEE ID', render: (_, row) => <span style={{ color: '#475569', fontSize: '0.78rem' }}>{row.employeeId?.employeeId || '—'}</span> },
+    { key: 'name', label: 'EMPLOYEE', render: (_, row) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{fullName(row.employeeId)}</span> },
+    { key: 'locationId', label: 'LOCATION', render: (v) => <span style={{ color: '#475569' }}>{v?.name || '—'}</span> },
+    { key: 'clockIn', label: 'CLOCK IN', nowrap: true, render: (v) => <span style={{ color: '#0F172A', fontSize: '0.85rem' }}>{v ? fmtTime(v) : '-'}</span> },
+    { key: 'clockOut', label: 'CLOCK OUT', nowrap: true, render: (v) => <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v ? fmtTime(v) : '-'}</span> },
+    { key: 'hoursWorked', label: 'HOURS WORKED', render: (v) => <span style={{ color: '#334155', fontWeight: 500 }}>{v != null ? fmtHours(v) : '—'}</span> },
     {
       key: 'overtimeHours', label: 'OVERTIME',
-      render: (val, row) => (
-        <span style={{ color: val > 0 ? '#D97706' : '#94A3B8', fontWeight: val > 0 ? 600 : 400 }}>
-          {val > 0 ? `${val} hrs${row.overtimeApproved ? ' ✓' : ''}` : '—'}
-        </span>
-      ),
+      render: (v, row) => <span style={{ color: v > 0 ? '#D97706' : '#94A3B8', fontWeight: v > 0 ? 600 : 400 }}>{v > 0 ? `${fmtHours(v)}${row.overtimeApproved ? ' (approved)' : ''}` : '—'}</span>,
     },
-    {
-      key: 'status', label: 'STATUS',
-      render: (val) => <StatusBadge status={val} />,
-    },
-    {
-      key: '__actions', label: 'ACTIONS', align: 'right',
-      render: (_, row) => (
-        <button className="icon-btn" onClick={() => setViewRecord(row)} title="View Details">
-          <FiEye size={15} />
-        </button>
-      ),
-    },
+    { key: 'status', label: 'STATUS', render: (v) => <StatusBadge status={v} /> },
+    { key: '__actions', label: 'ACTIONS', align: 'right', render: (_, row) => <button className="icon-btn" onClick={() => setViewId(row._id)} title="View Details"><FiEye size={15} /></button> },
   ];
 
+  let clockLabel = 'Clock In';
+  let clockColor = '#059669';
+  let ClockIcon = FiLogIn;
+  if (clockedIn && !clockedOut) { clockLabel = 'Clock Out'; clockColor = '#EF4444'; ClockIcon = FiLogOut; }
+  if (clockedOut) { clockLabel = 'Completed for today'; clockColor = '#64748B'; }
+  const clockDisabled = clockBusy || mine.loading || clockedOut;
+  const myStatus = myRecord?.status;
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Attendance & Timesheets</h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-            Monitor employee attendance, working hours, overtime, and site-based timesheet records
-          </p>
-        </div>
-        <button className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 16px' }}>
-          Upload <FiUpload size={14} />
-        </button>
+      <div>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Attendance &amp; Timesheets</h1>
+        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>Monitor employee attendance, working hours, overtime, and site-based timesheet records</p>
       </div>
 
-      {/* My Attendance Panel (for current user's own clock-in) */}
-      <div className="card" style={{ padding: '20px 24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', padding: '4px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600 }}>
-              Today's Attendance
-            </span>
-            <span style={{ color: '#0F172A', fontSize: '0.875rem', fontWeight: 500 }}>{todayLabel()}</span>
-          </div>
-          <button
-            onClick={clockBtnHandler}
-            disabled={clockBtnDisabled}
-            style={{ backgroundColor: clockBtnColor, color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 20px', borderRadius: '6px', fontWeight: 600, cursor: clockBtnDisabled ? 'not-allowed' : 'pointer', opacity: clockBtnDisabled && !clockedOut ? 0.7 : 1, fontSize: '0.875rem', transition: 'all 0.2s' }}
-          >
-            <FiClock size={15} /> {clockBtnLabel}
-          </button>
-        </div>
-
-        <div style={{ fontSize: '0.875rem', color: '#0F172A', marginBottom: 16 }}>
-          <span style={{ fontWeight: 600 }}>Staff Profile: </span>
-          {user ? `${user.firstName} ${user.lastName}` : 'Current User'}
-          <span style={{ color: '#94A3B8' }}> ({user?.roles?.[0] || '—'})</span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-          {[
-            { label: 'Current Status',    value: myStatus ? <StatusBadge status={myStatus} /> : <span style={{ color: '#94A3B8' }}>Not Clocked In</span> },
-            { label: 'Clock-In Time',     value: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: myClockInTime === '--:--' ? '#94A3B8' : '#0F172A' }}>{myClockInTime}</span> },
-            { label: 'Clock-Out Time',    value: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: myClockOutTime === '--:--' ? '#94A3B8' : '#0F172A' }}>{myClockOutTime}</span> },
-            { label: 'Total Hours Worked', value: <span style={{ fontWeight: 600, color: '#0F172A' }}>{myHoursWorked}</span> },
-          ].map(({ label, value }) => (
-            <div key={label} style={{ padding: '16px', backgroundColor: '#F8FAFC', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-              <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
-              <div>{value}</div>
+      {canClock && (
+        <div className="card" style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <span style={{ backgroundColor: '#EEF2FF', color: '#4F46E5', padding: '4px 12px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600 }}>Today&apos;s Attendance</span>
+              <span style={{ color: '#0F172A', fontSize: '0.875rem', fontWeight: 500 }}>{longDay(today)}</span>
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        {statCards.map((stat) => (
-          <div key={stat.title} className="card" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{stat.title}</span>
-              <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: stat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: stat.color }}>
-                {stat.icon}
+            {ownEmployeeId ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {!clockedIn && (
+                  <div style={{ width: 220 }}>
+                    <Select value={clockLocation} searchable placeholder="Your location" onChange={(e) => setClockLocation(e.target.value)} options={locations.map((l) => ({ value: l._id, label: l.name }))} />
+                  </div>
+                )}
+                <button onClick={handleClock} disabled={clockDisabled}
+                  style={{ backgroundColor: clockColor, color: '#fff', border: 'none', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 20px', borderRadius: 6, fontWeight: 600, cursor: clockDisabled ? 'not-allowed' : 'pointer', opacity: clockDisabled && !clockedOut ? 0.7 : 1, fontSize: '0.875rem' }}>
+                  <ClockIcon size={15} /> {clockBusy ? 'Please wait…' : clockLabel}
+                </button>
               </div>
+            ) : (
+              <span style={{ fontSize: '0.8rem', color: '#B45309' }}>Your login is not linked to an employee record, so you cannot clock in. Ask HR to link it.</span>
+            )}
+          </div>
+          <div style={{ fontSize: '0.875rem', color: '#0F172A', marginBottom: 16 }}>
+            <span style={{ fontWeight: 600 }}>Staff Profile: </span>{user ? `${user.firstName} ${user.lastName}` : 'Current user'}
+          </div>
+          {mine.error && <div style={{ fontSize: '0.8rem', color: '#991B1B', marginBottom: 10 }}>{mine.error}</div>}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16 }}>
+            {[
+              ['Current Attendance Status', myStatus ? <StatusBadge status={myStatus} /> : <span style={{ color: '#94A3B8' }}>Not Clocked In</span>],
+              ['Clock-In Time', <span key="i" style={{ fontWeight: 600, color: clockedIn ? '#0F172A' : '#94A3B8' }}>{clockedIn ? fmtTime(myRecord.clockIn) : '--:--'}</span>],
+              ['Clock-Out Time', <span key="o" style={{ fontWeight: 600, color: clockedOut ? '#0F172A' : '#94A3B8' }}>{clockedOut ? fmtTime(myRecord.clockOut) : '--:--'}</span>],
+              ['Total Hours Worked', <span key="h" style={{ fontWeight: 600, color: '#0F172A' }}>{myRecord?.hoursWorked != null ? fmtHours(myRecord.hoursWorked) : '0 hrs'}</span>],
+            ].map(([label, value]) => (
+              <div key={label} style={{ padding: 16, backgroundColor: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
+                <div>{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
+        {statCards.map((stat) => (
+          <div key={stat.title} className="card" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748B', letterSpacing: '0.05em' }}>{stat.title}</span>
+              <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: stat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: stat.color }}>{stat.icon}</div>
             </div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: stat.color, marginBottom: '4px' }}>
-              {statsLoading ? '…' : stat.value}
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: stat.color, marginBottom: 4 }}>
+              {statsLoading && stat.value === undefined ? '…' : (stat.value ?? 0)}
             </div>
             <div style={{ fontSize: '0.72rem', color: '#64748B' }}>{stat.subtitle}</div>
           </div>
         ))}
       </div>
 
-      {/* Attendance Table */}
-      <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        {/* Toolbar */}
+      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155' }}>
-            Site Attendance — {fmtDate(dateFilter + 'T00:00:00.000Z')}
-          </div>
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Date filter */}
-            <input
-              type="date"
-              value={dateFilter}
-              onChange={(e) => { setDateFilter(e.target.value); setCurrentPage(1); }}
-              style={{ padding: '7px 10px', borderRadius: 6, border: '1px solid #E2E8F0', fontSize: '0.813rem', color: '#334155', fontFamily: 'var(--font)', outline: 'none', cursor: 'pointer' }}
-            />
-            <div style={{ position: 'relative', minWidth: 240 }}>
-              <Input value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }} placeholder="Search employee, location..." style={{ paddingLeft: '36px', width: '100%' }} />
-              <div style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}><FiSearch size={15} /></div>
+          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155' }}>Site Attendance &middot; {fmtDay(`${dateFilter}T12:00:00+01:00`)}</div>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ width: 160 }}>
+              <DatePicker value={dateFilter} max={today} onChange={(e) => { if (e.target.value) { setDateFilter(e.target.value); setCurrentPage(1); } }} />
             </div>
-            <button className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}>
-              <FiFilter size={14} /> Filter
+            <div style={{ position: 'relative', minWidth: 240 }}>
+              <Input value={search} onChange={(e) => handleSearch(e.target.value)} placeholder="Search employee, location…" style={{ paddingLeft: 36, width: '100%' }} />
+              <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }}><FiSearch size={15} /></div>
+            </div>
+            <button className="btn btn-secondary" onClick={() => setFilterOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
+              <FiFilter size={14} /> Filter{filterCount ? ` (${filterCount})` : ''}
             </button>
-            <button className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }} onClick={() => showToast('Exporting…', 'info')}>
+            <button className="btn btn-secondary" onClick={handleExport} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
               Export <FiDownload size={14} />
             </button>
-            <button
-              className="btn btn-primary"
-              onClick={() => setLogOpen(true)}
-              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <FiClock size={14} /> Log Attendance
-            </button>
+            {canLog && (
+              <button className="btn btn-secondary" onClick={() => setImportOpen(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px' }}>
+                Upload <FiUpload size={14} />
+              </button>
+            )}
+            {canLog && (
+              <button onClick={() => setLogOpen(true)} style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                <FiClock size={14} /> Log Attendance
+              </button>
+            )}
           </div>
         </div>
 
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '28px 0', color: '#94A3B8', fontSize: '0.875rem' }}>Loading attendance records…</div>
+        {loadError ? (
+          <div style={{ padding: 24, textAlign: 'center', color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8 }}>
+            <div style={{ marginBottom: 12 }}>{loadError}</div>
+            <button className="btn btn-secondary" onClick={reload}>Try again</button>
+          </div>
+        ) : loading ? (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>{Array.from({ length: 6 }).map((_, i) => (
+              <tr key={i}>{Array.from({ length: 9 }).map((__, j) => <td key={j} style={{ padding: '12px 16px' }}><div style={{ height: 14, backgroundColor: '#E2E8F0', borderRadius: 4, width: '60%' }} /></td>)}</tr>
+            ))}</tbody>
+          </table>
         ) : (
-          <DataTable
-            columns={columns}
-            data={records}
-            selectable
-            selectedIds={selectedIds}
-            onSelectRow={(id) => setSelectedIds((p) => p.includes(id) ? p.filter((i) => i !== id) : [...p, id])}
+          <DataTable columns={columns} data={records} selectable selectedIds={selectedIds} keyField="_id"
+            onSelectRow={(id) => setSelectedIds((p) => (p.includes(id) ? p.filter((i) => i !== id) : [...p, id]))}
             onSelectAll={() => setSelectedIds(selectedIds.length === records.length ? [] : records.map((r) => r._id))}
-            keyField="_id"
-            emptyMessage="No attendance records found for this date."
-          />
+            emptyMessage={activeSearch || filterCount ? 'No attendance records match your search or filters.' : 'No attendance records for this date.'} />
         )}
 
-        <Pagination currentPage={currentPage} totalPages={meta?.totalPages || 1} onPageChange={setCurrentPage} />
+        {meta?.totalPages > 1 && <Pagination currentPage={currentPage} totalPages={meta.totalPages} onPageChange={setCurrentPage} />}
       </div>
 
-      {/* Log Attendance Drawer */}
-      <LogAttendanceDrawer isOpen={logOpen} onClose={() => setLogOpen(false)} onSubmit={handleLogSubmit} />
-
-      {/* Record Detail Modal */}
-      {viewRecord && (
-        <RecordDetailModal
-          record={viewRecord}
-          onClose={() => setViewRecord(null)}
-          onApproveOvertime={handleApproveOvertime}
-        />
+      {importOpen && (
+        <ImportDialog entity="attendance" title="Upload attendance" description="Log many attendance records from a CSV or Excel file. Times are Lagos time."
+          onClose={() => setImportOpen(false)}
+          onImported={(report) => { showToast(`${report.created} attendance record(s) imported`, 'success'); setCurrentPage(1); reload(); }} />
       )}
+      {logOpen && <LogAttendanceDrawer locations={locations} onClose={() => setLogOpen(false)} onSubmit={handleLog} />}
+      {viewRecord && (
+        <RecordDetailModal record={viewRecord} canApprove={canApprove} ownRecord={!!ownEmployeeId && idOf(viewRecord.employeeId) === ownEmployeeId}
+          onClose={() => setViewId(null)} onApproveOvertime={handleApproveOvertime} />
+      )}
+      {filterOpen && <FilterDrawer onClose={() => setFilterOpen(false)} value={filters} locations={locations} onApply={(f) => { setCurrentPage(1); setFilters(f); }} />}
     </div>
   );
 }

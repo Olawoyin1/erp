@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   verifyOtp,
@@ -7,11 +7,14 @@ import {
   selectAuthError,
   selectMfaToken,
   selectCurrentUser,
+  selectMfaEmail,
   selectIsAuthenticated,
   clearError,
   clearMfa,
 } from '../../store/authSlice';
 import { authService } from '../../services/auth.service';
+import { usePermissions } from '../../hooks/usePermission';
+import { getLandingPath } from '../../components/layout/navConfig';
 import AuthLayout, { AuthCard, AuthLogo, AuthButton } from './AuthLayout';
 
 const OTP_LENGTH = 6;
@@ -26,23 +29,28 @@ export default function VerifyIdentity() {
   const mfaToken = useSelector(selectMfaToken);
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const user = useSelector(selectCurrentUser);
+  const mfaEmail = useSelector(selectMfaEmail);
+  const { can } = usePermissions();
 
   const [otp, setOtp] = useState(Array(OTP_LENGTH).fill(''));
   const [timer, setTimer] = useState(RESEND_COOLDOWN);
-  const [canResend, setCanResend] = useState(false);
+  const canResend = timer <= 0;
   const [localError, setLocalError] = useState('');
   const [resending, setResending] = useState(false);
   const refs = useRef([]);
 
   // If no mfaToken in store (e.g. landed here directly), send back to login
   useEffect(() => {
-    if (!mfaToken) navigate('/auth/login', { replace: true });
-  }, [mfaToken, navigate]);
+    if (!mfaToken && !isAuthenticated) navigate('/auth/login', { replace: true });
+  }, [mfaToken, isAuthenticated, navigate]);
 
   // Once verified, go to dashboard
   useEffect(() => {
-    if (isAuthenticated) navigate('/dashboard', { replace: true });
-  }, [isAuthenticated, navigate]);
+    if (isAuthenticated) {
+      navigate(user?.mustChangePassword ? '/auth/change-password' : getLandingPath(can), { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   // Clear previous errors on mount
   useEffect(() => {
@@ -51,7 +59,7 @@ export default function VerifyIdentity() {
 
   // Countdown timer
   useEffect(() => {
-    if (timer <= 0) { setCanResend(true); return; }
+    if (timer <= 0) return undefined;
     const t = setTimeout(() => setTimer((p) => p - 1), 1000);
     return () => clearTimeout(t);
   }, [timer]);
@@ -85,7 +93,6 @@ export default function VerifyIdentity() {
     try {
       await authService.resendOtp(mfaToken);
       setTimer(RESEND_COOLDOWN);
-      setCanResend(false);
       setOtp(Array(OTP_LENGTH).fill(''));
       setLocalError('');
       dispatch(clearError());
@@ -129,7 +136,7 @@ export default function VerifyIdentity() {
         <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0F172A', margin: '0 0 8px 0', textAlign: 'center' }}>Verify your identity</h1>
         <p style={{ fontSize: '0.83rem', color: '#64748B', margin: '0 0 24px 0', textAlign: 'center', lineHeight: 1.6 }}>
           Enter the 6-digit verification code sent to{' '}
-          <strong>{user?.email ?? 'your email'}</strong>
+          <strong>{mfaEmail ?? 'your email'}</strong>
         </p>
 
         <form onSubmit={handleVerify} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>

@@ -2,41 +2,44 @@ import apiClient from './apiClient';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 export const userService = {
-  // GET /users — paginated, supports q / status / departmentId / roleId
+  // GET /users: paginated, supports q / status / departmentId / roleId
   list: (params) => apiClient.get('/users', { params }),
+
+  // GET /users/export: CSV of every user matching the same filters (core.user.export)
+  exportCsv: (params) => apiClient.get('/users/export', { params, responseType: 'blob' }),
 
   // GET /users/:id
   get: (id) => apiClient.get(`/users/${id}`),
 
-  // POST /users — invite a new user
+  // POST /users: invite a new user
   invite: (data) => apiClient.post('/users', data),
 
-  // PATCH /users/:id — update profile fields (firstName, lastName, jobTitle, phoneNumber, departmentId, locationId)
+  // PATCH /users/:id: profile fields (firstName, lastName, jobTitle, phoneNumber, departmentId, locationId)
   update: (id, data) => apiClient.patch(`/users/${id}`, data),
 
-  // POST /users/:id/status — activate | suspend | deactivate
+  // POST /users/:id/status: active | suspended | deactivated (reason required unless active)
   setStatus: (id, status, reason) =>
     apiClient.post(`/users/${id}/status`, { status, ...(reason ? { reason } : {}) }),
 
-  // POST /users/:id/roles — replace role list
+  // POST /users/:id/roles: replaces the role list
   setRoles: (id, roleIds) => apiClient.post(`/users/${id}/roles`, { roleIds }),
 
-  // POST /users/:id/send-password-reset — admin-triggered reset
+  // POST /users/:id/send-password-reset
   sendPasswordReset: (id) => apiClient.post(`/users/${id}/send-password-reset`),
 
-  // POST /users/:id/resend-invite — resend activation email
+  // POST /users/:id/resend-invite
   resendInvite: (id) => apiClient.post(`/users/${id}/resend-invite`),
 
-  // POST /users/:id/cancel-invite — hard-delete an uninvited user
+  // POST /users/:id/cancel-invite: deletes a never-activated user
   cancelInvite: (id, reason) => apiClient.post(`/users/${id}/cancel-invite`, { reason }),
 
-  // GET /users/:id/audit-log
+  // GET /users/:id/audit-log (core.auditlog.view)
   getAuditLog: (id, params) => apiClient.get(`/users/${id}/audit-log`, { params }),
 };
 
 // ─── Roles & Permissions ──────────────────────────────────────────────────────
 export const roleService = {
-  // GET /roles — full list (not paginated)
+  // GET /roles: full list with userCount (not paginated)
   list: () => apiClient.get('/roles'),
 
   // GET /roles/:id
@@ -51,16 +54,21 @@ export const roleService = {
   // DELETE /roles/:id
   delete: (id) => apiClient.delete(`/roles/${id}`),
 
-  // GET /permissions — permission catalogue + uiModules + uiActions
+  // GET /roles/:id/audit-log (core.auditlog.view)
+  getAuditLog: (id, params) => apiClient.get(`/roles/${id}/audit-log`, { params }),
+
+  // GET /permissions: catalogue + keys + uiModules + uiActions
   getPermissions: () => apiClient.get('/permissions'),
 };
 
-// ─── Departments (shared — used by user invite form) ─────────────────────────
+// ─── Departments / locations (user forms, role form, Settings panels) ─────────
 export const departmentService = {
   list: () => apiClient.get('/departments'),
   get: (id) => apiClient.get(`/departments/${id}`),
   create: (data) => apiClient.post('/departments', data),
   update: (id, data) => apiClient.patch(`/departments/${id}`, data),
+  activate: (id) => apiClient.post(`/departments/${id}/activate`),
+  deactivate: (id) => apiClient.post(`/departments/${id}/deactivate`),
 };
 
 export const locationService = {
@@ -68,6 +76,15 @@ export const locationService = {
   get: (id) => apiClient.get(`/locations/${id}`),
   create: (data) => apiClient.post('/locations', data),
   update: (id, data) => apiClient.patch(`/locations/${id}`, data),
+};
+
+// ─── Audit trail and activity feed ────────────────────────────────────────────
+export const auditService = {
+  // GET /audit-logs: system-wide before/after trail (core.auditlog.view)
+  list: (params) => apiClient.get('/audit-logs', { params }),
+
+  // GET /activity: workflow events across modules (core.auditlog.view)
+  activity: (params) => apiClient.get('/activity', { params }),
 };
 
 export const taskService = {

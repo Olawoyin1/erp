@@ -1,8 +1,8 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import AuthLayout, { AuthCard, AuthLogo } from './AuthLayout';
 
 export default function CheckEmail() {
+  const email = useLocation().state?.email;
   return (
     <AuthLayout>
       <AuthCard>
@@ -24,8 +24,8 @@ export default function CheckEmail() {
 
         <h1 style={{ fontSize: '1.4rem', fontWeight: 700, color: '#0F172A', margin: '0 0 12px 0', textAlign: 'center' }}>Check your email</h1>
         <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0 0 24px 0', textAlign: 'center', lineHeight: 1.7 }}>
-          We've sent a password reset link to <strong>amaka@pgsl.com</strong>.<br />
-          Click the link in the email to create a new password. The link expires in 30 minutes.
+          {email ? <>If an account exists for <strong>{email}</strong>, we have sent a password reset link.</> : 'If an account exists for that email, we have sent a password reset link.'}<br />
+          Click the link in the email to create a new password. The link expires in 1 hour.
         </p>
 
         <div style={{
