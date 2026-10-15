@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { FiUpload } from 'react-icons/fi';
 import { FormField, Input, Select } from '../../components/ui/FormField';
+import ImageUpload from './ImageUpload';
 import { settingsService } from '../../services/settings.service';
 import { apiError } from '../../services/apiHelpers';
 import { useApi } from '../../hooks/useApi';
@@ -52,6 +52,13 @@ function CompanyForm({ settings, canEdit, showToast }) {
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [logoUrl, setLogoUrl] = useState(settings.logoUrl || null);
+
+  const refreshLogo = async () => {
+    const res = await settingsService.getBranding();
+    setLogoUrl(res.data?.data?.logoUrl || null);
+    window.dispatchEvent(new Event('branding-changed'));
+  };
 
   const set = (name, value) => {
     setForm((p) => ({ ...p, [name]: value }));
@@ -100,17 +107,18 @@ function CompanyForm({ settings, canEdit, showToast }) {
       <SectionCard title="Company Information">
         <div style={{ marginBottom: 20 }}>
           <p style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', margin: '0 0 10px 0' }}>Company Logo</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{ width: 48, height: 48, borderRadius: '50%', backgroundColor: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFF', fontSize: '0.85rem', fontWeight: 700, flexShrink: 0 }}>
-              {(form.organisationName || 'P').slice(0, 2).toUpperCase()}
-            </div>
-            <div>
-              <button type="button" disabled title="Logo upload is not available yet" style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', color: '#94A3B8', fontSize: '0.78rem', fontWeight: 500, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <FiUpload size={12} /> Upload Photo
-              </button>
-              <p style={{ margin: '4px 0 0', fontSize: '0.72rem', color: '#94A3B8' }}>Logo upload is not available yet. The email header uses the company name.</p>
-            </div>
-          </div>
+          <ImageUpload
+            imageUrl={logoUrl}
+            fallback={(form.organisationName || 'P').slice(0, 2).toUpperCase()}
+            size={48}
+            canEdit={canEdit}
+            label="Upload Logo"
+            onUpload={(file) => settingsService.uploadLogo(file)}
+            onRemove={() => settingsService.removeLogo()}
+            onChanged={refreshLogo}
+            showToast={showToast}
+            hint="PNG or JPG, up to 5 MB. Shown in the sidebar for everyone."
+          />
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>

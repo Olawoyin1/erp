@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { settingsService } from '../../services/settings.service';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FiChevronDown, FiChevronLeft, FiChevronRight, FiX } from 'react-icons/fi';
 import { usePermissions } from '../../hooks/usePermission';
@@ -13,6 +14,20 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
   const menu = useMemo(() => filterNav(NAV, can), [can]);
 
   const [openSections, setOpenSections] = useState({});
+  const [branding, setBranding] = useState({ name: 'PGSL ERP', logoUrl: null });
+
+  useEffect(() => {
+    let live = true;
+    const load = () => {
+      settingsService.getBranding().then((res) => {
+        const data = res.data?.data;
+        if (live && data) setBranding({ name: data.organisationDisplayName || data.organisationName || 'PGSL ERP', logoUrl: data.logoUrl || null });
+      }).catch(() => {});
+    };
+    load();
+    window.addEventListener('branding-changed', load);
+    return () => { live = false; window.removeEventListener('branding-changed', load); };
+  }, []);
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(`${path}/`);
   const isGroupActive = (item) => item.children?.some((child) => isActive(child.path));
@@ -46,7 +61,10 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen, onMobileClose
       )}
       <aside className={`sidebar ${collapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
         <div className="sidebar-logo">
-          <span className="sidebar-logo-text">PGSL ERP</span>
+          <span className="sidebar-logo-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            {branding.logoUrl && <img src={branding.logoUrl} alt="" style={{ height: 26, width: 'auto', maxWidth: 90, objectFit: 'contain' }} />}
+            {branding.name}
+          </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <button className="sidebar-collapse-btn desktop-only-btn" onClick={onToggle} title="Toggle sidebar">
               {collapsed ? <FiChevronRight size={16} /> : <FiChevronLeft size={16} />}

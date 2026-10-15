@@ -28,6 +28,7 @@ import TrainingCertifications from './pages/hr/training/TrainingCertifications';
 import DashboardOverview from './pages/dashboard/DashboardOverview';
 import Onboarding from './pages/hr/onboarding/Onboarding';
 import PayrollInputs from './pages/hr/payroll/PayrollInputs';
+import MyPayslips from './pages/hr/payroll/MyPayslips';
 import GrievancesDiscipline from './pages/hr/grievances/GrievancesDiscipline';
 import AttendanceTimesheets from './pages/hr/attendance/AttendanceTimesheets';
 import HRDocuments from './pages/hr/documents/HRDocuments';
@@ -62,6 +63,7 @@ import ClientPipeline from './pages/bizdev/ClientPipeline';
 import RFQsTenders from './pages/bizdev/RFQsTenders';
 import Proposals from './pages/bizdev/Proposals';
 import CRMContacts from './pages/bizdev/CRMContacts';
+import BizDevReports from './pages/bizdev/BizDevReports';
 import PurchaseRequests from './pages/procurement/PurchaseRequests';
 import RFQManagement from './pages/procurement/RFQManagement';
 import PurchaseOrders from './pages/procurement/PurchaseOrders';
@@ -141,6 +143,7 @@ export default function App() {
           <Route path="leave" element={<LeaveManagement />} />
           <Route path="attendance" element={<AttendanceTimesheets />} />
           <Route path="payroll" element={<PayrollInputs />} />
+          <Route path="my-payslips" element={<MyPayslips />} />
           <Route path="grievances" element={<GrievancesDiscipline />} />
           <Route path="requests" element={<Requests />} />
           <Route path="tasks" element={<Tasks />} />
@@ -179,6 +182,7 @@ export default function App() {
           <Route path="edms" element={<EDMS />} />
           <Route path="maintenance" element={<FacilityMaintenance />} />
           <Route path="memos" element={<Memos />} />
+          <Route path="memos/:memoId" element={<Memos />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="tasks" element={<AdminTasks />} />
           <Route path="travels" element={<TravelsLogistics />} />
@@ -192,6 +196,7 @@ export default function App() {
           <Route path="tenders" element={<RFQsTenders />} />
           <Route path="proposals" element={<Proposals />} />
           <Route path="crm" element={<CRMContacts />} />
+          <Route path="reports" element={<BizDevReports />} />
         </Route>
 
         {/* Procurement Module Routes */}

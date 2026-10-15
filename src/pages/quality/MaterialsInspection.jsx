@@ -1,1051 +1,332 @@
-import React, { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { FiEye, FiEdit2, FiHome, FiArrowDown, FiArrowUp } from 'react-icons/fi';
+import Modal from '../../components/ui/Modal';
+import { Input, Textarea } from '../../components/ui/FormField';
+import Toast, { useToast } from '../../components/ui/Toast';
+import { usePermissions } from '../../hooks/usePermission';
+import { qmsInspectionsSlice } from '../../store/quality/slices';
+import { apiError } from '../../services/apiHelpers';
+import { qualityInspectionService } from '../../services/quality.service';
+import { countFilters, fieldErrorsOf, formatDate, statusLabel, ymd } from '../procurement/shared/procUtils';
+import { useExport, useFetched, useProcList, useRecord, useSelection } from '../procurement/shared/procHooks';
 import {
-  FiSearch,
-  FiFilter,
-  FiDownload,
-  FiEye,
-  FiEdit2,
-  FiX,
-  FiCheck,
-  FiAlertCircle,
-  FiUploadCloud,
-  FiPaperclip,
-  FiFileText,
-  FiPackage,
-} from 'react-icons/fi';
-import DataTable from '../../components/ui/DataTable';
-import Pagination from '../../components/ui/Pagination';
-import Drawer from '../../components/ui/Drawer';
-import { mockMaterialInspections } from '../../data/mockQuality';
+  Choice, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, PageHeader, Panel,
+  PrimaryButton, RecordSummary, SecondaryButton, SimpleTable, Skeleton, StatusLine, TabBar, ViewHeader,
+} from '../procurement/shared/ProcUi';
+import { AttachField } from '../procurement/shared/ProcExtras';
+import { HistoryTimeline, Pill } from '../administration/shared/AdmUi';
+import { FileList } from '../hse/shared/hseUi';
+import { idOf, nameOf, openSignedDownload, toAttachmentRows } from '../hse/shared/hseUtils';
 
-function StatusBadge({ status }) {
-  const styles = {
-    Passed: { bg: '#DCFCE7', color: '#15803D' },
-    Pending: { bg: '#FFEDD5', color: '#C2410C' },
-    Failed: { bg: '#FEE2E2', color: '#B91C1C' },
+const STATUSES = [
+  { value: 'pending', label: 'Pending' },
+  { value: 'passed', label: 'Passed' },
+  { value: 'failed', label: 'Failed' },
+];
+const STATUS_TONE = { passed: 'green', pending: 'amber', failed: 'red' };
+
+const Status = ({ status }) => <Pill tone={STATUS_TONE[status]}>{statusLabel(status)}</Pill>;
+const unitOf = (line) => (line.itemId && typeof line.itemId === 'object' ? line.itemId.unit || '—' : '—');
+
+const EXPORT_COLUMNS = [
+  { label: 'MRN No', value: (r) => r.grnNo },
+  { label: 'PO No', value: (r) => nameOf(r.poId, 'poNo') },
+  { label: 'Vendor', value: (r) => nameOf(r.vendorId, 'vendorName') },
+  { label: 'Material', value: (r) => r.material },
+  { label: 'Warehouse', value: (r) => nameOf(r.warehouseId) },
+  { label: 'Receipt Date', value: (r) => ymd(r.receiptDate) },
+  { label: 'Inspection Status', value: (r) => statusLabel(r.status) },
+];
+
+function UpdateInspectionModal({ receipt, onClose, onSaved }) {
+  const { record, error: loadError, loading } = useRecord(qualityInspectionService, receipt._id);
+  const [status, setStatus] = useState('pending');
+  const [notes, setNotes] = useState('');
+  const [files, setFiles] = useState([]);
+  const [received, setReceived] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+
+  const lines = record?.receivedItems || [];
+  const qtyOf = (line, index) => (received[index] !== undefined ? received[index] : String(line.receivedQty));
+
+  const save = async () => {
+    setError('');
+    const next = {};
+    lines.forEach((line, index) => {
+      const value = Number(qtyOf(line, index));
+      if (!Number.isFinite(value) || value < 0) next[`receivedItems.${index}`] = 'Enter a quantity of zero or more';
+    });
+    if (!notes.trim()) next.inspectionNotes = 'Enter the inspection details';
+    if (!files.length) next.file = 'Attach the delivery document';
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try {
+      const payload = lines.map((line, index) => ({
+        description: line.description,
+        orderedQty: line.orderedQty,
+        receivedQty: Number(qtyOf(line, index)),
+        ...(idOf(line.itemId) ? { itemId: idOf(line.itemId) } : {}),
+      }));
+      await qualityInspectionService.inspectionStatus(receipt._id, {
+        status,
+        inspectionNotes: notes.trim(),
+        receivedItems: payload.length ? JSON.stringify(payload) : '',
+      }, files[0]);
+      onSaved(`Inspection recorded for ${receipt.grnNo}`);
+    } catch (err) {
+      setError(apiError(err, 'The inspection could not be recorded'));
+      setErrors(fieldErrorsOf(err?.response?.data?.error));
+    } finally {
+      setBusy(false);
+    }
   };
-  const s = styles[status] || { bg: '#F1F5F9', color: '#475569' };
+
   return (
-    <span
-      style={{
-        backgroundColor: s.bg,
-        color: s.color,
-        padding: '3px 12px',
-        borderRadius: '9999px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        display: 'inline-block',
-      }}
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Update Inspection Status"
+      subtitle={`Current status: ${statusLabel(receipt.status)}`}
+      maxWidth="680px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={save} disabled={busy || loading}>{busy ? 'Saving…' : 'Update Status'}</PrimaryButton>
+        </>
+      )}
     >
-      {status}
-    </span>
+      <FormBody onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <RecordSummary rows={[['Receipt', receipt.grnNo], ['Purchase order', nameOf(receipt.poId, 'poNo')], ['Vendor', nameOf(receipt.vendorId, 'vendorName')]]} />
+        {loading && <Skeleton height={80} />}
+        <FormError message={loadError} />
+        {lines.length > 0 && (
+          <SimpleTable
+            columns={[
+              { key: 'description', label: 'Description' },
+              { key: 'orderedQty', label: 'Ordered Qty' },
+              {
+                key: 'received',
+                label: 'Received Qty',
+                render: (line) => {
+                  const index = lines.indexOf(line);
+                  return (
+                    <Input
+                      type="number"
+                      min="0"
+                      value={qtyOf(line, index)}
+                      onChange={(e) => setReceived((r) => ({ ...r, [index]: e.target.value }))}
+                      error={Boolean(errors[`receivedItems.${index}`])}
+                      title={errors[`receivedItems.${index}`]}
+                      style={{ width: 100 }}
+                    />
+                  );
+                },
+              },
+              { key: 'unit', label: 'Unit', render: (line) => unitOf(line) },
+            ]}
+            rows={lines.map((l, i) => ({ ...l, key: i }))}
+          />
+        )}
+        {Object.keys(errors).some((k) => k.startsWith('receivedItems.')) && <span style={{ fontSize: '0.75rem', color: '#DC2626' }}>Check the received quantities: each must be zero or more.</span>}
+        <Field label="Inspection status" required error={errors.status}>
+          <Choice value={status} onChange={setStatus} options={STATUSES} />
+        </Field>
+        {status === 'passed' && <span style={{ fontSize: '0.78rem', color: '#166534' }}>Passing the inspection books the received quantities into inventory.</span>}
+        {status === 'failed' && <span style={{ fontSize: '0.78rem', color: '#991B1B' }}>A failed inspection puts the order's invoices on payment hold, flags the vendor and raises a follow-up task.</span>}
+        <Field label="Inspection notes" required error={errors.inspectionNotes}>
+          <Textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Enter inspection details..." error={Boolean(errors.inspectionNotes)} />
+        </Field>
+        <Field label="Attach delivery document" required error={errors.file}>
+          <AttachField files={files} onChange={setFiles} multiple={false} disabled={busy} />
+        </Field>
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function DocumentsTab({ id, refreshKey }) {
+  const { data, error, loading } = useFetched(() => qualityInspectionService.attachments(id), id, refreshKey);
+  if (loading) return <Skeleton height={80} />;
+  if (error) return <FormError message={error} />;
+  return (
+    <FileList
+      files={toAttachmentRows(data)}
+      download={(file) => openSignedDownload(() => qualityInspectionService.downloadAttachment(id, file.id))}
+      empty="No delivery documents have been attached yet."
+    />
+  );
+}
+
+function ViewReceiptModal({ id, refreshKey, canUpdate, onUpdate, onClose }) {
+  const { record, error, loading } = useRecord(qualityInspectionService, id, refreshKey);
+  const [tab, setTab] = useState('details');
+  return (
+    <Modal isOpen onClose={onClose} title="" maxWidth="700px">
+      {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading goods receipt…</div>}
+      {error && <FormError message={error} />}
+      {record && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: -10 }}>
+          <ViewHeader icon={<FiHome size={22} />} title={nameOf(record.vendorId, 'vendorName')} subtitle={`${record.grnNo} • ${nameOf(record.poId, 'poNo')}`} />
+          <StatusLine status={<Status status={record.status} />}>
+            {canUpdate && record.status === 'pending' && (
+              <div style={{ marginLeft: 'auto' }}>
+                <PrimaryButton icon={<FiEdit2 size={14} />} onClick={() => onUpdate(record)}>Update Inspection Status</PrimaryButton>
+              </div>
+            )}
+          </StatusLine>
+          <TabBar
+            tabs={[{ id: 'details', label: 'Receipt Details' }, { id: 'materials', label: 'Materials Received' }, { id: 'documents', label: 'Documents' }, { id: 'history', label: 'History' }]}
+            active={tab}
+            onChange={setTab}
+          />
+          {tab === 'details' && (
+            <>
+              <DetailGrid
+                items={[
+                  ['Delivery reference', (record.deliveryRefs || []).join(', ') || '—'],
+                  ['Purchase order no', nameOf(record.poId, 'poNo')],
+                  ['Linked RFQ no', nameOf(record.linkedRfqId, 'rfqId')],
+                  ['Vendor', nameOf(record.vendorId, 'vendorName')],
+                  ['Linked project', nameOf(record.linkedProjectId, 'projectName')],
+                  ['Material', record.material],
+                  ['Quantity', record.quantity],
+                  ['Warehouse', nameOf(record.warehouseId)],
+                  ['Receipt date', formatDate(record.receiptDate)],
+                  ['Status', statusLabel(record.status)],
+                ]}
+              />
+              <Panel title="Inspection notes">{record.inspectionNotes || 'No inspection notes have been recorded yet.'}</Panel>
+            </>
+          )}
+          {tab === 'materials' && (
+            <SimpleTable
+              columns={[
+                { key: 'description', label: 'Description' },
+                { key: 'orderedQty', label: 'Ordered Qty' },
+                { key: 'receivedQty', label: 'Received Qty', render: (line) => <span style={{ color: line.receivedQty < line.orderedQty ? '#DC2626' : '#2563EB' }}>{line.receivedQty}</span> },
+                { key: 'unit', label: 'Unit', render: (line) => unitOf(line) },
+              ]}
+              rows={(record.receivedItems || []).map((l, i) => ({ ...l, key: i }))}
+              empty="No materials were recorded on this receipt."
+            />
+          )}
+          {tab === 'documents' && <DocumentsTab key={`${record._id}-${refreshKey}`} id={record._id} refreshKey={refreshKey} />}
+          {tab === 'history' && <HistoryTimeline key={`${record._id}-${refreshKey}`} load={qualityInspectionService.history} id={record._id} title="Receipt history" />}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function SortLabel({ label, order, active, onToggle }) {
+  return (
+    <button type="button" onClick={onToggle} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {label}
+      {active && order === 'asc' ? <FiArrowUp size={12} /> : <FiArrowDown size={12} style={{ opacity: active ? 1 : 0.45 }} />}
+    </button>
   );
 }
 
 export default function MaterialsInspection() {
-  const [inspections, setInspections] = useState(mockMaterialInspections);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { can } = usePermissions();
+  const canUpdate = can('quality.goodsreceipt.update');
+  const canExport = can('quality.goodsreceipt.export');
 
-  // Filter Drawer
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [warehouseFilter, setWarehouseFilter] = useState('');
+  const list = useProcList(qmsInspectionsSlice, { initialFilters: { status: '', dateFrom: '', dateTo: '', sort: '', order: '' }, withStats: false });
+  const selection = useSelection();
+  const { toast, showToast, hideToast } = useToast();
+  const exporter = useExport(qualityInspectionService, list, selection, EXPORT_COLUMNS, 'materials-inspection.csv');
 
-  // Drawers & Modals
-  const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false);
-  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
-  const [activeItem, setActiveItem] = useState(null);
-  const [viewTab, setViewTab] = useState('Receipt Details');
+  const [viewId, setViewId] = useState(null);
+  const [updateFor, setUpdateFor] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  // Update Form State
-  const [updateStatus, setUpdateStatus] = useState('Pending');
-  const [updateNotes, setUpdateNotes] = useState('');
-  const [itemQtys, setItemQtys] = useState({});
-  const [attachedDoc, setAttachedDoc] = useState('');
-
-  // Filter logic
-  const filteredData = useMemo(() => {
-    return inspections.filter((item) => {
-      const matchesSearch =
-        !searchTerm ||
-        item.mrnNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.poNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.vendor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.material.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.warehouse.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesStatus = !statusFilter || item.status === statusFilter;
-      const matchesWarehouse = !warehouseFilter || item.warehouse === warehouseFilter;
-
-      return matchesSearch && matchesStatus && matchesWarehouse;
-    });
-  }, [inspections, searchTerm, statusFilter, warehouseFilter]);
-
-  const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, currentPage, pageSize]);
-
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(paginatedData.map((d) => d.mrnNo));
-    } else {
-      setSelectedIds([]);
-    }
-  };
-
-  const handleSelectOne = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const openViewDrawer = (item) => {
-    setActiveItem(item);
-    setViewTab('Receipt Details');
-    setIsViewDrawerOpen(true);
-  };
-
-  const openUpdateModal = (item) => {
-    setActiveItem(item);
-    setUpdateStatus(item.status);
-    setUpdateNotes(item.notes || '');
-    const qtys = {};
-    if (item.items) {
-      item.items.forEach((it, index) => {
-        qtys[index] = it.receivedQty;
-      });
-    }
-    setItemQtys(qtys);
-    setAttachedDoc(item.documents?.[0]?.name || '');
-    setIsUpdateModalOpen(true);
-  };
-
-  const handleUpdateSubmit = (e) => {
-    e.preventDefault();
-    if (!activeItem) return;
-
-    const updatedItems = activeItem.items?.map((it, idx) => ({
-      ...it,
-      receivedQty: itemQtys[idx] !== undefined ? Number(itemQtys[idx]) : it.receivedQty,
-    }));
-
-    const updated = {
-      ...activeItem,
-      status: updateStatus,
-      notes: updateNotes,
-      items: updatedItems,
-      documents: attachedDoc
-        ? [
-            { name: attachedDoc, size: '2.5MB' },
-            ...(activeItem.documents || []),
-          ]
-        : activeItem.documents,
-    };
-
-    setInspections((prev) =>
-      prev.map((i) => (i.mrnNo === activeItem.mrnNo ? updated : i))
-    );
-    setActiveItem(updated);
-    setIsUpdateModalOpen(false);
-  };
+  const refresh = () => { list.reload(); setRefreshKey((k) => k + 1); };
+  const toggleSort = () => list.applyFilters({ ...list.filters, sort: 'receiptDate', order: list.filters.sort === 'receiptDate' && list.filters.order === 'asc' ? 'desc' : 'asc' });
 
   const columns = [
-    {
-      key: 'select',
-      label: (
-        <input
-          type="checkbox"
-          onChange={handleSelectAll}
-          checked={
-            paginatedData.length > 0 &&
-            selectedIds.length === paginatedData.length
-          }
-          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-        />
-      ),
-      render: (_, row) => (
-        <input
-          type="checkbox"
-          checked={selectedIds.includes(row.mrnNo)}
-          onChange={() => handleSelectOne(row.mrnNo)}
-          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-        />
-      ),
-    },
-    {
-      key: 'mrnNo',
-      label: 'MRN NO',
-      render: (v) => (
-        <span style={{ fontWeight: 600, color: '#475569', fontSize: '0.85rem' }}>
-          {v}
-        </span>
-      ),
-    },
-    {
-      key: 'poNo',
-      label: 'PO NO',
-      render: (v) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'vendor',
-      label: 'VENDOR',
-      render: (v) => (
-        <span style={{ fontWeight: 600, color: '#0F172A', fontSize: '0.875rem' }}>
-          {v}
-        </span>
-      ),
-    },
-    {
-      key: 'material',
-      label: 'MATERIAL',
-      render: (v) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'warehouse',
-      label: 'WAREHOUSE',
-      render: (v) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'receiptDate',
-      label: 'RECEIPT DATE ⇅',
-      render: (v) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'status',
-      label: 'INSPECTION STATUS',
-      render: (v) => <StatusBadge status={v} />,
-    },
+    { key: 'grnNo', label: 'MRN NO', render: (v) => <span style={{ color: '#64748B' }}>{v}</span> },
+    { key: 'poId', label: 'PO NO', render: (v) => <span style={{ color: '#64748B' }}>{nameOf(v, 'poNo')}</span> },
+    { key: 'vendorId', label: 'VENDOR', render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{nameOf(v, 'vendorName')}</span> },
+    { key: 'material', label: 'MATERIAL', render: (v) => <span style={{ color: '#64748B' }}>{v}</span> },
+    { key: 'warehouseId', label: 'WAREHOUSE', render: (v) => <span style={{ color: '#334155' }}>{nameOf(v)}</span> },
+    { key: 'receiptDate', label: <SortLabel label="RECEIPT DATE" order={list.filters.order} active={list.filters.sort === 'receiptDate'} onToggle={toggleSort} />, render: (v) => <span style={{ color: '#64748B' }}>{formatDate(v)}</span> },
+    { key: 'status', label: 'INSPECTION STATUS', render: (v) => <Status status={v} /> },
     {
       key: 'actions',
       label: 'ACTIONS',
       align: 'right',
       render: (_, row) => (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '8px',
-          }}
-        >
-          <button
-            className="icon-btn"
-            title="View Details"
-            onClick={() => openViewDrawer(row)}
-            style={{
-              padding: '6px',
-              borderRadius: '6px',
-              border: 'none',
-              background: 'transparent',
-              color: '#64748B',
-              cursor: 'pointer',
-            }}
-          >
-            <FiEye size={16} />
-          </button>
-          <button
-            className="icon-btn"
-            title="Update Inspection Status"
-            onClick={() => openUpdateModal(row)}
-            style={{
-              padding: '6px',
-              borderRadius: '6px',
-              border: 'none',
-              background: 'transparent',
-              color: '#64748B',
-              cursor: 'pointer',
-            }}
-          >
-            <FiEdit2 size={15} />
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+          <button type="button" className="icon-btn" title="View Goods Receipt" aria-label="View goods receipt" onClick={() => setViewId(row._id)} style={{ color: '#64748B', cursor: 'pointer' }}><FiEye size={16} /></button>
+          {canUpdate && row.status === 'pending' ? (
+            <button type="button" className="icon-btn" title="Update Inspection Status" aria-label="Update inspection status" onClick={() => setUpdateFor(row)} style={{ color: '#64748B', cursor: 'pointer' }}><FiEdit2 size={15} /></button>
+          ) : <span style={{ width: 24 }} />}
         </div>
       ),
     },
   ];
 
+  const onExport = async () => {
+    const message = await exporter.run();
+    if (message) showToast(message, 'error');
+    else showToast(selection.ids.length ? `${selection.ids.length} selected receipts exported` : 'Goods receipts exported', 'success');
+  };
+
+  const filterFields = [
+    { key: 'status', label: 'Inspection status', options: STATUSES },
+    { key: 'dateFrom', label: 'Received from', type: 'date' },
+    { key: 'dateTo', label: 'Received to', type: 'date' },
+  ];
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '20px',
-        padding: '24px',
-        backgroundColor: '#F8FAFC',
-        minHeight: '100vh',
-      }}
-    >
-      {/* Page Header */}
-      <div>
-        <h1
-          style={{
-            fontSize: '1.5rem',
-            fontWeight: 700,
-            color: '#0F172A',
-            margin: 0,
-          }}
-        >
-          Materials Inspection
-        </h1>
-        <p
-          style={{
-            color: '#64748B',
-            fontSize: '0.875rem',
-            margin: '4px 0 0 0',
-          }}
-        >
-          Inspect received materials and verify their quantity and quality before acceptance
-        </p>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Main Table Card */}
-      <div className="card" style={{ padding: '0px', overflow: 'hidden' }}>
-        {/* Table Toolbar */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '16px 20px',
-            borderBottom: '1px solid #F1F5F9',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}
-        >
-          <div style={{ position: 'relative', width: '320px' }}>
-            <FiSearch
-              size={16}
-              style={{
-                position: 'absolute',
-                left: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#94A3B8',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Search MRN No, Vendor..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px 8px 36px',
-                border: '1px solid #E2E8F0',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                outline: 'none',
-              }}
-            />
-          </div>
+      <PageHeader title="Materials Inspection" subtitle="Inspect received materials and verify their quantity and quality before acceptance" />
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: statusFilter || warehouseFilter ? '#EFF6FF' : '#FFFFFF',
-                border: `1px solid ${statusFilter || warehouseFilter ? '#3B82F6' : '#E2E8F0'}`,
-                color: statusFilter || warehouseFilter ? '#1D4ED8' : '#334155',
-                padding: '8px 14px',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              <FiFilter size={15} />
-              Filter {statusFilter || warehouseFilter ? '(Active)' : ''}
-            </button>
-
-            <button
-              onClick={() => alert('Exporting inspection data to CSV...')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E2E8F0',
-                color: '#334155',
-                padding: '8px 14px',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              <FiDownload size={15} />
-              Export
-            </button>
-          </div>
-        </div>
-
-        {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={paginatedData}
-          rowKey="mrnNo"
-          emptyMessage="No inspection records found matching your query."
-        />
-
-        {/* Pagination */}
-        <div style={{ padding: '12px 20px', borderTop: '1px solid #F1F5F9' }}>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={filteredData.length}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
+      <ListCard
+        list={list}
+        columns={columns}
+        emptyText="No goods receipts found."
+        selection={selection}
+        toolbar={(
+          <ListToolbar
+            search={list.searchText}
+            onSearch={list.onSearch}
+            placeholder="Search MRN No, Vendor..."
+            onFilter={() => setFilterOpen(true)}
+            filterCount={countFilters({ ...list.filters, sort: '', order: '' })}
+            onExport={canExport ? onExport : undefined}
+            exporting={exporter.exporting}
+            selectedCount={exporter.selectedCount}
           />
-        </div>
-      </div>
-
-      {/* Filter Drawer */}
-      <Drawer
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        title="Filter Materials"
-        width={360}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
-              Inspection Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.875rem',
-              }}
-            >
-              <option value="">All Statuses</option>
-              <option value="Passed">Passed</option>
-              <option value="Pending">Pending</option>
-              <option value="Failed">Failed</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
-              Warehouse Location
-            </label>
-            <select
-              value={warehouseFilter}
-              onChange={(e) => setWarehouseFilter(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.875rem',
-              }}
-            >
-              <option value="">All Warehouses</option>
-              <option value="Port Harcourt Yard">Port Harcourt Yard</option>
-              <option value="Main Warehouse">Main Warehouse</option>
-              <option value="Warri Yard A">Warri Yard A</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-            <button
-              onClick={() => {
-                setStatusFilter('');
-                setWarehouseFilter('');
-                setIsFilterOpen(false);
-              }}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#FFFFFF',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
-            >
-              Reset
-            </button>
-            <button
-              onClick={() => setIsFilterOpen(false)}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                border: 'none',
-                backgroundColor: '#1D4ED8',
-                color: '#FFFFFF',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-            >
-              Apply Filter
-            </button>
-          </div>
-        </div>
-      </Drawer>
-
-      {/* View Goods Receipt Details Drawer */}
-      <Drawer
-        isOpen={isViewDrawerOpen}
-        onClose={() => setIsViewDrawerOpen(false)}
-        title={activeItem?.vendor || 'Goods Receipt Details'}
-        subtitle={`${activeItem?.mrnNo || 'MRN-25-001'} • ${activeItem?.poNo || 'PO-25-001'}`}
-        width={580}
-      >
-        {activeItem && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Status Indicator */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                paddingBottom: '12px',
-                borderBottom: '1px solid #E2E8F0',
-              }}
-            >
-              <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 500 }}>
-                Status:
-              </span>
-              <StatusBadge status={activeItem.status} />
-            </div>
-
-            {/* Sub-tabs: Receipt Details | Materials Received | Documents */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '24px',
-                borderBottom: '1px solid #E2E8F0',
-              }}
-            >
-              {['Receipt Details', 'Materials Received', 'Documents'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setViewTab(tab)}
-                  style={{
-                    padding: '8px 0',
-                    border: 'none',
-                    background: 'none',
-                    fontSize: '0.875rem',
-                    fontWeight: viewTab === tab ? 600 : 500,
-                    color: viewTab === tab ? '#1D4ED8' : '#64748B',
-                    borderBottom:
-                      viewTab === tab ? '2px solid #1D4ED8' : '2px solid transparent',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab 1: Receipt Details */}
-            {viewTab === 'Receipt Details' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                <div
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '8px',
-                    border: '1px solid #E2E8F0',
-                    padding: '16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '14px',
-                  }}
-                >
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                        DELIVERY REFERENCE
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                        {activeItem.deliveryRef}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                        PURCHASE ORDER NO
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                        {activeItem.poNo}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                        LINKED RFQ NO
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                        {activeItem.linkedRfq}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                        VENDOR
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px', fontWeight: 500 }}>
-                        {activeItem.vendor}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      LINKED PROJECT
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeItem.linkedProject}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                        MATERIAL
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                        {activeItem.material}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                        QUANTITY
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                        {activeItem.quantity}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                        WAREHOUSE
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                        {activeItem.warehouse}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                        RECEIPT DATE
-                      </div>
-                      <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                        {activeItem.receiptDate}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      STATUS
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeItem.status}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Inspection Notes Card */}
-                <div
-                  style={{
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '8px',
-                    border: '1px solid #E2E8F0',
-                    padding: '16px',
-                  }}
-                >
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    INSPECTION NOTES
-                  </div>
-                  <p
-                    style={{
-                      fontSize: '0.875rem',
-                      color: '#334155',
-                      marginTop: '8px',
-                      lineHeight: '1.5',
-                      marginBottom: 0,
-                    }}
-                  >
-                    {activeItem.notes}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Materials Received */}
-            {viewTab === 'Materials Received' && (
-              <div
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '8px',
-                  border: '1px solid #E2E8F0',
-                  overflow: 'hidden',
-                }}
-              >
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
-                  <thead style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    <tr>
-                      <th style={{ padding: '10px 14px', fontWeight: 600, color: '#64748B', fontSize: '0.75rem' }}>
-                        Description
-                      </th>
-                      <th style={{ padding: '10px 14px', fontWeight: 600, color: '#64748B', fontSize: '0.75rem' }}>
-                        Ordered Qty
-                      </th>
-                      <th style={{ padding: '10px 14px', fontWeight: 600, color: '#64748B', fontSize: '0.75rem' }}>
-                        Received Qty
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeItem.items?.map((it, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={{ padding: '12px 14px', color: '#0F172A' }}>
-                          {it.description}
-                        </td>
-                        <td style={{ padding: '12px 14px', color: '#64748B' }}>
-                          {it.orderedQty}
-                        </td>
-                        <td style={{ padding: '12px 14px', color: '#1D4ED8', fontWeight: 600 }}>
-                          {it.receivedQty}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {/* Tab 3: Documents */}
-            {viewTab === 'Documents' && (
-              <div
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '8px',
-                  border: '1px solid #E2E8F0',
-                  padding: '16px',
-                }}
-              >
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', marginBottom: '12px' }}>
-                  ATTACHED DOCUMENTS
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {activeItem.documents?.map((doc, idx) => (
-                    <div
-                      key={idx}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        padding: '10px 14px',
-                        backgroundColor: '#F8FAFC',
-                        borderRadius: '6px',
-                        border: '1px solid #E2E8F0',
-                        fontSize: '0.875rem',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <FiPaperclip size={16} color="#64748B" />
-                        <span style={{ color: '#1E293B', fontWeight: 500 }}>
-                          {doc.name}
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => alert(`Downloading: ${doc.name}`)}
-                        style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}
-                      >
-                        <FiDownload size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         )}
-      </Drawer>
+      />
 
-      {/* Update Inspection Status Modal */}
-      {isUpdateModalOpen && activeItem && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              maxWidth: '560px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <div
-              style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid #E2E8F0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div>
-                <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>
-                  Update Inspection Status
-                </h2>
-                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748B' }}>
-                  Current Status:{' '}
-                  <span
-                    style={{
-                      color:
-                        activeItem.status === 'Passed'
-                          ? '#15803D'
-                          : activeItem.status === 'Failed'
-                          ? '#B91C1C'
-                          : '#C2410C',
-                      fontWeight: 600,
-                    }}
-                  >
-                    {activeItem.status}
-                  </span>
-                </p>
-              </div>
-              <button
-                onClick={() => setIsUpdateModalOpen(false)}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}
-              >
-                <FiX size={20} />
-              </button>
-            </div>
+      <FilterDrawer
+        isOpen={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        title="Filter Goods Receipts"
+        subtitle="Narrow the receipts by inspection status and receipt date."
+        fields={filterFields}
+        values={list.filters}
+        onApply={(next) => list.applyFilters({ ...next, sort: list.filters.sort, order: list.filters.order })}
+      />
 
-            <form onSubmit={handleUpdateSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
-              {/* Materials Table */}
-              <div
-                style={{
-                  border: '1px solid #E2E8F0',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                }}
-              >
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-                  <thead style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                    <tr>
-                      <th style={{ padding: '8px 12px', color: '#64748B', fontWeight: 600 }}>Description</th>
-                      <th style={{ padding: '8px 12px', color: '#64748B', fontWeight: 600 }}>Ordered Qty</th>
-                      <th style={{ padding: '8px 12px', color: '#64748B', fontWeight: 600 }}>Received Qty</th>
-                      <th style={{ padding: '8px 12px', color: '#64748B', fontWeight: 600 }}>Unit</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activeItem.items?.map((it, idx) => (
-                      <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={{ padding: '8px 12px', color: '#0F172A', fontWeight: 500 }}>
-                          {it.description}
-                        </td>
-                        <td style={{ padding: '8px 12px', color: '#64748B' }}>
-                          {it.orderedQty}
-                        </td>
-                        <td style={{ padding: '8px 12px' }}>
-                          <input
-                            type="number"
-                            value={itemQtys[idx] !== undefined ? itemQtys[idx] : it.receivedQty}
-                            onChange={(e) =>
-                              setItemQtys({ ...itemQtys, [idx]: e.target.value })
-                            }
-                            style={{
-                              width: '80px',
-                              padding: '4px 8px',
-                              border: '1px solid #CBD5E1',
-                              borderRadius: '4px',
-                              fontSize: '0.85rem',
-                            }}
-                          />
-                        </td>
-                        <td style={{ padding: '8px 12px', color: '#64748B' }}>
-                          {it.unit}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Status Select */}
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  INSPECTION STATUS <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <select
-                  value={updateStatus}
-                  onChange={(e) => setUpdateStatus(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Passed">Passed</option>
-                  <option value="Failed">Failed</option>
-                </select>
-              </div>
-
-              {/* Inspection Notes */}
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  INSPECTION NOTES <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Enter inspection details..."
-                  value={updateNotes}
-                  onChange={(e) => setUpdateNotes(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                    resize: 'vertical',
-                  }}
-                />
-              </div>
-
-              {/* Delivery Document Upload */}
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  ATTACH DELIVERY DOCUMENT <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <div
-                  style={{
-                    border: '1.5px dashed #CBD5E1',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    textAlign: 'center',
-                    backgroundColor: '#F8FAFC',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setAttachedDoc('Inspection_Certificate_Signed.pdf')}
-                >
-                  <FiUploadCloud size={24} color="#1D4ED8" style={{ marginBottom: '6px' }} />
-                  <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#1E293B' }}>
-                    Drop file here or click to browse
-                  </p>
-                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>
-                    PDF, DOCX, DWG, PNG up to 50MB
-                  </p>
-                </div>
-
-                {attachedDoc && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginTop: '8px',
-                      padding: '8px 12px',
-                      backgroundColor: '#F1F5F9',
-                      borderRadius: '6px',
-                      fontSize: '0.85rem',
-                      color: '#334155',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FiPaperclip size={14} color="#64748B" />
-                      <span>{attachedDoc}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setAttachedDoc('')}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#EF4444' }}
-                    >
-                      <FiX size={15} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Footer */}
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '12px',
-                  borderTop: '1px solid #E2E8F0',
-                  paddingTop: '16px',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsUpdateModalOpen(false)}
-                  style={{
-                    padding: '8px 16px',
-                    border: '1px solid #CBD5E1',
-                    background: '#FFFFFF',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '8px 20px',
-                    backgroundColor: '#1D4ED8',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {viewId && <ViewReceiptModal id={viewId} refreshKey={refreshKey} canUpdate={canUpdate} onUpdate={(record) => setUpdateFor(record)} onClose={() => setViewId(null)} />}
+      {updateFor && (
+        <UpdateInspectionModal
+          key={updateFor._id}
+          receipt={updateFor}
+          onClose={() => setUpdateFor(null)}
+          onSaved={(message) => { setUpdateFor(null); showToast(message, 'success'); refresh(); }}
+        />
       )}
     </div>
   );

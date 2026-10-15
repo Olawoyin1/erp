@@ -1,106 +1,128 @@
-import React from 'react';
-import { FiDownload } from 'react-icons/fi';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { FiAlertTriangle, FiBriefcase, FiCreditCard, FiDownload, FiTool } from 'react-icons/fi';
+import Toast, { useToast } from '../../components/ui/Toast';
 import DataTable from '../../components/ui/DataTable';
+import { usePermission } from '../../hooks/usePermission';
+import { apiError } from '../../services/apiHelpers';
+import { technicalReportService } from '../../services/technical.service';
+import { Choice, DataState, ListToolbar, PageHeader, SecondaryButton, StatTiles } from '../procurement/shared/ProcUi';
+import { Legend, LineChart, PairedBarChart } from './shared/TechCharts';
+import { TechBadge } from './shared/TechUi';
+import { useDebouncedValue } from './shared/techHooks';
+import { PROJECT_STATUS_OPTIONS, compactMoney, downloadFile } from './shared/techUtils';
 
-const mockReports = [
-  { project: 'Chevron Wellhead Upgrade', client: 'Chevron Nigeria', physical: '80%', financial: '80%', flag: 'High', status: 'At Risk' },
-  { project: 'NLNG Gas Pipeline Maintenance', client: 'NLNG', physical: '80%', financial: '80%', flag: 'None', status: 'In Progress' },
-  { project: 'TotalEnergies Earthing Installation', client: 'TotalEnergies', physical: '80%', financial: '80%', flag: 'Medium', status: 'On Hold' },
-  { project: 'NLNG Gas Pipeline Maintenance', client: 'NLNG', physical: '80%', financial: '80%', flag: 'Medium', status: 'Completed' },
-  { project: 'NLNG Gas Pipeline Maintenance', client: 'NLNG', physical: '80%', financial: '80%', flag: 'Medium', status: 'In Progress' },
-];
-
-function StatusPill({ status }) {
-  const colors = {
-    'In Progress': { bg: '#DBEAFE', color: '#1D4ED8' },
-    'At Risk': { bg: '#FEF3C7', color: '#D97706' },
-    'On Hold': { bg: '#FEF3C7', color: '#D97706' },
-    'Completed': { bg: '#D1FAE5', color: '#059669' },
-  };
-  const c = colors[status] || { bg: '#F1F5F9', color: '#64748B' };
-  return <span style={{ backgroundColor: c.bg, color: c.color, padding: '3px 10px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600 }}>{status}</span>;
-}
+const FLAG_TONE = { None: 'None', Medium: 'Medium', High: 'High' };
 
 export default function TechnicalReports() {
+  const navigate = useNavigate();
+  const canViewProject = usePermission('technical.project.view');
+  const { toast, showToast, hideToast } = useToast();
+  const [searchText, setSearchText] = useState('');
+  const q = useDebouncedValue(searchText.trim(), 400);
+  const [status, setStatus] = useState('');
+  const [state, setState] = useState({ loading: true, error: '', report: null });
+  const [exporting, setExporting] = useState(false);
+  const [nonce, setNonce] = useState(0);
+
+  const params = useMemo(() => ({ months: 6, ...(q ? { q } : {}), ...(status ? { status } : {}) }), [q, status]);
+
+  useEffect(() => {
+    let cancelled = false;
+    technicalReportService.get(params)
+      .then((res) => { if (!cancelled) setState({ loading: false, error: '', report: res.data?.data || null }); })
+      .catch((err) => { if (!cancelled) setState({ loading: false, error: apiError(err, 'The technical report could not be loaded'), report: null }); });
+    return () => { cancelled = true; };
+  }, [params, nonce]);
+
+  const retry = useCallback(() => { setState((s) => ({ ...s, loading: true, error: '' })); setNonce((n) => n + 1); }, []);
+
+  const exportReport = async () => {
+    setExporting(true);
+    const message = await downloadFile(() => technicalReportService.exportList({ ...params, format: 'csv' }), 'technical-report.csv');
+    setExporting(false);
+    showToast(message || 'Technical report exported', message ? 'error' : 'success');
+  };
+
+  const { report } = state;
+  const tile = (key) => (report?.tiles || []).find((t) => t.key === key);
+  const active = tile('active_projects');
+  const budget = tile('budget_utilization');
+  const tiles = [
+    { label: 'Active Projects', value: active ? active.value : 0, sub: `+${active?.delta ?? 0} this month`, icon: <FiBriefcase size={16} />, tone: 'blue' },
+    { label: 'Budget Utilization', value: budget ? `${compactMoney(budget.value)} / ${compactMoney(budget.total)}` : '—', sub: `${budget?.percent ?? 0}% utilized`, icon: <FiCreditCard size={16} />, tone: 'purple' },
+    { label: 'Active Resources', value: tile('active_resources')?.value ?? 0, sub: 'Currently allocated', icon: <FiTool size={16} />, tone: 'green' },
+    { label: 'Open Technical Issues', value: tile('open_technical_issues')?.value ?? 0, sub: 'Requiring attention', icon: <FiAlertTriangle size={16} />, tone: 'amber' },
+  ];
+
+  const trend = report?.trend || [];
+  const labels = trend.map((t) => t.label);
+  const latest = trend[trend.length - 1];
+
   const columns = [
-    { key: 'project', label: 'PROJECT NAME', render: v => <span style={{ fontWeight: 500, color: '#334155' }}>{v}</span> },
-    { key: 'client', label: 'CLIENT', render: v => <span style={{ color: '#64748B' }}>{v}</span> },
-    { key: 'physical', label: '% PHYSICAL' },
-    { key: 'financial', label: '% FINANCIAL' },
-    { key: 'flag', label: 'DIVERGENCE FLAG', render: v => <span style={{ color: '#64748B' }}>{v}</span> },
-    { key: 'status', label: 'STATUS', render: v => <StatusPill status={v} /> },
+    {
+      key: 'projectName',
+      label: 'PROJECT NAME',
+      render: (v, row) => (canViewProject
+        ? <button type="button" onClick={() => navigate(`/technical/projects/${row._id}`)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 500, color: '#1D4ED8', textAlign: 'left' }}>{v}</button>
+        : <span style={{ fontWeight: 500, color: '#334155' }}>{v}</span>),
+    },
+    { key: 'client', label: 'CLIENT', render: (v) => <span style={{ color: '#64748B' }}>{v}</span> },
+    { key: 'percentPhysical', label: '% PHYSICAL', render: (v) => `${v}%` },
+    { key: 'percentFinancial', label: '% FINANCIAL', render: (v) => `${v}%` },
+    { key: 'divergenceFlag', label: 'DIVERGENCE FLAG', render: (v) => <TechBadge status={FLAG_TONE[v] || v} label={v} /> },
+    { key: 'status', label: 'STATUS', render: (v) => <TechBadge status={v} /> },
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Reports - Technical</h1>
-          <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>review, and export technical and project performance reports across all projects</p>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+
+      <PageHeader title="Reports - Technical" subtitle="Review and export technical and project performance reports across all projects">
+        <SecondaryButton icon={<FiDownload size={14} />} onClick={exportReport} disabled={exporting}>{exporting ? 'Exporting…' : 'Export'}</SecondaryButton>
+      </PageHeader>
+
+      <StatTiles tiles={tiles} loading={state.loading && !report} error={Boolean(state.error)} />
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+        <div className="card" style={{ padding: 24 }}>
+          <h3 style={{ margin: '0 0 6px', fontSize: '1rem', fontWeight: 600 }}>Physical Progress vs Planned Progress</h3>
+          <Legend items={[
+            { label: 'Physical Progress (%)', color: '#1D4ED8', value: latest ? `${latest.physicalProgress}%` : undefined },
+            { label: 'Planned Progress (%)', color: '#EF4444', value: latest ? `${latest.plannedProgress}%` : undefined },
+          ]}
+          />
+          <DataState loading={state.loading && !report} error={state.error} empty={!state.loading && !trend.length} emptyText="No progress data yet." onRetry={retry}>
+            <LineChart
+              labels={labels}
+              series={[
+                { label: 'Physical Progress', color: '#1D4ED8', values: trend.map((t) => t.physicalProgress) },
+                { label: 'Planned Progress', color: '#EF4444', values: trend.map((t) => t.plannedProgress) },
+              ]}
+            />
+          </DataState>
         </div>
-        <button className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '8px 14px' }}>Export <FiDownload size={14} /></button>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        {[
-          { label: 'ACTIVE PROJECTS', value: '24', sub: '+3 this month', color: '#DBEAFE' },
-          { label: 'BUDGET UTILIZATION', value: '#482M / ₦615M', sub: '78% utilized', color: '#F3E8FF' },
-          { label: 'ACTIVE RESOURCES', value: '128', sub: 'Currently allocated', color: '#D1FAE5' },
-          { label: 'OPEN TECHNICAL ISSSUES', value: '18', sub: 'Requiring attention', color: '#FEF3C7' },
-        ].map((s, i) => (
-          <div key={i} className="card" style={{ padding: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>{s.label}</span>
-              <div style={{ width: '24px', height: '24px', borderRadius: '4px', backgroundColor: s.color }} />
-            </div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>{s.value}</div>
-            <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{s.sub}</div>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <div className="card" style={{ padding: '24px' }}>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: 600 }}>Physical Progress vs Planned Progress</h3>
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', fontSize: '0.8rem', color: '#64748B' }}>
-            <span><span style={{ color: '#3B82F6' }}>●</span> Physical Progress (%) - 68%</span>
-            <span><span style={{ color: '#EF4444' }}>●</span> Financial Progress (%) - 42%</span>
-          </div>
-          {/* Simple line chart mockup */}
-          <div style={{ height: '200px', position: 'relative', borderLeft: '1px solid #E2E8F0', borderBottom: '1px solid #E2E8F0' }}>
-            {['0%', '25%', '50%', '75%', '100%'].map((v, i) => (
-              <div key={i} style={{ position: 'absolute', left: '0', right: '0', bottom: `${i * 25}%`, borderTop: '1px dashed #F1F5F9', fontSize: '0.65rem', color: '#CBD5E1', paddingLeft: '4px' }}>{v}</div>
-            ))}
-            <svg width="100%" height="100%" style={{ position: 'absolute', top: 0, left: 0 }}>
-              <polyline points="0,100 60,160 120,90 180,110 240,120 300,70" fill="none" stroke="#3B82F6" strokeWidth="2" />
-              <polyline points="0,130 60,110 120,140 180,100 240,130 300,100" fill="none" stroke="#EF4444" strokeWidth="2" />
-            </svg>
-            <div style={{ position: 'absolute', bottom: '-20px', left: 0, right: 0, display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#94A3B8' }}>
-              {['Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug'].map(m => <span key={m}>{m}</span>)}
-            </div>
-          </div>
-        </div>
-
-        <div className="card" style={{ padding: '24px' }}>
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '1rem', fontWeight: 600 }}>Budget vs Actual Cost</h3>
-          <p style={{ margin: '0 0 16px 0', fontSize: '0.75rem', color: '#64748B' }}>Compare planned budget against actual project expenditure</p>
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '12px', fontSize: '0.8rem' }}>
-            <span><span style={{ color: '#EF4444' }}>■</span> Budget</span>
-            <span><span style={{ color: '#1D4ED8' }}>■</span> Actual Cost</span>
-          </div>
-          <div style={{ height: '170px', display: 'flex', alignItems: 'flex-end', gap: '12px' }}>
-            {[40, 80, 120, 170, 60, 140].map((v, i) => (
-              <div key={i} style={{ flex: 1, display: 'flex', gap: '4px', alignItems: 'flex-end', height: '100%' }}>
-                <div style={{ flex: 1, backgroundColor: '#EF4444', borderRadius: '4px 4px 0 0', height: `${(v / 200) * 100}%` }} />
-                <div style={{ flex: 1, backgroundColor: '#1D4ED8', borderRadius: '4px 4px 0 0', height: `${(v * 0.7 / 200) * 100}%` }} />
-              </div>
-            ))}
-          </div>
+        <div className="card" style={{ padding: 24 }}>
+          <h3 style={{ margin: '0 0 4px', fontSize: '1rem', fontWeight: 600 }}>Budget vs Actual Cost</h3>
+          <p style={{ margin: '0 0 8px', fontSize: '0.75rem', color: '#64748B' }}>Compare planned budget against actual project expenditure</p>
+          <Legend items={[{ label: 'Budget', color: '#EF4444', square: true }, { label: 'Actual Cost', color: '#1D4ED8', square: true }]} />
+          <DataState loading={state.loading && !report} error={state.error} empty={!state.loading && !trend.length} emptyText="No cost data yet." onRetry={retry}>
+            <PairedBarChart labels={labels} a={{ label: 'Budget', color: '#EF4444', values: trend.map((t) => t.budget) }} b={{ label: 'Actual Cost', color: '#1D4ED8', values: trend.map((t) => t.actualCost) }} />
+          </DataState>
         </div>
       </div>
 
-      <div className="card" style={{ padding: '16px' }}>
-        <DataTable columns={columns} data={mockReports} keyField="project" emptyMessage="No reports found." />
+      <div className="card" style={{ padding: 0, borderRadius: 12 }}>
+        <ListToolbar search={searchText} onSearch={setSearchText} placeholder="Search project, client...">
+          <div style={{ width: 200 }}>
+            <Choice value={status} onChange={setStatus} placeholder="All statuses" options={[{ value: '', label: 'All statuses' }, ...PROJECT_STATUS_OPTIONS]} />
+          </div>
+        </ListToolbar>
+        <div style={{ padding: '0 24px 16px' }}>
+          <DataState loading={state.loading && !report} error={state.error} empty={Boolean(report) && !report.table.length} emptyText="No projects match." onRetry={retry}>
+            <DataTable columns={columns} data={report?.table || []} keyField="_id" emptyMessage="No projects match." />
+          </DataState>
+        </div>
       </div>
     </div>
   );

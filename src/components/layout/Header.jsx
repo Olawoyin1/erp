@@ -235,7 +235,9 @@ function UserMenu() {
   return (
     <div style={{ position: 'relative' }} ref={ref}>
       <div className="header-user" onClick={() => setOpen((v) => !v)} style={{ cursor: 'pointer' }}>
-        <div className="header-avatar">{initials || <FiUser size={14} />}</div>
+        <div className="header-avatar" style={{ overflow: 'hidden' }}>
+          {user?.photoUrl ? <img src={user.photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : initials || <FiUser size={14} />}
+        </div>
         <div className="header-user-info">
           <span className="header-user-name">{displayName || 'Signed in'}</span>
           <span className="header-user-role">{displayRole}</span>

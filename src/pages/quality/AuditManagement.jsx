@@ -1,1947 +1,569 @@
-import React, { useState, useMemo } from 'react';
+import { useState } from 'react';
+import { FiPlus, FiEye, FiDownload, FiEdit, FiPlay, FiCheck, FiUpload, FiCalendar, FiLock, FiAlertCircle, FiList, FiArrowDown, FiArrowUp } from 'react-icons/fi';
+import Modal from '../../components/ui/Modal';
+import RowMenu from '../../components/ui/RowMenu';
+import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
+import Toast, { useToast } from '../../components/ui/Toast';
+import { usePermissions } from '../../hooks/usePermission';
+import { qmsAuditsSlice } from '../../store/quality/slices';
+import { apiError } from '../../services/apiHelpers';
+import { qualityAuditService } from '../../services/quality.service';
+import { countFilters, fieldErrorsOf, formatDate, statValue, statusLabel, ymd } from '../procurement/shared/procUtils';
+import { useExport, useProcList, useRecord, useRunAction, useSelection } from '../procurement/shared/procHooks';
 import {
-  FiSearch,
-  FiFilter,
-  FiDownload,
-  FiPlus,
-  FiEye,
-  FiMoreVertical,
-  FiAlertCircle,
-  FiUploadCloud,
-  FiCalendar,
-  FiX,
-  FiCheck,
-  FiClock,
-  FiFileText,
-  FiEdit,
-  FiPaperclip,
-  FiTrash2,
-} from 'react-icons/fi';
-import DataTable from '../../components/ui/DataTable';
-import Pagination from '../../components/ui/Pagination';
-import Drawer from '../../components/ui/Drawer';
-import { mockAudits } from '../../data/mockQuality';
+  Choice, ConfirmModal, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, PageHeader, Panel,
+  PrimaryButton, RecordSummary, SecondaryButton, StatusLine, TabBar, TwoCol, ViewHeader,
+} from '../procurement/shared/ProcUi';
+import { AttachField, AttachToRecordDialog } from '../procurement/shared/ProcExtras';
+import { HistoryTimeline, Pill } from '../administration/shared/AdmUi';
+import { FileList } from '../hse/shared/hseUi';
+import { idOf, nameOf, openSignedDownload, toFileRows } from '../hse/shared/hseUtils';
+import { useQualityLookups } from '../hse/shared/useScreenLookups';
 
-function StatusBadge({ status }) {
-  const styles = {
-    Scheduled: { bg: '#F3E8FF', color: '#7E22CE' },
-    'In Progress': { bg: '#EFF6FF', color: '#1D4ED8' },
-    Completed: { bg: '#DCFCE7', color: '#15803D' },
-    Closed: { bg: '#F1F5F9', color: '#475569' },
-    Overdue: { bg: '#FEE2E2', color: '#B91C1C' },
+const AUDIT_TYPES = ['Internal Quality Audit', 'External Client Audit', 'Supplier/Vendor Audit', 'ISO Audit'];
+const STATUSES = [
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'in_progress', label: 'In Progress' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'closed', label: 'Closed' },
+  { value: 'overdue', label: 'Overdue' },
+];
+const STATUS_TONE = { scheduled: 'purple', in_progress: 'sky', completed: 'green', closed: 'slate', overdue: 'red' };
+const SECTIONS = ['departments', 'locations', 'employees', 'vendors', 'clients'];
+const FILE_KINDS = { checklist: 'Checklist', report: 'Audit report' };
+
+const Status = ({ status }) => <Pill tone={STATUS_TONE[status]}>{statusLabel(status)}</Pill>;
+const dateRangeText = (row) => `${formatDate(row.startDate)} to ${formatDate(row.endDate)}`;
+
+const EXPORT_COLUMNS = [
+  { label: 'Audit ID', value: (r) => r.auditId },
+  { label: 'Title', value: (r) => r.auditTitle },
+  { label: 'Type', value: (r) => r.auditType },
+  { label: 'Department', value: (r) => nameOf(r.departmentId) },
+  { label: 'Location', value: (r) => nameOf(r.location) },
+  { label: 'Lead Auditor', value: (r) => nameOf(r.leadAuditorId) },
+  { label: 'Start Date', value: (r) => ymd(r.startDate) },
+  { label: 'End Date', value: (r) => ymd(r.endDate) },
+  { label: 'Status', value: (r) => statusLabel(r.status) },
+];
+
+/** The header "Upload" dialog attaches the audit report to a completed audit that has none yet. */
+const reportApi = {
+  list: (params) => qualityAuditService.list({ ...params, status: 'completed', reportAttached: false }),
+  uploadAttachment: (id, file) => qualityAuditService.uploadReport(id, file),
+};
+
+function AuditFormModal({ record, onClose, onSaved }) {
+  const editing = Boolean(record);
+  const { lookups, loading: lookupsLoading, error: lookupsError } = useQualityLookups(SECTIONS);
+  const [form, setForm] = useState(() => ({
+    auditType: record?.auditType || 'Internal Quality Audit',
+    auditTitle: record?.auditTitle || '',
+    departmentId: record ? idOf(record.departmentId) : '',
+    location: record ? idOf(record.location) : '',
+    leadAuditorId: record ? idOf(record.leadAuditorId) : '',
+    startDate: record ? ymd(record.startDate) : '',
+    endDate: record ? ymd(record.endDate) : '',
+    auditObjective: record?.auditObjective || '',
+    relatedVendorId: record ? idOf(record.relatedVendorId) : '',
+    relatedClientId: record ? idOf(record.relatedClientId) : '',
+  }));
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const save = async () => {
+    setError('');
+    const next = {};
+    if (!form.auditTitle.trim()) next.auditTitle = 'Enter the audit title';
+    if (!form.departmentId) next.departmentId = 'Choose the department';
+    if (!form.location) next.location = 'Choose the location';
+    if (!form.leadAuditorId) next.leadAuditorId = 'Choose the lead auditor';
+    if (!form.startDate) next.startDate = 'Choose the start date';
+    if (!form.endDate) next.endDate = 'Choose the end date';
+    if (form.startDate && form.endDate && form.startDate > form.endDate) next.endDate = 'End date must be on or after the start date';
+    if (!form.auditObjective.trim()) next.auditObjective = 'State the audit objective';
+    if (form.auditType === 'Supplier/Vendor Audit' && !form.relatedVendorId) next.relatedVendorId = 'Choose the vendor being audited';
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try {
+      const fields = {
+        auditType: form.auditType,
+        auditTitle: form.auditTitle.trim(),
+        departmentId: form.departmentId,
+        location: form.location,
+        leadAuditorId: form.leadAuditorId,
+        startDate: form.startDate,
+        endDate: form.endDate,
+        auditObjective: form.auditObjective.trim(),
+        relatedVendorId: form.auditType === 'Supplier/Vendor Audit' ? form.relatedVendorId : '',
+        relatedClientId: form.auditType === 'External Client Audit' ? form.relatedClientId : '',
+      };
+      if (editing) {
+        await qualityAuditService.update(record._id, fields, files[0]);
+        onSaved('Audit updated');
+      } else {
+        const res = await qualityAuditService.create(fields, files[0]);
+        onSaved(`Audit ${res.data?.data?.auditId || ''} scheduled`.replace('  ', ' '));
+      }
+    } catch (err) {
+      setError(apiError(err, 'The audit could not be saved'));
+      setErrors(fieldErrorsOf(err?.response?.data?.error));
+    } finally {
+      setBusy(false);
+    }
   };
-  const s = styles[status] || { bg: '#F1F5F9', color: '#475569' };
+
   return (
-    <span
-      style={{
-        backgroundColor: s.bg,
-        color: s.color,
-        padding: '3px 10px',
-        borderRadius: '9999px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        display: 'inline-block',
-      }}
+    <Modal
+      isOpen
+      onClose={onClose}
+      title={editing ? 'Edit Audit' : 'Schedule Audit'}
+      subtitle={editing ? undefined : 'Create an audit schedule and assign the responsible auditor'}
+      maxWidth="700px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={save} disabled={busy || lookupsLoading}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Schedule Audit'}</PrimaryButton>
+        </>
+      )}
     >
-      {status}
-    </span>
+      <FormBody onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <FormError message={lookupsError} />
+        <TwoCol>
+          <Field label="Audit ID" help={editing ? undefined : 'Assigned automatically when the audit is scheduled.'}>
+            <Input value={editing ? record.auditId : 'Assigned on save'} disabled />
+          </Field>
+          <Field label="Audit type" required error={errors.auditType}>
+            <Choice value={form.auditType} onChange={(v) => set('auditType', v)} options={AUDIT_TYPES.map((t) => ({ value: t, label: t }))} />
+          </Field>
+        </TwoCol>
+        <Field label="Audit title" required error={errors.auditTitle}>
+          <Input value={form.auditTitle} onChange={(e) => set('auditTitle', e.target.value)} placeholder="e.g. Q2 Internal Quality Audit — Welding Processes" error={Boolean(errors.auditTitle)} />
+        </Field>
+        <TwoCol>
+          <Field label="Department" required error={errors.departmentId}>
+            <Choice value={form.departmentId} onChange={(v) => set('departmentId', v)} searchable placeholder="Select department" options={(lookups.departments || []).map((d) => ({ value: d._id, label: d.name }))} error={errors.departmentId} />
+          </Field>
+          <Field label="Location" required error={errors.location}>
+            <Choice value={form.location} onChange={(v) => set('location', v)} searchable placeholder="Select location" options={(lookups.locations || []).map((l) => ({ value: l._id, label: l.name }))} error={errors.location} />
+          </Field>
+        </TwoCol>
+        <TwoCol>
+          <Field label="Lead auditor" required error={errors.leadAuditorId}>
+            <Choice value={form.leadAuditorId} onChange={(v) => set('leadAuditorId', v)} searchable placeholder="Select lead auditor" options={(lookups.employees || []).map((e) => ({ value: e._id, label: `${e.fullName} (${e.employeeId})` }))} error={errors.leadAuditorId} />
+          </Field>
+          <Field label="Start date" required error={errors.startDate}>
+            <DatePicker value={form.startDate} onChange={(e) => set('startDate', e.target.value)} error={Boolean(errors.startDate)} />
+          </Field>
+        </TwoCol>
+        <TwoCol>
+          <Field label="End date" required error={errors.endDate}>
+            <DatePicker value={form.endDate} onChange={(e) => set('endDate', e.target.value)} error={Boolean(errors.endDate)} />
+          </Field>
+          {form.auditType === 'Supplier/Vendor Audit' && (
+            <Field label="Vendor audited" required error={errors.relatedVendorId}>
+              <Choice value={form.relatedVendorId} onChange={(v) => set('relatedVendorId', v)} searchable placeholder="Select vendor" options={(lookups.vendors || []).map((v) => ({ value: v._id, label: v.vendorName }))} error={errors.relatedVendorId} />
+            </Field>
+          )}
+          {form.auditType === 'External Client Audit' && (
+            <Field label="Client (optional)" error={errors.relatedClientId}>
+              <Choice value={form.relatedClientId} onChange={(v) => set('relatedClientId', v)} searchable placeholder="Select client" options={(lookups.clients || []).map((c) => ({ value: c._id, label: c.clientName }))} error={errors.relatedClientId} />
+            </Field>
+          )}
+        </TwoCol>
+        <Field label="Audit objective" required error={errors.auditObjective}>
+          <Textarea rows={3} value={form.auditObjective} onChange={(e) => set('auditObjective', e.target.value)} placeholder="Evaluate compliance with HSE procedures, permit-to-work requirements..." error={Boolean(errors.auditObjective)} />
+        </Field>
+        <Field label="Audit checklist (optional)">
+          <AttachField files={files} onChange={setFiles} multiple={false} disabled={busy} />
+        </Field>
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function UploadReportModal({ audit, onClose, onSaved }) {
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const save = async () => {
+    if (!files.length) { setError('Choose the audit report to upload.'); return; }
+    setBusy(true);
+    setError('');
+    try {
+      await qualityAuditService.uploadReport(audit._id, files[0]);
+      onSaved('Audit report uploaded');
+    } catch (err) {
+      setError(apiError(err, 'The report could not be uploaded'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Upload Audit Report"
+      subtitle="The findings document for a completed audit"
+      maxWidth="520px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={save} disabled={busy} icon={<FiUpload size={14} />}>{busy ? 'Uploading…' : 'Upload Report'}</PrimaryButton>
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <RecordSummary rows={[['Audit', audit.auditId], ['Title', audit.auditTitle]]} />
+        <Field label="Audit report" required>
+          <AttachField files={files} onChange={setFiles} multiple={false} disabled={busy} />
+        </Field>
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function RescheduleModal({ audit, onClose, onSaved }) {
+  const [form, setForm] = useState({ startDate: '', endDate: '' });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const save = async () => {
+    setError('');
+    const next = {};
+    if (!form.startDate) next.startDate = 'Choose the new start date';
+    if (!form.endDate) next.endDate = 'Choose the new end date';
+    if (form.startDate && form.endDate && form.startDate > form.endDate) next.endDate = 'End date must be on or after the start date';
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try {
+      await qualityAuditService.reschedule(audit._id, form);
+      onSaved('Audit rescheduled');
+    } catch (err) {
+      setError(apiError(err, 'The audit could not be rescheduled'));
+      setErrors(fieldErrorsOf(err?.response?.data?.error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Reschedule Audit"
+      subtitle="Choose new dates for the overdue audit"
+      maxWidth="520px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={save} disabled={busy} icon={<FiCalendar size={14} />}>{busy ? 'Saving…' : 'Reschedule'}</PrimaryButton>
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => { e.preventDefault(); save(); }}>
+        <RecordSummary rows={[['Audit', audit.auditId], ['Title', audit.auditTitle], ['Current dates', dateRangeText(audit)]]} />
+        <TwoCol>
+          <Field label="New start date" required error={errors.startDate}>
+            <DatePicker value={form.startDate} onChange={(e) => set('startDate', e.target.value)} error={Boolean(errors.startDate)} />
+          </Field>
+          <Field label="New end date" required error={errors.endDate}>
+            <DatePicker value={form.endDate} onChange={(e) => set('endDate', e.target.value)} error={Boolean(errors.endDate)} />
+          </Field>
+        </TwoCol>
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function ViewAuditModal({ id, refreshKey, actions, onClose }) {
+  const { record, error, loading } = useRecord(qualityAuditService, id, refreshKey);
+  const [tab, setTab] = useState('details');
+  return (
+    <Modal isOpen onClose={onClose} title="" maxWidth="700px">
+      {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading audit…</div>}
+      {error && <FormError message={error} />}
+      {record && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: -10 }}>
+          <ViewHeader icon={<FiList size={22} />} title={record.auditTitle} subtitle={`${record.auditType} • ${record.auditId}`} />
+          <StatusLine status={<Status status={record.status} />}>
+            <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>{actions(record)}</div>
+          </StatusLine>
+          <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'history', label: 'History' }]} active={tab} onChange={setTab} />
+          {tab === 'details' && (
+            <>
+              <DetailGrid
+                items={[
+                  ['Audit title', record.auditTitle],
+                  ['Audit ID', record.auditId],
+                  ['Audit type', record.auditType],
+                  ['Department', nameOf(record.departmentId)],
+                  ['Location', nameOf(record.location)],
+                  ['Lead auditor', nameOf(record.leadAuditorId)],
+                  ['Start date', formatDate(record.startDate)],
+                  ['End date', formatDate(record.endDate)],
+                  record.relatedVendorId ? ['Vendor audited', nameOf(record.relatedVendorId, 'vendorName')] : null,
+                  record.relatedClientId ? ['Client', nameOf(record.relatedClientId, 'clientName')] : null,
+                  ['Status', statusLabel(record.status)],
+                ]}
+              />
+              <Panel title="Audit objective">{record.auditObjective}</Panel>
+              <FileList
+                files={toFileRows(record.files)}
+                kinds={FILE_KINDS}
+                download={(file) => openSignedDownload(() => qualityAuditService.downloadFile(record._id, file.id))}
+                empty={record.status === 'completed' ? 'No documents yet. Upload the audit report to close the audit.' : 'No documents attached.'}
+              />
+            </>
+          )}
+          {tab === 'history' && <HistoryTimeline key={`${record._id}-${refreshKey}`} load={qualityAuditService.history} id={record._id} title="Audit history" />}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+function SortLabel({ label, order, active, onToggle }) {
+  return (
+    <button type="button" onClick={onToggle} style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', color: 'inherit', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+      {label}
+      {active && order === 'asc' ? <FiArrowUp size={12} /> : <FiArrowDown size={12} style={{ opacity: active ? 1 : 0.45 }} />}
+    </button>
   );
 }
 
 export default function AuditManagement() {
-  const [audits, setAudits] = useState(mockAudits);
-  const [activeTab, setActiveTab] = useState('Audit');
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { can } = usePermissions();
+  const canCreate = can('quality.audit.create');
+  const canUpdate = can('quality.audit.update');
+  const canDecide = can('quality.audit.decide');
+  const canExport = can('quality.audit.export');
 
-  // Filter Drawer
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [typeFilter, setTypeFilter] = useState('');
+  const list = useProcList(qmsAuditsSlice, { initialFilters: { status: '', auditType: '', dateFrom: '', dateTo: '', sort: '', order: '' } });
+  const run = useRunAction(qmsAuditsSlice);
+  const selection = useSelection();
+  const { toast, showToast, hideToast } = useToast();
+  const exporter = useExport(qualityAuditService, list, selection, EXPORT_COLUMNS, 'quality-audits.csv');
 
-  // Modals & Drawers
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false);
-  const [isUploadReportModalOpen, setIsUploadReportModalOpen] = useState(false);
+  const [formFor, setFormFor] = useState(null);
+  const [viewId, setViewId] = useState(null);
+  const [reportFor, setReportFor] = useState(null);
+  const [rescheduleFor, setRescheduleFor] = useState(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [confirm, setConfirm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
 
-  const [activeAudit, setActiveAudit] = useState(null);
-  const [openActionMenuId, setOpenActionMenuId] = useState(null);
+  const overdue = statValue(list.stats, 'overdue');
+  const refresh = () => { list.reload(); setRefreshKey((k) => k + 1); };
+  const open = (type, row) => { setActionError(''); setConfirm({ type, row }); };
 
-  // Schedule/Edit Form state
-  const [formData, setFormData] = useState({
-    id: '',
-    title: '',
-    type: 'Internal Quality Audit',
-    department: 'Administration',
-    location: 'Lagos Head Office',
-    leadAuditor: 'Nafisat Abubakar',
-    startDate: '28/05/25',
-    endDate: '29/05/25',
-    objective: '',
-    checklist: '',
-  });
-
-  const [reportFileName, setReportFileName] = useState('');
-
-  // Filter logic
-  const filteredAudits = useMemo(() => {
-    return audits.filter((item) => {
-      const matchesSearch =
-        !searchTerm ||
-        item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.leadAuditor.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesStatus = !statusFilter || item.status === statusFilter;
-      const matchesType = !typeFilter || item.type === typeFilter;
-
-      return matchesSearch && matchesStatus && matchesType;
-    });
-  }, [audits, searchTerm, statusFilter, typeFilter]);
-
-  const totalPages = Math.ceil(filteredAudits.length / pageSize) || 1;
-  const paginatedAudits = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredAudits.slice(start, start + pageSize);
-  }, [filteredAudits, currentPage, pageSize]);
-
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(paginatedAudits.map((a) => a.id));
+  const doAction = async (method, args, success) => {
+    setBusy(true);
+    setActionError('');
+    const res = await run(method, ...args);
+    setBusy(false);
+    if (res.ok) {
+      setConfirm(null);
+      showToast(success, 'success');
+      refresh();
     } else {
-      setSelectedIds([]);
+      setActionError(res.error);
+      if (!confirm) showToast(res.error, 'error');
     }
   };
 
-  const handleSelectOne = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const openScheduleModal = () => {
-    const nextNum = audits.length + 1;
-    setFormData({
-      id: `AUD-25-0${nextNum < 10 ? '0' + nextNum : nextNum}`,
-      title: '',
-      type: 'Internal Quality Audit',
-      department: 'Administration',
-      location: 'Lagos Head Office',
-      leadAuditor: 'Nafisat Abubakar',
-      startDate: '28/05/25',
-      endDate: '29/05/25',
-      objective:
-        'Evaluate compliance with HSE procedures, permit-to-work requirements, emergency preparedness, and waste management practices.',
-      checklist: 'Q3_HSE_Audit_Checklist.pdf (25MB)',
-    });
-    setIsScheduleModalOpen(true);
-  };
-
-  const handleScheduleSubmit = (e) => {
-    e.preventDefault();
-    const newAudit = {
-      ...formData,
-      status: 'Scheduled',
-      report: null,
-    };
-    setAudits([newAudit, ...audits]);
-    setIsScheduleModalOpen(false);
-  };
-
-  const openEditModal = (audit) => {
-    setActiveAudit(audit);
-    setFormData({
-      id: audit.id,
-      title: audit.title,
-      type: audit.type,
-      department: audit.department,
-      location: audit.location,
-      leadAuditor: audit.leadAuditor,
-      startDate: audit.startDate,
-      endDate: audit.endDate,
-      objective: audit.objective,
-      checklist: audit.checklist || 'Q3_HSE_Audit_Checklist.pdf (25MB)',
-    });
-    setOpenActionMenuId(null);
-    setIsEditModalOpen(true);
-  };
-
-  const handleEditSubmit = (e) => {
-    e.preventDefault();
-    setAudits((prev) =>
-      prev.map((item) =>
-        item.id === activeAudit.id ? { ...item, ...formData } : item
-      )
-    );
-    if (activeAudit && activeAudit.id === formData.id) {
-      setActiveAudit((prev) => ({ ...prev, ...formData }));
+  const downloadReport = async (row) => {
+    try {
+      const detail = await qualityAuditService.get(row._id);
+      const file = (detail.data?.data?.files || []).find((f) => f.kind === 'report');
+      if (!file) { showToast('No audit report has been uploaded for this audit', 'error'); return; }
+      const problem = await openSignedDownload(() => qualityAuditService.downloadFile(row._id, file.id));
+      if (problem) showToast(problem, 'error');
+    } catch (err) {
+      showToast(apiError(err, 'Download failed'), 'error');
     }
-    setIsEditModalOpen(false);
   };
 
-  const openViewDrawer = (audit) => {
-    setActiveAudit(audit);
-    setOpenActionMenuId(null);
-    setIsViewDrawerOpen(true);
+  const menuItems = (row) => {
+    const items = [];
+    const editable = row.status === 'scheduled';
+    if (editable && canUpdate) items.push({ label: 'Edit Audit', icon: <FiEdit size={14} color="#64748B" />, action: () => setFormFor(row) });
+    if (editable && canDecide) items.push({ label: 'Mark In Progress', icon: <FiPlay size={14} color="#2563EB" />, action: () => doAction('start', [row._id], 'Audit marked in progress') });
+    if (row.status === 'overdue' && canDecide) items.push({ label: 'Reschedule', icon: <FiCalendar size={14} color="#64748B" />, action: () => setRescheduleFor(row) });
+    if ((row.status === 'in_progress' || row.status === 'overdue') && canDecide) items.push({ label: 'Mark as Completed', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => open('complete', row) });
+    if (row.status === 'completed' && canDecide && !row.reportAttached) items.push({ label: 'Upload Report', icon: <FiUpload size={14} color="#64748B" />, action: () => setReportFor(row) });
+    if (row.status === 'completed' && canDecide && row.reportAttached) items.push({ label: 'Close Audit', icon: <FiLock size={14} color="#16A34A" />, color: '#16A34A', action: () => open('close', row) });
+    return items;
   };
 
-  const handleStatusChange = (auditId, nextStatus) => {
-    setAudits((prev) =>
-      prev.map((item) =>
-        item.id === auditId ? { ...item, status: nextStatus } : item
-      )
-    );
-    if (activeAudit && activeAudit.id === auditId) {
-      setActiveAudit((prev) => ({ ...prev, status: nextStatus }));
-    }
-    setOpenActionMenuId(null);
-  };
-
-  const handleUploadReport = (e) => {
-    e.preventDefault();
-    if (!reportFileName) return;
-    setAudits((prev) =>
-      prev.map((item) =>
-        item.id === activeAudit.id
-          ? { ...item, report: `${reportFileName} (25MB)`, status: 'Completed' }
-          : item
-      )
-    );
-    if (activeAudit) {
-      setActiveAudit((prev) => ({
-        ...prev,
-        report: `${reportFileName} (25MB)`,
-        status: 'Completed',
-      }));
-    }
-    setIsUploadReportModalOpen(false);
-    setReportFileName('');
-  };
+  const toggleSort = () => list.applyFilters({ ...list.filters, sort: 'startDate', order: list.filters.sort === 'startDate' && list.filters.order === 'asc' ? 'desc' : 'asc' });
 
   const columns = [
-    {
-      key: 'select',
-      label: (
-        <input
-          type="checkbox"
-          onChange={handleSelectAll}
-          checked={
-            paginatedAudits.length > 0 &&
-            selectedIds.length === paginatedAudits.length
-          }
-          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-        />
-      ),
-      render: (_, row) => (
-        <input
-          type="checkbox"
-          checked={selectedIds.includes(row.id)}
-          onChange={() => handleSelectOne(row.id)}
-          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-        />
-      ),
-    },
-    {
-      key: 'id',
-      label: 'AUDIT ID',
-      render: (v) => (
-        <span style={{ fontWeight: 600, color: '#475569', fontSize: '0.85rem' }}>
-          {v}
-        </span>
-      ),
-    },
-    {
-      key: 'title',
-      label: 'TITLE',
-      render: (v) => (
-        <span style={{ fontWeight: 600, color: '#0F172A', fontSize: '0.875rem' }}>
-          {v}
-        </span>
-      ),
-    },
-    {
-      key: 'type',
-      label: 'TYPE',
-      render: (v) => (
-        <span style={{ color: '#0284C7', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'location',
-      label: 'LOCATION',
-      render: (v) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'leadAuditor',
-      label: 'LEAD AUDITOR',
-      render: (v) => (
-        <span style={{ color: '#0F172A', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'auditDate',
-      label: 'AUDIT DATE ⇅',
-      render: (_, row) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>
-          {row.startDate} to {row.endDate}
-        </span>
-      ),
-    },
-    {
-      key: 'status',
-      label: 'STATUS',
-      render: (v) => <StatusBadge status={v} />,
-    },
+    { key: 'auditId', label: 'AUDIT ID', render: (v) => <span style={{ color: '#64748B' }}>{v}</span> },
+    { key: 'auditTitle', label: 'TITLE', render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{v}</span> },
+    { key: 'auditType', label: 'TYPE', render: (v) => <span style={{ color: '#64748B' }}>{v}</span> },
+    { key: 'location', label: 'LOCATION', render: (v) => <span style={{ color: '#334155' }}>{nameOf(v)}</span> },
+    { key: 'leadAuditorId', label: 'LEAD AUDITOR', render: (v) => <span style={{ color: '#334155' }}>{nameOf(v)}</span> },
+    { key: 'startDate', label: <SortLabel label="AUDIT DATE" order={list.filters.order} active={list.filters.sort === 'startDate'} onToggle={toggleSort} />, render: (_, row) => <span style={{ color: '#64748B' }}>{dateRangeText(row)}</span> },
+    { key: 'status', label: 'STATUS', render: (v) => <Status status={v} /> },
     {
       key: 'actions',
       label: 'ACTIONS',
       align: 'right',
-      render: (_, row) => (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '8px',
-            position: 'relative',
-          }}
-        >
-          <button
-            className="icon-btn"
-            title="View Audit"
-            onClick={() => openViewDrawer(row)}
-            style={{
-              padding: '6px',
-              borderRadius: '6px',
-              border: 'none',
-              background: 'transparent',
-              color: '#64748B',
-              cursor: 'pointer',
-            }}
-          >
-            <FiEye size={16} />
-          </button>
-
-          {row.report ? (
-            <button
-              className="icon-btn"
-              title="Download Report"
-              onClick={() =>
-                alert(`Downloading audit report: ${row.report}`)
-              }
-              style={{
-                padding: '6px',
-                borderRadius: '6px',
-                border: 'none',
-                background: 'transparent',
-                color: '#64748B',
-                cursor: 'pointer',
-              }}
-            >
-              <FiDownload size={16} />
-            </button>
-          ) : (
-            <div style={{ position: 'relative' }}>
-              <button
-                className="icon-btn"
-                title="More Options"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setOpenActionMenuId(
-                    openActionMenuId === row.id ? null : row.id
-                  );
-                }}
-                style={{
-                  padding: '6px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: '#64748B',
-                  cursor: 'pointer',
-                }}
-              >
-                <FiMoreVertical size={16} />
-              </button>
-
-              {openActionMenuId === row.id && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    right: 0,
-                    top: '100%',
-                    zIndex: 50,
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '8px',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
-                    border: '1px solid #E2E8F0',
-                    width: '180px',
-                    padding: '6px 0',
-                    textAlign: 'left',
-                  }}
-                >
-                  {row.status === 'Scheduled' && (
-                    <>
-                      <button
-                        onClick={() => openEditModal(row)}
-                        style={{
-                          width: '100%',
-                          padding: '8px 14px',
-                          border: 'none',
-                          background: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '0.85rem',
-                          color: '#1E293B',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <FiEdit size={14} /> Edit Audit
-                      </button>
-                      <button
-                        onClick={() => handleStatusChange(row.id, 'In Progress')}
-                        style={{
-                          width: '100%',
-                          padding: '8px 14px',
-                          border: 'none',
-                          background: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '0.85rem',
-                          color: '#1D4ED8',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <FiCheck size={14} /> Mark In Progress
-                      </button>
-                    </>
-                  )}
-
-                  {row.status === 'In Progress' && (
-                    <button
-                      onClick={() => handleStatusChange(row.id, 'Completed')}
-                      style={{
-                        width: '100%',
-                        padding: '8px 14px',
-                        border: 'none',
-                        background: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontSize: '0.85rem',
-                        color: '#16A34A',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <FiCheck size={14} /> Mark as Completed
-                    </button>
-                  )}
-
-                  {row.status === 'Completed' && (
-                    <button
-                      onClick={() => {
-                        setActiveAudit(row);
-                        setOpenActionMenuId(null);
-                        setIsUploadReportModalOpen(true);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '8px 14px',
-                        border: 'none',
-                        background: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontSize: '0.85rem',
-                        color: '#1D4ED8',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <FiUploadCloud size={14} /> Upload Report
-                    </button>
-                  )}
-
-                  {row.status === 'Overdue' && (
-                    <>
-                      <button
-                        onClick={() => openEditModal(row)}
-                        style={{
-                          width: '100%',
-                          padding: '8px 14px',
-                          border: 'none',
-                          background: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '0.85rem',
-                          color: '#475569',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <FiCalendar size={14} /> Reschedule
-                      </button>
-                      <button
-                        onClick={() => handleStatusChange(row.id, 'Completed')}
-                        style={{
-                          width: '100%',
-                          padding: '8px 14px',
-                          border: 'none',
-                          background: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          fontSize: '0.85rem',
-                          color: '#16A34A',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <FiCheck size={14} /> Mark as Completed
-                      </button>
-                    </>
-                  )}
-
-                  {row.status === 'Closed' && (
-                    <button
-                      onClick={() => openViewDrawer(row)}
-                      style={{
-                        width: '100%',
-                        padding: '8px 14px',
-                        border: 'none',
-                        background: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontSize: '0.85rem',
-                        color: '#475569',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <FiEye size={14} /> View Details
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      ),
+      render: (_, row) => {
+        const items = menuItems(row);
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" className="icon-btn" title="View Audit" aria-label="View audit" onClick={() => setViewId(row._id)} style={{ color: '#64748B', cursor: 'pointer' }}><FiEye size={16} /></button>
+            {row.reportAttached && <button type="button" className="icon-btn" title="Download audit report" aria-label="Download audit report" onClick={() => downloadReport(row)} style={{ color: '#64748B', cursor: 'pointer' }}><FiDownload size={16} /></button>}
+            {items.length > 0 ? <RowMenu items={items} /> : <span style={{ width: 24 }} />}
+          </div>
+        );
+      },
     },
   ];
 
+  const viewActions = (record) => (
+    <>
+      {canDecide && record.status === 'scheduled' && <PrimaryButton icon={<FiPlay size={14} />} onClick={() => doAction('start', [record._id], 'Audit marked in progress')}>Mark as In Progress</PrimaryButton>}
+      {canDecide && (record.status === 'in_progress' || record.status === 'overdue') && <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => open('complete', record)}>Mark as Completed</PrimaryButton>}
+      {canDecide && record.status === 'overdue' && <SecondaryButton icon={<FiCalendar size={14} />} onClick={() => setRescheduleFor(record)}>Reschedule</SecondaryButton>}
+      {canDecide && record.status === 'completed' && !record.reportAttached && <PrimaryButton icon={<FiUpload size={14} />} onClick={() => setReportFor(record)}>Upload Report</PrimaryButton>}
+      {canDecide && record.status === 'completed' && record.reportAttached && <PrimaryButton icon={<FiLock size={14} />} onClick={() => open('close', record)}>Close Audit</PrimaryButton>}
+      {canUpdate && record.status === 'scheduled' && <SecondaryButton icon={<FiEdit size={14} />} onClick={() => setFormFor(record)}>Edit</SecondaryButton>}
+    </>
+  );
+
+  const onExport = async () => {
+    const message = await exporter.run();
+    if (message) showToast(message, 'error');
+    else showToast(selection.ids.length ? `${selection.ids.length} selected audits exported` : 'Audits exported', 'success');
+  };
+
+  const filterFields = [
+    { key: 'status', label: 'Status', options: STATUSES },
+    { key: 'auditType', label: 'Audit type', options: AUDIT_TYPES.map((t) => ({ value: t, label: t })) },
+    { key: 'dateFrom', label: 'Starts from', type: 'date' },
+    { key: 'dateTo', label: 'Starts to', type: 'date' },
+  ];
+
+  const filterCount = countFilters({ ...list.filters, sort: '', order: '' });
+  const summary = (row) => <RecordSummary rows={[['Audit', row.auditId], ['Title', row.auditTitle]]} />;
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '20px',
-        padding: '24px',
-        backgroundColor: '#F8FAFC',
-        minHeight: '100vh',
-      }}
-      onClick={() => setOpenActionMenuId(null)}
-    >
-      {/* Top Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              color: '#0F172A',
-              margin: 0,
-            }}
-          >
-            Audit Management
-          </h1>
-          <p
-            style={{
-              color: '#64748B',
-              fontSize: '0.875rem',
-              margin: '4px 0 0 0',
-            }}
-          >
-            Plan, schedule, and track quality system audits across projects and operations
-          </p>
-        </div>
-        <button
-          className="btn btn-outline"
-          onClick={() => alert('Bulk upload audit schedules feature initiated')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: '#FFFFFF',
-            border: '1px solid #E2E8F0',
-            color: '#1E293B',
-            fontWeight: 500,
-            padding: '8px 16px',
-            borderRadius: '6px',
-            cursor: 'pointer',
-          }}
-        >
-          <FiUploadCloud size={16} /> Upload ↑
-        </button>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Tabs */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '24px',
-          borderBottom: '1px solid #E2E8F0',
-        }}
-      >
-        {['Audit', 'Schedule'].map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: '10px 0',
-              border: 'none',
-              background: 'none',
-              fontSize: '0.9rem',
-              fontWeight: activeTab === tab ? 600 : 500,
-              color: activeTab === tab ? '#1D4ED8' : '#64748B',
-              borderBottom:
-                activeTab === tab ? '2px solid #1D4ED8' : '2px solid transparent',
-              cursor: 'pointer',
-            }}
-          >
-            {tab}
+      <PageHeader title="Audit Management" subtitle="Plan, schedule, and track quality system audits across projects and operations">
+        {canDecide && <SecondaryButton icon={<FiUpload size={15} />} onClick={() => setUploadOpen(true)}>Upload</SecondaryButton>}
+      </PageHeader>
+
+      <TabBar tabs={[{ id: 'schedule', label: 'Audit Schedule' }]} active="schedule" onChange={() => {}} />
+
+      {overdue > 0 && (
+        <div role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', padding: '12px 18px', backgroundColor: '#FFF1F2', border: '1px solid #FFE4E6', borderLeft: '4px solid #E11D48', borderRadius: 8, color: '#BE123C', fontSize: '0.875rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <FiAlertCircle size={18} color="#E11D48" />
+            <span><strong>{overdue} audit{overdue === 1 ? ' is' : 's are'} overdue.</strong> Schedule immediately to maintain QMS compliance.</span>
+          </div>
+          <button type="button" onClick={() => list.applyFilters({ ...list.filters, status: 'overdue' })} style={{ border: 'none', background: 'none', color: '#BE123C', fontWeight: 600, cursor: 'pointer', fontSize: '0.875rem' }}>
+            View Overdue →
           </button>
-        ))}
-      </div>
-
-      {/* Alert Banner */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '12px 18px',
-          backgroundColor: '#FFF1F2',
-          border: '1px solid #FFE4E6',
-          borderRadius: '8px',
-          color: '#BE123C',
-          fontSize: '0.875rem',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <FiAlertCircle size={18} color="#E11D48" />
-          <span>
-            <strong>1 audit is overdue.</strong> Schedule immediately to maintain QMS compliance.
-          </span>
-        </div>
-        <button
-          onClick={() => setStatusFilter('Overdue')}
-          style={{
-            border: 'none',
-            background: 'none',
-            color: '#BE123C',
-            fontWeight: 600,
-            cursor: 'pointer',
-            fontSize: '0.875rem',
-            textDecoration: 'underline',
-          }}
-        >
-          View Overdue →
-        </button>
-      </div>
-
-      {/* Main Table Card */}
-      <div className="card" style={{ padding: '0px', overflow: 'hidden' }}>
-        {/* Table Toolbar */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '16px 20px',
-            borderBottom: '1px solid #F1F5F9',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}
-        >
-          <div style={{ position: 'relative', width: '320px' }}>
-            <FiSearch
-              size={16}
-              style={{
-                position: 'absolute',
-                left: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#94A3B8',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Search Audit ID, Type ..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px 8px 36px',
-                border: '1px solid #E2E8F0',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                outline: 'none',
-              }}
-            />
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: statusFilter || typeFilter ? '#EFF6FF' : '#FFFFFF',
-                border: `1px solid ${statusFilter || typeFilter ? '#3B82F6' : '#E2E8F0'}`,
-                color: statusFilter || typeFilter ? '#1D4ED8' : '#334155',
-                padding: '8px 14px',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              <FiFilter size={15} />
-              Filter {statusFilter || typeFilter ? '(Active)' : ''}
-            </button>
-
-            <button
-              onClick={() => alert('Exporting audit log to CSV/Excel...')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E2E8F0',
-                color: '#334155',
-                padding: '8px 14px',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              <FiDownload size={15} />
-              Export
-            </button>
-
-            <button
-              onClick={openScheduleModal}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#1D4ED8',
-                color: '#FFFFFF',
-                border: 'none',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
-              <FiPlus size={16} />
-              Schedule Audit
-            </button>
-          </div>
-        </div>
-
-        {/* Data Table */}
-        <DataTable
-          columns={columns}
-          data={paginatedAudits}
-          rowKey="id"
-          emptyMessage="No audits found matching your criteria."
-        />
-
-        {/* Pagination */}
-        <div style={{ padding: '12px 20px', borderTop: '1px solid #F1F5F9' }}>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={filteredAudits.length}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-          />
-        </div>
-      </div>
-
-      {/* Filter Drawer */}
-      <Drawer
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        title="Filter Audits"
-        width={360}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
-              Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.875rem',
-              }}
-            >
-              <option value="">All Statuses</option>
-              <option value="Scheduled">Scheduled</option>
-              <option value="In Progress">In Progress</option>
-              <option value="Completed">Completed</option>
-              <option value="Closed">Closed</option>
-              <option value="Overdue">Overdue</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
-              Audit Type
-            </label>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.875rem',
-              }}
-            >
-              <option value="">All Types</option>
-              <option value="Internal Quality Audit">Internal Quality Audit</option>
-              <option value="External Client Audit">External Client Audit</option>
-              <option value="Supplier/Vendor Audit">Supplier/Vendor Audit</option>
-              <option value="ISO Audit">ISO Audit</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-            <button
-              onClick={() => {
-                setStatusFilter('');
-                setTypeFilter('');
-                setIsFilterOpen(false);
-              }}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#FFFFFF',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
-            >
-              Reset
-            </button>
-            <button
-              onClick={() => setIsFilterOpen(false)}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                border: 'none',
-                backgroundColor: '#1D4ED8',
-                color: '#FFFFFF',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-            >
-              Apply Filter
-            </button>
-          </div>
-        </div>
-      </Drawer>
-
-      {/* Schedule Audit Modal */}
-      {isScheduleModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              maxWidth: '560px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <div
-              style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid #E2E8F0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div>
-                <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>
-                  Schedule Audit
-                </h2>
-                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748B' }}>
-                  Create an audit schedule and assign the responsible auditor
-                </p>
-              </div>
-              <button
-                onClick={() => setIsScheduleModalOpen(false)}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}
-              >
-                <FiX size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleScheduleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    AUDIT ID <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.id}
-                    readOnly
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      backgroundColor: '#F1F5F9',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      color: '#475569',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    AUDIT TYPE <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <option value="Internal Quality Audit">Internal Quality Audit</option>
-                    <option value="External Client Audit">External Client Audit</option>
-                    <option value="Supplier/Vendor Audit">Supplier/Vendor Audit</option>
-                    <option value="ISO Audit">ISO Audit</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  AUDIT TITLE <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Q2 Internal Quality Audit — Welding Processes"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    DEPARTMENT <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <option value="Administration">Administration</option>
-                    <option value="Operations">Operations</option>
-                    <option value="Procurement">Procurement</option>
-                    <option value="Technical">Technical</option>
-                    <option value="HSE">HSE</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    LOCATION <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <option value="Lagos Head Office">Lagos Head Office</option>
-                    <option value="Port Harcourt Site">Port Harcourt Site</option>
-                    <option value="Warri Yard">Warri Yard</option>
-                    <option value="Offshore Field">Offshore Field</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    LEAD AUDITOR <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.leadAuditor}
-                    onChange={(e) => setFormData({ ...formData, leadAuditor: e.target.value })}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    START DATE <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  END DATE <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  AUDIT OBJECTIVE
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.objective}
-                  onChange={(e) => setFormData({ ...formData, objective: e.target.value })}
-                  placeholder="Evaluate compliance with HSE procedures, permit-to-work requirements..."
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                    resize: 'vertical',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  AUDIT CHECKLIST
-                </label>
-                <div
-                  style={{
-                    border: '1.5px dashed #CBD5E1',
-                    borderRadius: '8px',
-                    padding: '20px',
-                    textAlign: 'center',
-                    backgroundColor: '#F8FAFC',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() =>
-                    setFormData({
-                      ...formData,
-                      checklist: 'Q3_HSE_Audit_Checklist.pdf (25MB)',
-                    })
-                  }
-                >
-                  <FiUploadCloud size={24} color="#1D4ED8" style={{ marginBottom: '6px' }} />
-                  <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#1E293B' }}>
-                    Drop file here or click to browse
-                  </p>
-                  <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>
-                    PDF, DOCX, DWG, PNG up to 50MB
-                  </p>
-                </div>
-
-                {formData.checklist && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      marginTop: '10px',
-                      padding: '8px 12px',
-                      backgroundColor: '#F1F5F9',
-                      borderRadius: '6px',
-                      fontSize: '0.85rem',
-                      color: '#334155',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FiPaperclip size={14} color="#64748B" />
-                      <span>{formData.checklist}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, checklist: '' })}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#EF4444' }}
-                    >
-                      <FiX size={15} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '12px',
-                  marginTop: '10px',
-                  borderTop: '1px solid #E2E8F0',
-                  paddingTop: '16px',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsScheduleModalOpen(false)}
-                  style={{
-                    padding: '8px 16px',
-                    border: '1px solid #CBD5E1',
-                    background: '#FFFFFF',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '8px 20px',
-                    backgroundColor: '#1D4ED8',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  Schedule Audit
-                </button>
-              </div>
-            </form>
-          </div>
         </div>
       )}
 
-      {/* Edit Audit Modal */}
-      {isEditModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 100,
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              maxWidth: '560px',
-              width: '100%',
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            }}
+      <ListCard
+        list={list}
+        columns={columns}
+        emptyText="No audits found."
+        selection={selection}
+        toolbar={(
+          <ListToolbar
+            search={list.searchText}
+            onSearch={list.onSearch}
+            placeholder="Search Audit ID, Type ..."
+            onFilter={() => setFilterOpen(true)}
+            filterCount={filterCount}
+            onExport={canExport ? onExport : undefined}
+            exporting={exporter.exporting}
+            selectedCount={exporter.selectedCount}
           >
-            <div
-              style={{
-                padding: '20px 24px',
-                borderBottom: '1px solid #E2E8F0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <h2 style={{ fontSize: '1.125rem', fontWeight: 700, margin: 0, color: '#0F172A' }}>
-                Edit Audit
-              </h2>
-              <button
-                onClick={() => setIsEditModalOpen(false)}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}
-              >
-                <FiX size={20} />
-              </button>
-            </div>
-
-            <form onSubmit={handleEditSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    AUDIT ID <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.id}
-                    readOnly
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      backgroundColor: '#F1F5F9',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                      color: '#475569',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    AUDIT TYPE <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <option value="Internal Quality Audit">Internal Quality Audit</option>
-                    <option value="External Client Audit">External Client Audit</option>
-                    <option value="Supplier/Vendor Audit">Supplier/Vendor Audit</option>
-                    <option value="ISO Audit">ISO Audit</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  AUDIT TITLE <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    DEPARTMENT <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <option value="Administration">Administration</option>
-                    <option value="Operations">Operations</option>
-                    <option value="Procurement">Procurement</option>
-                    <option value="Technical">Technical</option>
-                    <option value="HSE">HSE</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    LOCATION <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <select
-                    value={formData.location}
-                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <option value="Lagos Head Office">Lagos Head Office</option>
-                    <option value="Port Harcourt Site">Port Harcourt Site</option>
-                    <option value="Warri Yard">Warri Yard</option>
-                    <option value="Offshore Field">Offshore Field</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    LEAD AUDITOR <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.leadAuditor}
-                    onChange={(e) => setFormData({ ...formData, leadAuditor: e.target.value })}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    START DATE <span style={{ color: '#EF4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  END DATE <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <input
-                  type="text"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  AUDIT OBJECTIVE
-                </label>
-                <textarea
-                  rows={3}
-                  value={formData.objective}
-                  onChange={(e) => setFormData({ ...formData, objective: e.target.value })}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  AUDIT CHECKLIST
-                </label>
-                {formData.checklist && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '8px 12px',
-                      backgroundColor: '#F1F5F9',
-                      borderRadius: '6px',
-                      fontSize: '0.85rem',
-                      color: '#334155',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <FiPaperclip size={14} color="#64748B" />
-                      <span>{formData.checklist}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, checklist: '' })}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#EF4444' }}
-                    >
-                      <FiX size={15} />
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'flex-end',
-                  gap: '12px',
-                  marginTop: '10px',
-                  borderTop: '1px solid #E2E8F0',
-                  paddingTop: '16px',
-                }}
-              >
-                <button
-                  type="button"
-                  onClick={() => setIsEditModalOpen(false)}
-                  style={{
-                    padding: '8px 16px',
-                    border: '1px solid #CBD5E1',
-                    background: '#FFFFFF',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: 500,
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '8px 20px',
-                    backgroundColor: '#1D4ED8',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.875rem',
-                    fontWeight: 600,
-                  }}
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* View Audit Drawer */}
-      <Drawer
-        isOpen={isViewDrawerOpen}
-        onClose={() => setIsViewDrawerOpen(false)}
-        title={activeAudit?.title || 'Audit Details'}
-        subtitle={`${activeAudit?.department || 'Operations'} • ${activeAudit?.id || ''}`}
-        width={580}
-      >
-        {activeAudit && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Top Status & Main Action Bar */}
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                paddingBottom: '16px',
-                borderBottom: '1px solid #E2E8F0',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 500 }}>
-                  Status:
-                </span>
-                <StatusBadge status={activeAudit.status} />
-              </div>
-
-              {activeAudit.status === 'Scheduled' && (
-                <button
-                  onClick={() => handleStatusChange(activeAudit.id, 'In Progress')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: '#1D4ED8',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    padding: '6px 14px',
-                    borderRadius: '6px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <FiCheck size={14} /> Mark as In Progress
-                </button>
-              )}
-
-              {activeAudit.status === 'Completed' && !activeAudit.report && (
-                <button
-                  onClick={() => setIsUploadReportModalOpen(true)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: '#1D4ED8',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    padding: '6px 14px',
-                    borderRadius: '6px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <FiUploadCloud size={14} /> Upload Report
-                </button>
-              )}
-
-              {activeAudit.status === 'Overdue' && (
-                <button
-                  onClick={() => openEditModal(activeAudit)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    backgroundColor: '#1D4ED8',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    padding: '6px 14px',
-                    borderRadius: '6px',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <FiCalendar size={14} /> Reschedule
-                </button>
-              )}
-            </div>
-
-            {/* Audit Details Card */}
-            <div
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: '8px',
-                border: '1px solid #E2E8F0',
-                padding: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '14px',
-              }}
-            >
-              <div>
-                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                  AUDIT TITLE
-                </div>
-                <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
-                  {activeAudit.title}
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    AUDIT ID
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                    {activeAudit.id}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    AUDIT TYPE
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0284C7', marginTop: '2px', fontWeight: 500 }}>
-                    {activeAudit.type}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    DEPARTMENT
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                    {activeAudit.department}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    LOCATION
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                    {activeAudit.location}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    LEAD AUDITOR
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                    {activeAudit.leadAuditor}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    START DATE
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                    {activeAudit.startDate}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    END DATE
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                    {activeAudit.endDate || '-'}
-                  </div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    STATUS
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                    {activeAudit.status}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Objective Card */}
-            <div
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: '8px',
-                border: '1px solid #E2E8F0',
-                padding: '16px',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                AUDIT OBJECTIVE
-              </div>
-              <p
-                style={{
-                  fontSize: '0.875rem',
-                  color: '#334155',
-                  marginTop: '8px',
-                  lineHeight: '1.5',
-                  marginBottom: 0,
-                }}
-              >
-                {activeAudit.objective}
-              </p>
-            </div>
-
-            {/* Attached Documents Card */}
-            <div
-              style={{
-                backgroundColor: '#FFFFFF',
-                borderRadius: '8px',
-                border: '1px solid #E2E8F0',
-                padding: '16px',
-              }}
-            >
-              <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', marginBottom: '12px' }}>
-                ATTACHED DOCUMENTS
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {activeAudit.checklist && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      backgroundColor: '#F8FAFC',
-                      borderRadius: '6px',
-                      border: '1px solid #E2E8F0',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <FiPaperclip size={16} color="#64748B" />
-                      <span style={{ color: '#1E293B', fontWeight: 500 }}>
-                        {activeAudit.checklist}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => alert(`Downloading: ${activeAudit.checklist}`)}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}
-                    >
-                      <FiDownload size={16} />
-                    </button>
-                  </div>
-                )}
-
-                {activeAudit.report && (
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '10px 14px',
-                      backgroundColor: '#F8FAFC',
-                      borderRadius: '6px',
-                      border: '1px solid #E2E8F0',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <FiPaperclip size={16} color="#15803D" />
-                      <span style={{ color: '#1E293B', fontWeight: 500 }}>
-                        {activeAudit.report}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => alert(`Downloading: ${activeAudit.report}`)}
-                      style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}
-                    >
-                      <FiDownload size={16} />
-                    </button>
-                  </div>
-                )}
-
-                {!activeAudit.checklist && !activeAudit.report && (
-                  <div style={{ color: '#94A3B8', fontSize: '0.85rem' }}>
-                    No documents attached yet.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+            {canCreate && <PrimaryButton icon={<FiPlus size={16} />} onClick={() => setFormFor('new')}>Schedule Audit</PrimaryButton>}
+          </ListToolbar>
         )}
-      </Drawer>
+      />
 
-      {/* Upload Report Modal */}
-      {isUploadReportModalOpen && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 110,
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              maxWidth: '480px',
-              width: '100%',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <div
-              style={{
-                padding: '20px',
-                borderBottom: '1px solid #E2E8F0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
-                Upload Audit Report
-              </h3>
-              <button
-                onClick={() => setIsUploadReportModalOpen(false)}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}
-              >
-                <FiX size={18} />
-              </button>
-            </div>
+      <FilterDrawer
+        isOpen={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        title="Filter Audits"
+        subtitle="Narrow the audits by status, type and start date."
+        fields={filterFields}
+        values={list.filters}
+        onApply={(next) => list.applyFilters({ ...next, sort: list.filters.sort, order: list.filters.order })}
+      />
 
-            <form onSubmit={handleUploadReport} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div>
-                <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Report File Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Audit Report 2026.pdf"
-                  value={reportFileName}
-                  onChange={(e) => setReportFileName(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
+      {formFor && (
+        <AuditFormModal
+          key={formFor === 'new' ? 'new' : formFor._id}
+          record={formFor === 'new' ? null : formFor}
+          onClose={() => setFormFor(null)}
+          onSaved={(message) => { setFormFor(null); showToast(message, 'success'); refresh(); }}
+        />
+      )}
+      {reportFor && <UploadReportModal audit={reportFor} onClose={() => setReportFor(null)} onSaved={(message) => { setReportFor(null); showToast(message, 'success'); refresh(); }} />}
+      {rescheduleFor && <RescheduleModal audit={rescheduleFor} onClose={() => setRescheduleFor(null)} onSaved={(message) => { setRescheduleFor(null); showToast(message, 'success'); refresh(); }} />}
+      {uploadOpen && (
+        <AttachToRecordDialog
+          api={reportApi}
+          title="Upload Audit Report"
+          recordNoun="completed audit"
+          recordLabel={(row) => `${row.auditId} — ${row.auditTitle}`}
+          onClose={() => setUploadOpen(false)}
+          onDone={(message) => { setUploadOpen(false); showToast(message, 'success'); refresh(); }}
+        />
+      )}
 
-              <div
-                style={{
-                  border: '1.5px dashed #CBD5E1',
-                  borderRadius: '8px',
-                  padding: '24px',
-                  textAlign: 'center',
-                  backgroundColor: '#F8FAFC',
-                  cursor: 'pointer',
-                }}
-                onClick={() => setReportFileName('Audit Report 2026.pdf')}
-              >
-                <FiUploadCloud size={24} color="#1D4ED8" style={{ marginBottom: '6px' }} />
-                <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#1E293B' }}>
-                  Click to choose signed audit report
-                </p>
-                <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>
-                  PDF up to 50MB
-                </p>
-              </div>
+      {viewId && <ViewAuditModal id={viewId} refreshKey={refreshKey} actions={viewActions} onClose={() => setViewId(null)} />}
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsUploadReportModalOpen(false)}
-                  style={{
-                    padding: '8px 16px',
-                    border: '1px solid #CBD5E1',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '8px 18px',
-                    backgroundColor: '#1D4ED8',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: '0.85rem',
-                  }}
-                >
-                  Upload & Complete
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {confirm?.type === 'complete' && (
+        <ConfirmModal
+          title="Mark Audit as Completed?"
+          message="Confirm that the audit has been carried out. You can then upload the audit report."
+          detail={summary(confirm.row)}
+          confirmLabel="Mark as Completed"
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => doAction('complete', [confirm.row._id], 'Audit marked completed')}
+        />
+      )}
+      {confirm?.type === 'close' && (
+        <ConfirmModal
+          title="Close Audit?"
+          message="The audit report is attached. Closing the audit finishes it."
+          detail={summary(confirm.row)}
+          confirmLabel="Close Audit"
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => doAction('close', [confirm.row._id], 'Audit closed')}
+        />
       )}
     </div>
   );

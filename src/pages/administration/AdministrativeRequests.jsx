@@ -1,303 +1,462 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import {
-  FiSearch, FiFilter, FiDownload, FiPlus, FiEye, FiCheck, FiX,
-  FiFile, FiMoreVertical, FiAlertCircle,
-} from 'react-icons/fi';
-import Drawer from '../../components/ui/Drawer';
-import DataTable from '../../components/ui/DataTable';
-import Pagination from '../../components/ui/Pagination';
+import { useMemo, useState } from 'react';
+import { useSelector } from 'react-redux';
+import { FiPlus, FiEye, FiCheck, FiX, FiFileText, FiSlash, FiPackage } from 'react-icons/fi';
 import Modal from '../../components/ui/Modal';
-import { FormField, Input, Select, Textarea } from '../../components/ui/FormField';
+import RowMenu from '../../components/ui/RowMenu';
+import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
-import Badge from '../../components/ui/Badge';
+import { usePermissions } from '../../hooks/usePermission';
+import { selectCurrentUser } from '../../store/authSlice';
+import { admRequestsSlice } from '../../store/administration/slices';
+import { apiError } from '../../services/apiHelpers';
 import { adminRequestService } from '../../services/admin.service';
-import { employeeService } from '../../services/hr.service';
+import {
+  countFilters, fieldErrorsOf, formatDate, refId, refName, statusLabel, toOptions, uploadStagedFiles, ymd,
+} from '../procurement/shared/procUtils';
+import { useExport, useProcList, useRecord, useRunAction, useSelection } from '../procurement/shared/procHooks';
+import {
+  Choice, ConfirmModal, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, Note, PageHeader, Panel,
+  PrimaryButton, ReasonModal, RecordSummary, SecondaryButton, StatusBadge, StatusLine, TabBar, Tag, TwoCol, ViewHeader,
+} from '../procurement/shared/ProcUi';
+import { AttachField, DocumentList } from '../procurement/shared/ProcExtras';
+import { HistoryTimeline } from './shared/AdmUi';
+import { useAdminLookups } from './shared/admHooks';
 
-const ITEMS_PER_PAGE = 10;
+const CATEGORIES = ['Office Supplies', 'Cleaning Supplies', 'Office Equipment', 'Furniture', 'IT Equipment', 'Stationery', 'Other'];
+const UNITS = ['Units', 'Pieces', 'Reams', 'Boxes', 'Packs', 'Rolls', 'Bottles', 'Sets', 'Cartons'];
+const URGENCIES = [
+  { value: 'routine', label: 'Routine' },
+  { value: 'urgent', label: 'Urgent' },
+  { value: 'critical', label: 'Critical' },
+];
+const URGENCY_TONE = { routine: 'slate', urgent: 'amber', critical: 'red' };
 
-const statusStyle = {
-  'URG Viewing':     { bg: '#FEF9C3', color: '#854D0E' },
-  'HOD Approved':    { bg: '#DCFCE7', color: '#15803D' },
-  'Store Reviewing': { bg: '#E0E7FF', color: '#4338CA' },
-  'Returned':        { bg: '#FEE2E2', color: '#DC2626' },
-  'Unavailable':     { bg: '#F1F5F9', color: '#64748B' },
-  'Cancelled':       { bg: '#F1F5F9', color: '#64748B' },
-  'Rejected by HOD': { bg: '#FEE2E2', color: '#DC2626' },
+const STEP_LABELS = {
+  admin_review: 'Admin Review',
+  procurement_review: 'Procurement Review',
+  finance_approval: 'Finance Approval',
+  final_approval: 'Final Approval',
+};
+const CHAIN = Object.keys(STEP_LABELS);
+const STEP_PERMISSIONS = {
+  admin_review: 'administration.adminrequest.decide',
+  procurement_review: 'administration.adminrequest.decide-procurement',
+  finance_approval: 'administration.adminrequest.decide-finance',
+  final_approval: 'administration.adminrequest.decide-final',
 };
 
-function StatusPill({ status }) {
-  const s = statusStyle[status] || { bg: '#F1F5F9', color: '#64748B' };
-  return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: '12px', fontWeight: 500, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{status}</span>;
+const STATUS_OPTIONS = [
+  { value: 'pending', label: 'In Approval' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'completed', label: 'Issued' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
+function RequestStatus({ row }) {
+  if (row.status === 'pending') return <StatusBadge status="pending" label={STEP_LABELS[row.currentStep] ? `${STEP_LABELS[row.currentStep]}` : 'Pending'} />;
+  if (row.status === 'completed') return <StatusBadge status="issued" label="Issued" />;
+  if (row.status === 'cancelled') return <StatusBadge status="draft" label="Cancelled" />;
+  return <StatusBadge status={row.status} />;
 }
 
-function MetaGrid({ items }) {
+const EXPORT_COLUMNS = [
+  { label: 'Request ID', value: (r) => r.requestId },
+  { label: 'Request Type', value: (r) => r.requestType },
+  { label: 'Request', value: (r) => r.requestTitle },
+  { label: 'Quantity', value: (r) => (r.quantity != null ? `${r.quantity} ${r.unit || ''}`.trim() : '') },
+  { label: 'Requested By', value: (r) => refName(r.requestedBy, 'fullName') },
+  { label: 'Department', value: (r) => refName(r.departmentId, 'name') },
+  { label: 'Request Date', value: (r) => ymd(r.submittedAt) },
+  { label: 'Required Date', value: (r) => ymd(r.requiredDate) },
+  { label: 'Urgency', value: (r) => statusLabel(r.urgency) },
+  { label: 'Status', value: (r) => (r.status === 'completed' ? 'Issued' : statusLabel(r.status)) },
+  { label: 'Current Step', value: (r) => STEP_LABELS[r.currentStep] || '' },
+];
+
+function NewRequestModal({ me, employees, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    title: '', category: 'Office Supplies', quantity: '', unit: 'Units', requestedBy: me?.employeeId || '', requiredDate: '', urgency: 'routine', purpose: '',
+  });
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const validate = () => {
+    const next = {};
+    if (!form.title.trim()) next.requestTitle = 'Name the item or service you are requesting';
+    const qty = Number(form.quantity);
+    if (form.quantity === '' || !Number.isFinite(qty) || qty <= 0) next.quantity = 'Enter a quantity above zero';
+    if (!form.requestedBy) next.requestedBy = 'Choose who the request is for';
+    if (!form.requiredDate) next.requiredDate = 'Choose the date you need it by';
+    if (!form.purpose.trim()) next.description = 'Say why this is needed';
+    setErrors(next);
+    return Object.keys(next).length === 0;
+  };
+
+  const submit = async () => {
+    setError('');
+    if (!validate()) return;
+    setBusy(true);
+    try {
+      const res = await adminRequestService.create({
+        requestType: form.category,
+        requestedBy: form.requestedBy,
+        requestTitle: form.title.trim(),
+        description: form.purpose.trim(),
+        quantity: Number(form.quantity),
+        unit: form.unit,
+        requiredDate: form.requiredDate,
+        urgency: form.urgency,
+      });
+      const saved = res.data?.data;
+      let note = '';
+      if (files.length && saved?._id) {
+        const failed = await uploadStagedFiles(adminRequestService, saved._id, files);
+        if (failed.length) note = ` Documents not attached: ${failed.join('; ')}`;
+      }
+      onSaved(`Request ${saved?.requestId || ''} submitted for approval.${note}`);
+    } catch (err) {
+      setError(apiError(err, 'The request could not be submitted'));
+      setErrors(fieldErrorsOf(err?.response?.data?.error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
-      {items.map(([label, val]) => (
-        <FormField key={label} label={label}>
-          <Input value={val || ''} readOnly style={{ backgroundColor: '#F8FAFC', color: '#334155' }} />
-        </FormField>
-      ))}
-    </div>
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="New Request"
+      subtitle="Submit a request for review and approval"
+      maxWidth="640px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Submitting…' : 'Submit Request'}</PrimaryButton>
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => { e.preventDefault(); submit(); }}>
+        <Field label="Request" required error={errors.requestTitle}>
+          <Input value={form.title} onChange={(e) => set('title', e.target.value)} placeholder="e.g. A4 Printing Paper" error={Boolean(errors.requestTitle)} />
+        </Field>
+        <TwoCol min={150}>
+          <Field label="Request category" required error={errors.requestType}>
+            <Choice value={form.category} onChange={(v) => set('category', v)} options={CATEGORIES} />
+          </Field>
+          <Field label="Quantity" required error={errors.quantity}>
+            <Input type="number" min="0" step="any" value={form.quantity} onChange={(e) => set('quantity', e.target.value)} placeholder="0" error={Boolean(errors.quantity)} />
+          </Field>
+          <Field label="Unit" required error={errors.unit}>
+            <Choice value={form.unit} onChange={(v) => set('unit', v)} options={UNITS} />
+          </Field>
+        </TwoCol>
+        <TwoCol>
+          <Field label="Requested by" required error={errors.requestedBy}>
+            {me?.employeeId ? (
+              <Input value={me.fullName} disabled />
+            ) : (
+              <Choice value={form.requestedBy} onChange={(v) => set('requestedBy', v)} searchable placeholder="Select an employee" options={toOptions(employees, (e) => `${e.fullName} (${e.employeeId})`)} error={errors.requestedBy} />
+            )}
+          </Field>
+          <Field label="Required date" required error={errors.requiredDate}>
+            <DatePicker value={form.requiredDate} onChange={(e) => set('requiredDate', e.target.value)} error={Boolean(errors.requiredDate)} />
+          </Field>
+        </TwoCol>
+        <Field label="Urgency" required error={errors.urgency}>
+          <div style={{ maxWidth: 260 }}><Choice value={form.urgency} onChange={(v) => set('urgency', v)} options={URGENCIES} /></div>
+        </Field>
+        <Field label="Purpose" required error={errors.description}>
+          <Textarea rows={3} value={form.purpose} onChange={(e) => set('purpose', e.target.value)} placeholder="Why is this needed?" error={Boolean(errors.description)} />
+        </Field>
+        <Field label="Attach document (optional)">
+          <AttachField files={files} onChange={setFiles} disabled={busy} />
+        </Field>
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function ViewRequestModal({ id, refreshKey, actions, ownRequest, canApproveNow, canUpload, onClose }) {
+  const { record, error, loading } = useRecord(adminRequestService, id, refreshKey);
+  const [tab, setTab] = useState('details');
+  const remaining = record && record.status === 'pending' && record.currentStep ? CHAIN.slice(CHAIN.indexOf(record.currentStep)).map((s) => STEP_LABELS[s]) : [];
+  return (
+    <Modal isOpen onClose={onClose} title="" maxWidth="720px">
+      {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading request…</div>}
+      {error && <FormError message={error} />}
+      {record && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: -10 }}>
+          <ViewHeader icon={<FiFileText size={22} />} title={record.requestTitle} subtitle={`${refName(record.requestedBy, 'fullName')} • ${record.requestId}`}>
+            {actions(record)}
+          </ViewHeader>
+          <StatusLine status={<RequestStatus row={record} />} />
+          {record.status === 'pending' && ownRequest(record) && canApproveNow(record) && (
+            <Note tone="amber">You raised this request, so another approver has to decide it.</Note>
+          )}
+          <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'history', label: 'Approval History' }]} active={tab} onChange={setTab} />
+          {tab === 'details' && (
+            <>
+              <DetailGrid
+                items={[
+                  ['Request ID', record.requestId],
+                  ['Request', record.requestTitle],
+                  ['Request type', record.requestType],
+                  ['Quantity', record.quantity != null ? `${record.quantity} ${record.unit || ''}`.trim() : '—'],
+                  ['Requested by', refName(record.requestedBy, 'fullName')],
+                  ['Department', refName(record.departmentId, 'name')],
+                  ['Request date', formatDate(record.submittedAt)],
+                  ['Required date', formatDate(record.requiredDate)],
+                  ['Urgency', statusLabel(record.urgency)],
+                  ['Status', record.status === 'completed' ? 'Issued' : record.status === 'pending' ? `In approval: ${STEP_LABELS[record.currentStep] || 'Pending'}` : statusLabel(record.status)],
+                ]}
+              />
+              <Panel title="Purpose">{record.description || 'No purpose was entered.'}</Panel>
+              {record.status === 'rejected' && <Panel title="Rejection reason" tone="red">{record.rejectionReason || 'No reason was recorded.'}</Panel>}
+              {record.status === 'cancelled' && <Panel title="Cancellation" tone="slate">{record.cancelReason || 'The request was withdrawn.'}</Panel>}
+              <DocumentList key={record._id} api={adminRequestService} id={record._id} canUpload={canUpload(record)} />
+            </>
+          )}
+          {tab === 'history' && (
+            <HistoryTimeline key={`${record._id}-${refreshKey}`} load={adminRequestService.history} id={record._id} title="Approval history" pending={remaining} />
+          )}
+        </div>
+      )}
+    </Modal>
   );
 }
 
 export default function AdministrativeRequests() {
-  const [search, setSearch] = useState('');
-  const [viewRecord, setViewRecord] = useState(null);
-  const [viewTab, setViewTab] = useState('details');
-  const [showNew, setShowNew] = useState(false);
-  const [toast, setToast] = useState(null);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { can, isSuperAdmin } = usePermissions();
+  const canCreate = can('administration.adminrequest.create');
+  const canUpdate = can('administration.adminrequest.update');
+  const canDecide = can('administration.adminrequest.decide');
+  const canExport = can('administration.adminrequest.export');
+  const user = useSelector(selectCurrentUser);
+  const { lookups } = useAdminLookups(['me', 'departments', 'employees']);
+  const me = lookups.me || null;
+  const myEmployeeId = me?.employeeId || (user?.employeeId && typeof user.employeeId === 'object' ? user.employeeId._id : user?.employeeId) || '';
+  const ownRequest = (r) => Boolean(myEmployeeId) && refId(r.requestedBy) === myEmployeeId;
+  const canApproveNow = (r) => r.status === 'pending' && Boolean(STEP_PERMISSIONS[r.currentStep]) && (isSuperAdmin || can(STEP_PERMISSIONS[r.currentStep]));
+  const canWithdraw = (r) => r.status === 'pending' && (canUpdate || ownRequest(r));
+  const canAttach = (r) => r.status === 'pending' && (canUpdate || ownRequest(r));
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 3000); };
+  const list = useProcList(admRequestsSlice, { initialFilters: { status: '', urgency: '', requestType: '', departmentId: '' }, withStats: false });
+  const run = useRunAction(admRequestsSlice);
+  const selection = useSelection();
+  const { toast, showToast, hideToast } = useToast();
+  const exporter = useExport(adminRequestService, list, selection, EXPORT_COLUMNS, 'requests.csv');
 
-  const filtered = mockAdminRequests.filter(r =>
-    r.request.toLowerCase().includes(search.toLowerCase()) ||
-    r.id.toLowerCase().includes(search.toLowerCase())
+  const [formOpen, setFormOpen] = useState(false);
+  const [viewId, setViewId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [confirm, setConfirm] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
+
+  const refresh = () => { list.reload(); setRefreshKey((k) => k + 1); };
+
+  const doAction = async (method, args, success) => {
+    setBusy(true);
+    setActionError('');
+    const res = await run(method, ...args);
+    setBusy(false);
+    if (res.ok) {
+      setConfirm(null);
+      showToast(success, 'success');
+      refresh();
+    } else {
+      setActionError(res.error);
+      if (!confirm) showToast(res.error, 'error');
+    }
+    return res.ok;
+  };
+
+  const open = (type, row) => { setActionError(''); setConfirm({ type, row }); };
+
+  const menuItems = (row) => {
+    const items = [];
+    if (canApproveNow(row) && !ownRequest(row)) {
+      items.push({ label: 'Approve Request', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => open('approve', row) });
+    }
+    if (row.status === 'pending' && canDecide && !ownRequest(row)) {
+      items.push({ label: 'Reject Request', icon: <FiX size={14} color="#DC2626" />, color: '#DC2626', action: () => open('reject', row) });
+    }
+    if (row.status === 'approved' && canDecide) {
+      items.push({ label: 'Mark as Issued', icon: <FiPackage size={14} color="#2563EB" />, action: () => open('complete', row) });
+    }
+    if (canWithdraw(row)) {
+      items.push({ label: 'Cancel Request', icon: <FiX size={14} color="#DC2626" />, color: '#DC2626', action: () => open('cancel', row) });
+    }
+    return items;
+  };
+
+  const columns = useMemo(() => [
+    { key: 'requestId', label: 'REQUEST ID', render: (v) => <span style={{ fontWeight: 500, color: '#334155' }}>{v}</span> },
+    { key: 'requestType', label: 'REQUEST TYPE', render: (v) => <span style={{ color: '#475569' }}>{v}</span> },
+    { key: 'requestTitle', label: 'REQUEST', render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{v}</span> },
+    { key: 'quantity', label: 'QTY', render: (v, row) => <span style={{ color: '#334155' }}>{v != null ? `${v} ${row.unit || ''}`.trim() : '—'}</span> },
+    { key: 'requestedBy', label: 'REQUESTED BY', render: (v) => <span style={{ color: '#334155' }}>{refName(v, 'fullName')}</span> },
+    { key: 'submittedAt', label: 'REQUEST DATE', render: (v) => <span style={{ color: '#64748B' }}>{formatDate(v)}</span> },
+    { key: 'urgency', label: 'URGENCY', render: (v) => <Tag tone={URGENCY_TONE[v] || 'slate'}>{statusLabel(v)}</Tag> },
+    { key: 'status', label: 'STATUS', render: (_, row) => <RequestStatus row={row} /> },
+    {
+      key: 'actions',
+      label: 'ACTIONS',
+      align: 'right',
+      render: (_, row) => {
+        const items = menuItems(row);
+        return (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" className="icon-btn" title="View Request" aria-label="View request" onClick={() => setViewId(row._id)} style={{ color: '#64748B', cursor: 'pointer' }}><FiEye size={16} /></button>
+            {items.length > 0 ? <RowMenu items={items} /> : <span style={{ width: 24 }} />}
+          </div>
+        );
+      },
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [can, isSuperAdmin, myEmployeeId]);
+
+  const viewActions = (record) => (
+    <>
+      {canApproveNow(record) && !ownRequest(record) && (
+        <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => open('approve', record)}>Approve</PrimaryButton>
+      )}
+      {record.status === 'pending' && canDecide && !ownRequest(record) && (
+        <SecondaryButton danger icon={<FiX size={14} />} onClick={() => open('reject', record)}>Reject</SecondaryButton>
+      )}
+      {record.status === 'approved' && canDecide && (
+        <PrimaryButton icon={<FiPackage size={14} />} onClick={() => open('complete', record)}>Mark as Issued</PrimaryButton>
+      )}
+      {canWithdraw(record) && (
+        <SecondaryButton danger icon={<FiSlash size={14} />} onClick={() => open('cancel', record)}>Cancel Request</SecondaryButton>
+      )}
+    </>
   );
 
-  const menuItems = (r) => [
-    { label: 'View Details', icon: <FiEye size={14} />, action: () => { setViewRecord(r); setViewTab('details'); } },
-    { label: 'Approve', icon: <FiCheck size={14} />, action: () => showToast(`Approved ${r.id}`) },
-    { label: 'Reject', icon: <FiX size={14} />, color: '#EF4444', action: () => showToast(`Rejected ${r.id}`) },
-  ];
-
-  const toggleSelectAll = () => {
-    if (selectedIds.length === filtered.length) setSelectedIds([]);
-    else setSelectedIds(filtered.map(r => r.id));
+  const onExport = async () => {
+    const message = await exporter.run();
+    if (message) showToast(message, 'error');
+    else showToast(selection.ids.length ? `${selection.ids.length} selected requests exported` : 'Requests exported', 'success');
   };
 
-  const toggleSelectRow = (id) => {
-    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
-
-  const columns = [
-    { key: 'id', label: 'REQUEST ID', render: (val) => <span style={{ color: '#3B82F6', fontWeight: 500 }}>{val}</span> },
-    { key: 'type', label: 'REQUEST TYPE' },
-    { key: 'request', label: 'REQUEST', render: (val) => <span style={{ color: '#0F172A', fontWeight: 500 }}>{val}</span> },
-    { key: 'qty', label: 'QTY' },
-    { key: 'requestedBy', label: 'REQUESTED BY' },
-    { key: 'date', label: 'DATE' },
-    { key: 'urgency', label: 'URGENCY', render: (val) => {
-      const s = urgencyStyle[val] || { bg: '#F1F5F9', color: '#64748B' };
-      return <span style={{ padding: '3px 10px', borderRadius: 20, fontSize: '12px', fontWeight: 500, background: s.bg, color: s.color, whiteSpace: 'nowrap' }}>{val}</span>;
-    }},
-    { key: 'status', label: 'STATUS', render: (val) => <StatusPill status={val} /> },
-    { key: 'actions', label: 'ACTIONS', render: (_, row) => (
-      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-        <button onClick={() => { setViewRecord(row); setViewTab('details'); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94A3B8', padding: 4 }}><FiEye size={16} /></button>
-        <RowMenu items={menuItems(row)} />
-      </div>
-    )},
+  const filterFields = [
+    { key: 'status', label: 'Status', options: STATUS_OPTIONS },
+    { key: 'urgency', label: 'Urgency', options: URGENCIES },
+    { key: 'requestType', label: 'Request type', options: CATEGORIES.map((c) => ({ value: c, label: c })) },
+    { key: 'departmentId', label: 'Department', options: toOptions(lookups.departments, 'name') },
   ];
 
-  const canApprove = viewRecord && ['HOD Reviewing', 'Store Reviewing', 'HOD Approved'].includes(viewRecord.status);
-  const tabStyle = (t) => ({
-    padding: '10px 0', fontSize: '13px', fontWeight: 500, cursor: 'pointer', border: 'none', background: 'none',
-    color: viewTab === t ? '#1D4ED8' : '#64748B',
-    borderBottom: viewTab === t ? '2px solid #1D4ED8' : '2px solid transparent',
-  });
+  const summary = (row) => <RecordSummary rows={[['Request', row.requestId], ['Item', row.requestTitle]]} />;
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {toast && (
-        <div style={{ position: 'fixed', bottom: 24, right: 24, background: '#0F172A', color: '#fff', padding: '12px 20px', borderRadius: 10, zIndex: 9999, fontSize: 14, boxShadow: '0 4px 20px rgba(0,0,0,0.2)' }}>
-          {toast}
-        </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
+
+      <PageHeader title="Requests" subtitle="Submit and track requests for materials, equipment, or supplies from the store" />
+
+      <ListCard
+        list={list}
+        columns={columns}
+        emptyText="No requests found."
+        selection={selection}
+        toolbar={(
+          <ListToolbar
+            search={list.searchText}
+            onSearch={list.onSearch}
+            placeholder="Search by id, request..."
+            onFilter={() => setFilterOpen(true)}
+            filterCount={countFilters(list.filters)}
+            onExport={canExport ? onExport : undefined}
+            exporting={exporter.exporting}
+            selectedCount={exporter.selectedCount}
+          >
+            {canCreate && <PrimaryButton icon={<FiPlus size={16} />} onClick={() => setFormOpen(true)}>New Request</PrimaryButton>}
+          </ListToolbar>
+        )}
+      />
+
+      <FilterDrawer isOpen={filterOpen} onClose={() => setFilterOpen(false)} title="Filter Requests" subtitle="Narrow the list by status, urgency and more." fields={filterFields} values={list.filters} onApply={list.applyFilters} />
+
+      {formOpen && (
+        <NewRequestModal
+          me={me}
+          employees={lookups.employees}
+          onClose={() => setFormOpen(false)}
+          onSaved={(message) => { setFormOpen(false); showToast(message, 'success'); refresh(); }}
+        />
       )}
 
-      <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#0F172A', margin: 0 }}>Requests</h2>
-        <p style={{ margin: '4px 0 0', color: '#64748B', fontSize: '14px' }}>Submit and track requests for materials, equipment, or supplies from the store</p>
-      </div>
+      {viewId && (
+        <ViewRequestModal
+          id={viewId}
+          refreshKey={refreshKey}
+          actions={viewActions}
+          ownRequest={ownRequest}
+          canApproveNow={canApproveNow}
+          canUpload={canAttach}
+          onClose={() => setViewId(null)}
+        />
+      )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
-        <div style={{ position: 'relative', flex: 1, maxWidth: '340px' }}>
-          <FiSearch style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-          <input placeholder="Search by id, request..." value={search} onChange={e => setSearch(e.target.value)}
-            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '14px', background: '#fff', boxSizing: 'border-box' }} />
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
-          <button style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#fff', color: '#374151', fontSize: '14px', cursor: 'pointer' }}>
-            <FiFilter size={15} /> Filter
-          </button>
-          <button onClick={() => showToast('Exporting...')} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', border: '1px solid #E2E8F0', borderRadius: '8px', background: '#fff', color: '#374151', fontSize: '14px', cursor: 'pointer' }}>
-            <FiDownload size={15} /> Export
-          </button>
-          <button onClick={() => setShowNew(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '9px 16px', border: 'none', borderRadius: '8px', background: '#1E3A5F', color: '#fff', fontSize: '14px', cursor: 'pointer', fontWeight: 600 }}>
-            <FiPlus size={15} /> New Request
-          </button>
-        </div>
-      </div>
-
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <DataTable columns={columns} data={filtered} selectable={true} selectedIds={selectedIds}
-          onSelectRow={toggleSelectRow} onSelectAll={toggleSelectAll} keyField="id" />
-        <Pagination currentPage={1} totalPages={8} totalItems={filtered.length} onPageChange={() => {}} />
-      </div>
-
-      {/* ── View Request Drawer ── */}
-      <Drawer isOpen={!!viewRecord} onClose={() => setViewRecord(null)} title="" width="500px">
-        {viewRecord && (
-          <>
-            {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-              <div style={{ display: 'flex', gap: 12 }}>
-                <div style={{ color: '#1D4ED8', marginTop: 2 }}>
-                  <FiFile size={24} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>{viewRecord.request}</h3>
-                  <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748B' }}>{viewRecord.requestedBy} · {viewRecord.id}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Status + Action Buttons */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20, padding: '10px 14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
-              <span style={{ fontSize: '12px', color: '#64748B', fontWeight: 500 }}>Status:</span>
-              <StatusPill status={viewRecord.status} />
-              {canApprove && (
-                <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                  <button onClick={() => { showToast(`Approved ${viewRecord.id}`); setViewRecord(null); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: '#16A34A', color: '#fff', border: 'none', borderRadius: 6, fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-                    <FiCheck size={12} /> Approve
-                  </button>
-                  <button onClick={() => { showToast(`Rejected ${viewRecord.id}`); setViewRecord(null); }}
-                    style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', background: '#FEE2E2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 6, fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}>
-                    <FiX size={12} /> Reject
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Tabs */}
-            <div style={{ display: 'flex', gap: 24, borderBottom: '1px solid #E2E8F0', marginBottom: 20 }}>
-              <button style={tabStyle('details')} onClick={() => setViewTab('details')}>Details</button>
-              <button style={tabStyle('history')} onClick={() => setViewTab('history')}>Approval History</button>
-            </div>
-
-            {viewTab === 'details' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <MetaGrid items={[
-                  ['Request ID', viewRecord.id],
-                  ['Request', viewRecord.request],
-                  ['Request Type', viewRecord.type],
-                  ['Quantity', viewRecord.qty],
-                  ['Requested By', viewRecord.requestedBy],
-                  ['Request Date', viewRecord.date],
-                  ['Urgency', viewRecord.urgency],
-                  ['Status', viewRecord.status],
-                ]} />
-                {viewRecord.purpose && (
-                  <div style={{ padding: '14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
-                    <p style={{ fontSize: '10px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 6px' }}>Purpose</p>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#374151', lineHeight: 1.6 }}>{viewRecord.purpose || 'Current stationery stock is insufficient for ongoing administrative activities.'}</p>
-                  </div>
-                )}
-                <div style={{ padding: '14px', background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
-                  <p style={{ fontSize: '10px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 8px' }}>Attached Documents</p>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <FiFile size={14} style={{ color: '#64748B' }} />
-                      <span style={{ fontSize: '13px', color: '#374151' }}>Office_Supplies_List.pdf (25MB)</span>
-                    </div>
-                    <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#64748B' }}><FiDownloadCloud size={16} /></button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {viewTab === 'history' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                <p style={{ fontSize: '10px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 16px' }}>Approval History</p>
-                {[
-                  { date: '28/05/2025 · 9:45', title: 'Request Submitted', desc: `Form submitted by ${viewRecord.requestedBy}`, color: '#1D4ED8' },
-                  { date: '28/05/2025 · 9:45', title: viewRecord.status, desc: 'Waiting for reviewer', color: '#F59E0B' },
-                ].map((step, i) => (
-                  <div key={i} style={{ display: 'flex', gap: 12, paddingBottom: 20 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: step.color, flexShrink: 0, marginTop: 4 }} />
-                      {i === 0 && <div style={{ width: 1, flex: 1, background: '#E2E8F0', marginTop: 4 }} />}
-                    </div>
-                    <div>
-                      <p style={{ margin: '0 0 2px', fontSize: '11px', color: '#94A3B8' }}>{step.date}</p>
-                      <p style={{ margin: '0 0 2px', fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>{step.title}</p>
-                      <p style={{ margin: 0, fontSize: '12px', color: '#64748B' }}>{step.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
-      </Drawer>
-
-      {/* ── New Request Drawer ── */}
-      <Drawer isOpen={showNew} onClose={() => setShowNew(false)} title="New Request" subtitle="Submit a request for review and approval" width="500px">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <FormField label="REQUEST" required>
-            <Input placeholder="e.g. A4 Printing Paper" />
-          </FormField>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '12px' }}>
-            <FormField label="REQUEST CATEGORY" required>
-              <Select>
-                <option>Office Supplies</option>
-                <option>IT Equipment</option>
-                <option>Furniture</option>
-                <option>Safety Equipment</option>
-              </Select>
-            </FormField>
-            <FormField label="QUANTITY" required>
-              <Input type="number" defaultValue={0} />
-            </FormField>
-            <FormField label="UNIT" required>
-              <Select>
-                <option>Units</option>
-                <option>Packs</option>
-                <option>Boxes</option>
-                <option>Reams</option>
-              </Select>
-            </FormField>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <FormField label="REQUESTED BY">
-              <Input defaultValue="Nafisat Abubakar" readOnly style={{ backgroundColor: '#F8FAFC' }} />
-            </FormField>
-            <FormField label="REQUIRED DATE" required>
-              <Input type="date" />
-            </FormField>
-          </div>
-
-          <FormField label="URGENCY" required>
-            <Select>
-              <option>Routine</option>
-              <option>Urgent</option>
-              <option>Critical</option>
-            </Select>
-          </FormField>
-
-          <FormField label="PURPOSE" required>
-            <Textarea rows={4} placeholder="e.g. Current stationery stock is insufficient..." />
-          </FormField>
-
-          <FormField label="ATTACH DOCUMENT (OPTIONAL)">
-            <FileUpload onFileSelect={() => {}} />
-          </FormField>
-        </div>
-
-        <div style={{ padding: '20px 0 0 0', marginTop: '8px', borderTop: '1px solid #E2E8F0', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-          <button className="btn btn-secondary" onClick={() => setShowNew(false)}>Cancel</button>
-          <button className="btn btn-primary" style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
-            onClick={() => { setShowNew(false); showToast('Request submitted successfully!'); }}>
-            Submit Request
-          </button>
-        </div>
-      </Drawer>
-
+      {confirm?.type === 'approve' && (
+        <ConfirmModal
+          title="Approve Request?"
+          message={`Are you sure you want to approve ${confirm.row.requestId}? Once approved, the request will move to the next stage for execution.`}
+          detail={summary(confirm.row)}
+          confirmLabel="Approve Request"
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => doAction('approve', [confirm.row._id], 'Request approved')}
+        />
+      )}
+      {confirm?.type === 'reject' && (
+        <ReasonModal
+          title="Reject Request?"
+          message={`Are you sure you want to reject ${confirm.row.requestId}? A rejection reason is required and the requester will be notified.`}
+          label="Reason for rejection"
+          confirmLabel="Reject Request"
+          danger
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={(reason) => doAction('reject', [confirm.row._id, reason], 'Request rejected')}
+        />
+      )}
+      {confirm?.type === 'cancel' && (
+        <ReasonModal
+          title="Cancel Request?"
+          message="The request is withdrawn from the approval chain and cannot be revived."
+          detail={summary(confirm.row)}
+          label="Reason (optional)"
+          required={false}
+          confirmLabel="Cancel Request"
+          danger
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={(reason) => doAction('cancel', [confirm.row._id, reason], 'Request cancelled')}
+        />
+      )}
+      {confirm?.type === 'complete' && (
+        <ConfirmModal
+          title="Mark as Issued?"
+          message="Confirm that the items for this approved request have been issued to the requester."
+          detail={summary(confirm.row)}
+          confirmLabel="Mark as Issued"
+          busy={busy}
+          error={actionError}
+          onClose={() => setConfirm(null)}
+          onConfirm={() => doAction('complete', [confirm.row._id], 'Request marked as issued')}
+        />
+      )}
     </div>
   );
 }
