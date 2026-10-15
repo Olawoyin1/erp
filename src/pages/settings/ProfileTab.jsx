@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { FiUpload } from 'react-icons/fi';
 import { FormField, Input, Select } from '../../components/ui/FormField';
+import ImageUpload from './ImageUpload';
 import { settingsService } from '../../services/settings.service';
 import { departmentService } from '../../services/platform.service';
 import { fetchCurrentUser } from '../../store/authSlice';
@@ -66,22 +66,15 @@ function ProfileForm({ profile, departments, canListDepartments, showToast, onSa
   return (
     <form onSubmit={handleSubmit} noValidate>
       <SectionCard title="Profile Photo">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ width: 56, height: 56, borderRadius: '50%', backgroundColor: '#1D4ED8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FFFFFF', fontSize: '1rem', fontWeight: 700, flexShrink: 0 }}>
-            {initials || '?'}
-          </div>
-          <div>
-            <button
-              type="button"
-              disabled
-              title="Photo upload is not available yet"
-              style={{ padding: '7px 16px', borderRadius: 6, border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', color: '#94A3B8', fontSize: '0.813rem', fontWeight: 500, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: 6 }}
-            >
-              <FiUpload size={13} /> Upload Photo
-            </button>
-            <p style={{ margin: '6px 0 0', fontSize: '0.75rem', color: '#94A3B8' }}>Photo upload is not available yet. Your initials are shown instead.</p>
-          </div>
-        </div>
+        <ImageUpload
+          imageUrl={profile.photoUrl}
+          fallback={initials || '?'}
+          onUpload={(file) => settingsService.uploadPhoto(file)}
+          onRemove={() => settingsService.removePhoto()}
+          onChanged={() => { dispatch(fetchCurrentUser()); onSaved(); }}
+          showToast={showToast}
+          hint="PNG or JPG, up to 5 MB. Without a photo your initials are shown."
+        />
       </SectionCard>
 
       <SectionCard title="Personal Information">

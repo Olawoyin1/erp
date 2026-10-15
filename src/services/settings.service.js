@@ -5,6 +5,22 @@ export const settingsService = {
   getProfile:    () => apiClient.get('/me/profile'),
   updateProfile: (data) => apiClient.patch('/me/profile', data),
 
+  uploadPhoto: (file) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiClient.post('/me/photo', body);
+  },
+  removePhoto: () => apiClient.delete('/me/photo'),
+
+  // Company name and logo for the sidebar: any signed-in user
+  getBranding: () => apiClient.get('/settings/branding'),
+  uploadLogo: (file) => {
+    const body = new FormData();
+    body.append('file', file);
+    return apiClient.post('/settings/company/logo', body);
+  },
+  removeLogo: () => apiClient.delete('/settings/company/logo'),
+
   getMyNotificationPrefs:    () => apiClient.get('/me/notification-preferences'),
   updateMyNotificationPrefs: (data) => apiClient.patch('/me/notification-preferences', data),
 
