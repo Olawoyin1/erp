@@ -1,949 +1,353 @@
-import React, { useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
+import { FiEye, FiDownload, FiList, FiPlus, FiUpload, FiFileText } from 'react-icons/fi';
+import Modal from '../../components/ui/Modal';
+import { DatePicker, Input } from '../../components/ui/FormField';
+import Toast, { useToast } from '../../components/ui/Toast';
+import { usePermissions } from '../../hooks/usePermission';
+import { qmsCalibrationSlice } from '../../store/quality/slices';
+import { apiError } from '../../services/apiHelpers';
+import { qualityCalibrationService } from '../../services/quality.service';
+import { countFilters, fieldErrorsOf, formatDate, statusLabel, useDebounced, ymd } from '../procurement/shared/procUtils';
+import { useExport, useFetched, useProcList, useRecord, useSelection } from '../procurement/shared/procHooks';
 import {
-  FiSearch,
-  FiFilter,
-  FiDownload,
-  FiEye,
-  FiUploadCloud,
-  FiPlus,
-  FiX,
-  FiCalendar,
-  FiFileText,
-  FiCheckCircle,
-  FiAlertCircle,
-} from 'react-icons/fi';
-import DataTable from '../../components/ui/DataTable';
-import Pagination from '../../components/ui/Pagination';
-import Drawer from '../../components/ui/Drawer';
-import { mockCalibrations } from '../../data/mockQuality';
+  Choice, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, PageHeader, Panel,
+  PrimaryButton, SecondaryButton, SimpleTable, Skeleton, StatusLine, TabBar, TwoCol, ViewHeader,
+} from '../procurement/shared/ProcUi';
+import { AttachField } from '../procurement/shared/ProcExtras';
+import { Pill } from '../administration/shared/AdmUi';
+import { nameOf, openSignedDownload } from '../hse/shared/hseUtils';
+import { useQualityLookups } from '../hse/shared/useScreenLookups';
 
-function StatusBadge({ status }) {
-  const styles = {
-    Valid: { bg: '#DCFCE7', color: '#15803D' },
-    'Due Soon': { bg: '#FEF3C7', color: '#B45309' },
-    Overdue: { bg: '#FEE2E2', color: '#B91C1C' },
-    'Out of Service': { bg: '#F1F5F9', color: '#64748B' },
+const INSTRUMENT_TYPES = ['Pressure Gauge', 'Temperature Gauge', 'Ultrasonic Thickness Gauge', 'Torque Wrench', 'Multimeter', 'Coating Thickness Gauge', 'Gas Detector', 'Hardness Tester'];
+const STATUSES = [
+  { value: 'valid', label: 'Valid' },
+  { value: 'due_soon', label: 'Due Soon' },
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'out_of_service', label: 'Out of Service' },
+];
+const STATUS_TONE = { valid: 'green', due_soon: 'amber', overdue: 'red', out_of_service: 'slate' };
+const RESULTS = [{ value: 'Pass', label: 'Passed' }, { value: 'Fail', label: 'Failed' }];
+const FREQUENCY_SECTIONS = ['frequencies'];
+
+const Status = ({ status }) => <Pill tone={STATUS_TONE[status]}>{statusLabel(status)}</Pill>;
+
+const EXPORT_COLUMNS = [
+  { label: 'Instrument ID', value: (r) => r.instrumentId },
+  { label: 'Name', value: (r) => r.instrumentName },
+  { label: 'Type', value: (r) => r.type },
+  { label: 'Location', value: (r) => nameOf(r.storageLocation) },
+  { label: 'Custodian', value: (r) => nameOf(r.custodian) },
+  { label: 'Last Calibrated', value: (r) => ymd(r.lastCalibrated) },
+  { label: 'Next Due', value: (r) => ymd(r.nextDue) },
+  { label: 'Status', value: (r) => statusLabel(r.status) },
+];
+
+/** `YYYY-MM-DD` plus whole calendar months, clamped to the end of the month. */
+function addMonths(dateText, months) {
+  const [year, month, day] = dateText.split('-').map(Number);
+  const target = new Date(Date.UTC(year, month - 1 + months, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(day, lastDay));
+  return target.toISOString().slice(0, 10);
+}
+
+function LogCalibrationModal({ instrument, onClose, onSaved }) {
+  const { lookups } = useQualityLookups(FREQUENCY_SECTIONS);
+  const [term, setTerm] = useState('');
+  const search = useDebounced(term.trim(), 300);
+  const [pick, setPick] = useState({ rows: [], loading: !instrument, error: '' });
+  const [chosen, setChosen] = useState(instrument || null);
+  const [form, setForm] = useState({ calibrationDate: '', calibratedBy: '', nextDue: '', certificateNumber: '', calibrationResult: 'Pass' });
+  const [dueTouched, setDueTouched] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
+  const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  useEffect(() => {
+    if (instrument) return undefined;
+    let cancelled = false;
+    qualityCalibrationService.list({ page: 1, limit: 25, ...(search ? { search } : {}) })
+      .then((res) => { if (!cancelled) setPick({ rows: res.data?.data || [], loading: false, error: '' }); })
+      .catch((err) => { if (!cancelled) setPick({ rows: [], loading: false, error: apiError(err, 'Could not load instruments') }); });
+    return () => { cancelled = true; };
+  }, [instrument, search]);
+
+  const suggestDue = (date, record) => {
+    const months = (lookups.frequencies || []).find((f) => f.label.toLowerCase() === String(record?.frequency || '').toLowerCase())?.months;
+    return date && months ? addMonths(date, months) : '';
   };
-  const s = styles[status] || { bg: '#F1F5F9', color: '#64748B' };
+
+  const onDate = (date) => {
+    setForm((f) => ({ ...f, calibrationDate: date, nextDue: dueTouched ? f.nextDue : suggestDue(date, chosen) || f.nextDue }));
+  };
+
+  const save = async () => {
+    setError('');
+    const next = {};
+    if (!chosen) next.instrument = 'Choose the instrument that was calibrated';
+    if (!form.calibrationDate) next.calibrationDate = 'Choose the calibration date';
+    if (!form.calibratedBy.trim()) next.calibratedBy = 'Enter who carried out the calibration';
+    if (!form.nextDue) next.nextDue = 'Choose the next due date';
+    if (form.calibrationDate && form.nextDue && form.nextDue <= form.calibrationDate) next.nextDue = 'Next due must be after the calibration date';
+    if (!form.certificateNumber.trim()) next.certificateNumber = 'Enter the certificate number';
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    setBusy(true);
+    try {
+      await qualityCalibrationService.log(chosen._id, { ...form, calibratedBy: form.calibratedBy.trim(), certificateNumber: form.certificateNumber.trim() }, files[0]);
+      onSaved(`Calibration logged for ${chosen.instrumentId}`);
+    } catch (err) {
+      setError(apiError(err, 'The calibration could not be logged'));
+      setErrors(fieldErrorsOf(err?.response?.data?.error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <span
-      style={{
-        backgroundColor: s.bg,
-        color: s.color,
-        padding: '3px 12px',
-        borderRadius: '9999px',
-        fontSize: '0.75rem',
-        fontWeight: 600,
-        display: 'inline-block',
-      }}
+    <Modal
+      isOpen
+      onClose={onClose}
+      title="Schedule Calibration"
+      subtitle="Record a completed calibration with its certificate"
+      maxWidth="640px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={save} disabled={busy} icon={<FiUpload size={14} />}>{busy ? 'Saving…' : 'Save Calibration'}</PrimaryButton>
+        </>
+      )}
     >
-      {status}
-    </span>
+      <FormBody onSubmit={(e) => { e.preventDefault(); save(); }}>
+        {instrument ? (
+          <Field label="Instrument"><Input value={`${instrument.instrumentId} — ${instrument.instrumentName}`} disabled /></Field>
+        ) : (
+          <Field label="Instrument" required error={errors.instrument || pick.error}>
+            <input
+              className="form-input"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Search instrument ID or name…"
+              style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #E2E8F0', fontSize: '0.85rem', marginBottom: 6 }}
+            />
+            <Choice
+              value={chosen?._id || ''}
+              onChange={(id) => {
+                const row = pick.rows.find((r) => r._id === id) || null;
+                setChosen(row);
+                if (row && form.calibrationDate && !dueTouched) setForm((f) => ({ ...f, nextDue: suggestDue(f.calibrationDate, row) || f.nextDue }));
+              }}
+              placeholder={pick.loading ? 'Loading…' : 'Select an instrument'}
+              options={pick.rows.map((r) => ({ value: r._id, label: `${r.instrumentId} — ${r.instrumentName}` }))}
+              error={errors.instrument}
+            />
+          </Field>
+        )}
+        <TwoCol>
+          <Field label="Calibration date" required error={errors.calibrationDate}>
+            <DatePicker value={form.calibrationDate} onChange={(e) => onDate(e.target.value)} error={Boolean(errors.calibrationDate)} />
+          </Field>
+          <Field label="Next due" required error={errors.nextDue} help={chosen?.frequency ? `Suggested from the ${chosen.frequency.toLowerCase()} interval.` : undefined}>
+            <DatePicker value={form.nextDue} onChange={(e) => { setDueTouched(true); set('nextDue', e.target.value); }} error={Boolean(errors.nextDue)} />
+          </Field>
+        </TwoCol>
+        <TwoCol>
+          <Field label="Calibrated by" required error={errors.calibratedBy}>
+            <Input value={form.calibratedBy} onChange={(e) => set('calibratedBy', e.target.value)} placeholder="e.g. SGS Nigeria Calibration Lab" error={Boolean(errors.calibratedBy)} />
+          </Field>
+          <Field label="Certificate no" required error={errors.certificateNumber}>
+            <Input value={form.certificateNumber} onChange={(e) => set('certificateNumber', e.target.value)} placeholder="e.g. MC-2026-4582" error={Boolean(errors.certificateNumber)} />
+          </Field>
+        </TwoCol>
+        <div style={{ maxWidth: 280 }}>
+          <Field label="Result" required error={errors.calibrationResult}>
+            <Choice value={form.calibrationResult} onChange={(v) => set('calibrationResult', v)} options={RESULTS} />
+          </Field>
+        </div>
+        <Field label="Calibration certificate (optional)">
+          <AttachField files={files} onChange={setFiles} multiple={false} disabled={busy} />
+        </Field>
+        <FormError message={error} />
+      </FormBody>
+    </Modal>
+  );
+}
+
+function HistoryTab({ record, refreshKey, canLog, onLog }) {
+  const { data, error, loading } = useFetched(() => qualityCalibrationService.history(record._id), record._id, refreshKey);
+  const [message, setMessage] = useState('');
+
+  const download = async (row) => {
+    setMessage('');
+    const problem = await openSignedDownload(() => qualityCalibrationService.certificate(record._id, row._id));
+    if (problem) setMessage(problem);
+  };
+
+  if (loading) return <Skeleton height={80} />;
+  if (error) return <FormError message={error} />;
+  if (!data.length) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '36px 0', textAlign: 'center' }}>
+        <FiFileText size={24} color="#64748B" />
+        <div style={{ fontWeight: 700, color: '#0F172A' }}>No Calibration History</div>
+        <div style={{ fontSize: '0.8rem', color: '#64748B' }}>Full calibration history with certificates appears here.</div>
+        {canLog && <PrimaryButton icon={<FiPlus size={14} />} onClick={onLog}>Schedule Calibration</PrimaryButton>}
+      </div>
+    );
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <SimpleTable
+        columns={[
+          { key: 'calibrationDate', label: 'Date', render: (r) => formatDate(r.calibrationDate) },
+          { key: 'calibratedBy', label: 'Calibrated by' },
+          { key: 'calibrationResult', label: 'Result', render: (r) => (r.calibrationResult === 'Pass' ? 'Passed' : 'Failed') },
+          { key: 'certificateNumber', label: 'Certificate No.', render: (r) => <span style={{ color: '#2563EB' }}>{r.certificateNumber}</span> },
+          { key: 'loggedByName', label: 'Logged By', render: (r) => r.loggedByName || '—' },
+          {
+            key: 'file',
+            label: '',
+            align: 'right',
+            render: (r) => (r.hasCertificate ? (
+              <button type="button" className="icon-btn" title="Download certificate" aria-label="Download certificate" onClick={() => download(r)} style={{ cursor: 'pointer', color: '#64748B' }}><FiDownload size={15} /></button>
+            ) : <span style={{ color: '#CBD5E1' }}>—</span>),
+          },
+        ]}
+        rows={data}
+      />
+      {message && <span style={{ fontSize: '0.78rem', color: '#991B1B' }}>{message}</span>}
+      {canLog && <div><SecondaryButton icon={<FiPlus size={14} />} onClick={onLog}>Log another calibration</SecondaryButton></div>}
+    </div>
+  );
+}
+
+function ViewInstrumentModal({ id, refreshKey, canLog, onLog, onClose }) {
+  const { record, error, loading } = useRecord(qualityCalibrationService, id, refreshKey);
+  const [tab, setTab] = useState('details');
+  return (
+    <Modal isOpen onClose={onClose} title="" maxWidth="700px">
+      {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading instrument…</div>}
+      {error && <FormError message={error} />}
+      {record && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: -10 }}>
+          <ViewHeader icon={<FiList size={22} />} title={record.instrumentName} subtitle={`${record.type} • ${record.instrumentId}`} />
+          <StatusLine status={<Status status={record.status} />} />
+          <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'history', label: 'History' }]} active={tab} onChange={setTab} />
+          {tab === 'details' && (
+            <>
+              <DetailGrid
+                items={[
+                  ['Instrument ID', record.instrumentId],
+                  ['Serial number', record.serialNumber],
+                  ['Instrument name', record.instrumentName],
+                  ['Type', record.type],
+                  ['Manufacturer / model', record.manufacturerModel || '—'],
+                  ['Storage location', nameOf(record.storageLocation)],
+                  ['Custodian', nameOf(record.custodian)],
+                  ['Calibration frequency', record.frequency],
+                  ['Last calibrated', formatDate(record.lastCalibrated)],
+                  ['Next due', formatDate(record.nextDue)],
+                  ['Status', statusLabel(record.status)],
+                ]}
+              />
+              {record.description && <Panel title="Description">{record.description}</Panel>}
+              {record.status === 'out_of_service' && <Panel title="Out of service" tone="red">{record.outOfServiceReason || 'No reason was recorded.'}</Panel>}
+            </>
+          )}
+          {tab === 'history' && <HistoryTab key={`${record._id}-${refreshKey}`} record={record} refreshKey={refreshKey} canLog={canLog} onLog={() => onLog(record)} />}
+        </div>
+      )}
+    </Modal>
   );
 }
 
 export default function CalibrationRecords() {
-  const [instruments, setInstruments] = useState(mockCalibrations);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-  const [selectedIds, setSelectedIds] = useState([]);
+  const { can } = usePermissions();
+  const canLog = can('quality.calibrationrecord.update');
+  const canExport = can('quality.calibrationrecord.export');
 
-  // Filter Drawer
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [locationFilter, setLocationFilter] = useState('');
+  const list = useProcList(qmsCalibrationSlice, { initialFilters: { status: '', type: '', dueFrom: '', dueTo: '' }, withStats: false });
+  const selection = useSelection();
+  const { toast, showToast, hideToast } = useToast();
+  const exporter = useExport(qualityCalibrationService, list, selection, EXPORT_COLUMNS, 'calibration-records.csv');
 
-  // View Instrument Drawer
-  const [isViewDrawerOpen, setIsViewDrawerOpen] = useState(false);
-  const [activeInstrument, setActiveInstrument] = useState(null);
-  const [drawerTab, setDrawerTab] = useState('Details');
+  const [viewId, setViewId] = useState(null);
+  const [logFor, setLogFor] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [filterOpen, setFilterOpen] = useState(false);
 
-  // Schedule / Log Calibration Modal
-  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
-  const [calibFormData, setCalibFormData] = useState({
-    date: '28/05/26',
-    calibratedBy: 'SGS Nigeria Calibration Lab',
-    result: 'Passed',
-    certificateNo: 'MC-2026-9041',
-    loggedBy: 'Quality Inspector',
-  });
-
-  // Filter logic
-  const filteredData = useMemo(() => {
-    return instruments.filter((item) => {
-      const matchesSearch =
-        !searchTerm ||
-        item.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.custodian.toLowerCase().includes(searchTerm.toLowerCase());
-
-      const matchesStatus = !statusFilter || item.status === statusFilter;
-      const matchesLocation = !locationFilter || item.location === locationFilter;
-
-      return matchesSearch && matchesStatus && matchesLocation;
-    });
-  }, [instruments, searchTerm, statusFilter, locationFilter]);
-
-  const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize;
-    return filteredData.slice(start, start + pageSize);
-  }, [filteredData, currentPage, pageSize]);
-
-  const handleSelectAll = (e) => {
-    if (e.target.checked) {
-      setSelectedIds(paginatedData.map((d) => d.id));
-    } else {
-      setSelectedIds([]);
-    }
-  };
-
-  const handleSelectOne = (id) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
-    );
-  };
-
-  const openViewDrawer = (item) => {
-    setActiveInstrument(item);
-    setDrawerTab('Details');
-    setIsViewDrawerOpen(true);
-  };
-
-  const handleScheduleCalibrationSubmit = (e) => {
-    e.preventDefault();
-    if (!activeInstrument) return;
-
-    const newHistoryEntry = {
-      date: calibFormData.date,
-      calibratedBy: calibFormData.calibratedBy,
-      result: calibFormData.result,
-      certificateNo: calibFormData.certificateNo,
-      loggedBy: calibFormData.loggedBy,
-    };
-
-    const updatedInstrument = {
-      ...activeInstrument,
-      status: 'Valid',
-      lastCalibrated: calibFormData.date,
-      nextDue: '28/11/26',
-      history: [newHistoryEntry, ...(activeInstrument.history || [])],
-    };
-
-    setInstruments((prev) =>
-      prev.map((ins) => (ins.id === activeInstrument.id ? updatedInstrument : ins))
-    );
-    setActiveInstrument(updatedInstrument);
-    setIsScheduleModalOpen(false);
-  };
+  const refresh = () => { list.reload(); setRefreshKey((k) => k + 1); };
 
   const columns = [
-    {
-      key: 'select',
-      label: (
-        <input
-          type="checkbox"
-          onChange={handleSelectAll}
-          checked={
-            paginatedData.length > 0 &&
-            selectedIds.length === paginatedData.length
-          }
-          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-        />
-      ),
-      render: (_, row) => (
-        <input
-          type="checkbox"
-          checked={selectedIds.includes(row.id)}
-          onChange={() => handleSelectOne(row.id)}
-          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
-        />
-      ),
-    },
-    {
-      key: 'id',
-      label: 'INSTRUMENT ID',
-      render: (v) => (
-        <span style={{ fontWeight: 600, color: '#475569', fontSize: '0.85rem' }}>
-          {v}
-        </span>
-      ),
-    },
-    {
-      key: 'name',
-      label: 'NAME',
-      render: (v) => (
-        <span style={{ fontWeight: 600, color: '#0F172A', fontSize: '0.875rem' }}>
-          {v}
-        </span>
-      ),
-    },
-    {
-      key: 'location',
-      label: 'LOCATION',
-      render: (v) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'custodian',
-      label: 'CUSTODIAN',
-      render: (v) => (
-        <span style={{ color: '#0F172A', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'lastCalibrated',
-      label: 'LAST CALIBRATED',
-      render: (v) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'nextDue',
-      label: 'NEXT DUE',
-      render: (v) => (
-        <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v}</span>
-      ),
-    },
-    {
-      key: 'status',
-      label: 'STATUS',
-      render: (v) => <StatusBadge status={v} />,
-    },
+    { key: 'instrumentId', label: 'INSTRUMENT ID', render: (v) => <span style={{ color: '#2563EB', fontWeight: 500 }}>{v}</span> },
+    { key: 'instrumentName', label: 'NAME', render: (v) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{v}</span> },
+    { key: 'storageLocation', label: 'LOCATION', render: (v) => <span style={{ color: '#334155' }}>{nameOf(v)}</span> },
+    { key: 'custodian', label: 'CUSTODIAN', render: (v) => <span style={{ color: '#334155' }}>{nameOf(v)}</span> },
+    { key: 'lastCalibrated', label: 'LAST CALIBRATED', render: (v) => <span style={{ color: '#64748B' }}>{formatDate(v)}</span> },
+    { key: 'nextDue', label: 'NEXT DUE', render: (v) => <span style={{ color: '#64748B' }}>{formatDate(v)}</span> },
+    { key: 'status', label: 'STATUS', render: (v) => <Status status={v} /> },
     {
       key: 'actions',
       label: 'ACTIONS',
       align: 'right',
       render: (_, row) => (
-        <button
-          className="icon-btn"
-          title="View Instrument"
-          onClick={() => openViewDrawer(row)}
-          style={{
-            padding: '6px',
-            borderRadius: '6px',
-            border: 'none',
-            background: 'transparent',
-            color: '#64748B',
-            cursor: 'pointer',
-          }}
-        >
-          <FiEye size={16} />
-        </button>
+        <button type="button" className="icon-btn" title="View Instrument" aria-label="View instrument" onClick={() => setViewId(row._id)} style={{ color: '#64748B', cursor: 'pointer' }}><FiEye size={16} /></button>
       ),
     },
   ];
 
+  const onExport = async () => {
+    const message = await exporter.run();
+    if (message) showToast(message, 'error');
+    else showToast(selection.ids.length ? `${selection.ids.length} selected instruments exported` : 'Calibration records exported', 'success');
+  };
+
+  const filterFields = [
+    { key: 'status', label: 'Status', options: STATUSES },
+    { key: 'type', label: 'Instrument type', options: INSTRUMENT_TYPES.map((t) => ({ value: t, label: t })) },
+    { key: 'dueFrom', label: 'Next due from', type: 'date' },
+    { key: 'dueTo', label: 'Next due to', type: 'date' },
+  ];
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '20px',
-        padding: '24px',
-        backgroundColor: '#F8FAFC',
-        minHeight: '100vh',
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontSize: '1.5rem',
-              fontWeight: 700,
-              color: '#0F172A',
-              margin: 0,
-            }}
-          >
-            Calibration Records
-          </h1>
-          <p
-            style={{
-              color: '#64748B',
-              fontSize: '0.875rem',
-              margin: '4px 0 0 0',
-            }}
-          >
-            Register of measuring and test instruments with calibration status
-          </p>
-        </div>
-        <button
-          onClick={() => alert('Bulk upload calibration records initiated')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            backgroundColor: '#FFFFFF',
-            border: '1px solid #E2E8F0',
-            color: '#1E293B',
-            fontWeight: 500,
-            padding: '8px 16px',
-            borderRadius: '6px',
-            cursor: 'pointer',
-          }}
-        >
-          <FiUploadCloud size={16} /> Upload ↑
-        </button>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Main Table Card */}
-      <div className="card" style={{ padding: '0px', overflow: 'hidden' }}>
-        {/* Toolbar */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '16px 20px',
-            borderBottom: '1px solid #F1F5F9',
-            flexWrap: 'wrap',
-            gap: '12px',
-          }}
-        >
-          <div style={{ position: 'relative', width: '320px' }}>
-            <FiSearch
-              size={16}
-              style={{
-                position: 'absolute',
-                left: '12px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#94A3B8',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Search by Instrument ID ..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px 8px 36px',
-                border: '1px solid #E2E8F0',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                outline: 'none',
-              }}
-            />
-          </div>
+      <PageHeader title="Calibration Records" subtitle="Register of measuring and test instruments with calibration status">
+        {canLog && <SecondaryButton icon={<FiUpload size={15} />} onClick={() => setLogFor('pick')}>Upload</SecondaryButton>}
+      </PageHeader>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <button
-              onClick={() => setIsFilterOpen(true)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: statusFilter || locationFilter ? '#EFF6FF' : '#FFFFFF',
-                border: `1px solid ${statusFilter || locationFilter ? '#3B82F6' : '#E2E8F0'}`,
-                color: statusFilter || locationFilter ? '#1D4ED8' : '#334155',
-                padding: '8px 14px',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              <FiFilter size={15} />
-              Filter {statusFilter || locationFilter ? '(Active)' : ''}
-            </button>
-
-            <button
-              onClick={() => alert('Exporting calibration registry...')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #E2E8F0',
-                color: '#334155',
-                padding: '8px 14px',
-                borderRadius: '6px',
-                fontSize: '0.875rem',
-                fontWeight: 500,
-                cursor: 'pointer',
-              }}
-            >
-              <FiDownload size={15} />
-              Export
-            </button>
-          </div>
-        </div>
-
-        {/* Table */}
-        <DataTable
-          columns={columns}
-          data={paginatedData}
-          rowKey="id"
-          emptyMessage="No calibration records found."
-        />
-
-        {/* Pagination */}
-        <div style={{ padding: '12px 20px', borderTop: '1px solid #F1F5F9' }}>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={filteredData.length}
-            pageSize={pageSize}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
+      <ListCard
+        list={list}
+        columns={columns}
+        emptyText="No instruments found."
+        selection={selection}
+        toolbar={(
+          <ListToolbar
+            search={list.searchText}
+            onSearch={list.onSearch}
+            placeholder="Search by Instrument ID ..."
+            onFilter={() => setFilterOpen(true)}
+            filterCount={countFilters(list.filters)}
+            onExport={canExport ? onExport : undefined}
+            exporting={exporter.exporting}
+            selectedCount={exporter.selectedCount}
           />
-        </div>
-      </div>
-
-      {/* Filter Drawer */}
-      <Drawer
-        isOpen={isFilterOpen}
-        onClose={() => setIsFilterOpen(false)}
-        title="Filter Instruments"
-        width={360}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
-              Calibration Status
-            </label>
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.875rem',
-              }}
-            >
-              <option value="">All Statuses</option>
-              <option value="Valid">Valid</option>
-              <option value="Due Soon">Due Soon</option>
-              <option value="Overdue">Overdue</option>
-              <option value="Out of Service">Out of Service</option>
-            </select>
-          </div>
-
-          <div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#334155', marginBottom: '6px', display: 'block' }}>
-              Location
-            </label>
-            <select
-              value={locationFilter}
-              onChange={(e) => setLocationFilter(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                border: '1px solid #CBD5E1',
-                fontSize: '0.875rem',
-              }}
-            >
-              <option value="">All Locations</option>
-              <option value="Warri Yard">Warri Yard</option>
-              <option value="Port Harcourt Site">Port Harcourt Site</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-            <button
-              onClick={() => {
-                setStatusFilter('');
-                setLocationFilter('');
-                setIsFilterOpen(false);
-              }}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#FFFFFF',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 500,
-              }}
-            >
-              Reset
-            </button>
-            <button
-              onClick={() => setIsFilterOpen(false)}
-              style={{
-                flex: 1,
-                padding: '8px 14px',
-                border: 'none',
-                backgroundColor: '#1D4ED8',
-                color: '#FFFFFF',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontWeight: 600,
-              }}
-            >
-              Apply Filter
-            </button>
-          </div>
-        </div>
-      </Drawer>
-
-      {/* View Instrument Drawer */}
-      <Drawer
-        isOpen={isViewDrawerOpen}
-        onClose={() => setIsViewDrawerOpen(false)}
-        title={activeInstrument?.name || 'Instrument Details'}
-        subtitle={`Used Oil • DSP-25-018`}
-        width={580}
-      >
-        {activeInstrument && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* Status */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                paddingBottom: '12px',
-                borderBottom: '1px solid #E2E8F0',
-              }}
-            >
-              <span style={{ fontSize: '0.85rem', color: '#64748B', fontWeight: 500 }}>
-                Status:
-              </span>
-              <StatusBadge status={activeInstrument.status} />
-            </div>
-
-            {/* Sub-tabs: Details | History */}
-            <div
-              style={{
-                display: 'flex',
-                gap: '24px',
-                borderBottom: '1px solid #E2E8F0',
-              }}
-            >
-              {['Details', 'History'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setDrawerTab(tab)}
-                  style={{
-                    padding: '8px 0',
-                    border: 'none',
-                    background: 'none',
-                    fontSize: '0.875rem',
-                    fontWeight: drawerTab === tab ? 600 : 500,
-                    color: drawerTab === tab ? '#1D4ED8' : '#64748B',
-                    borderBottom:
-                      drawerTab === tab ? '2px solid #1D4ED8' : '2px solid transparent',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
-
-            {/* Tab 1: Details */}
-            {drawerTab === 'Details' && (
-              <div
-                style={{
-                  backgroundColor: '#FFFFFF',
-                  borderRadius: '8px',
-                  border: '1px solid #E2E8F0',
-                  padding: '16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '14px',
-                }}
-              >
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      INSTRUMENT ID
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeInstrument.id}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      SERIAL NUMBER
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeInstrument.serialNumber}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    INSTRUMENT NAME
-                  </div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#0F172A', marginTop: '2px' }}>
-                    {activeInstrument.name}
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      TYPE
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeInstrument.type}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      MANUFACTURER / MODEL
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeInstrument.manufacturerModel}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      STORAGE LOCATION
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeInstrument.location}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      LAST CALIBRATED
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeInstrument.lastCalibrated}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      CALIBRATION DATE
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeInstrument.lastCalibrated}
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                      NEXT DUE
-                    </div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                      {activeInstrument.nextDue}
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748B', textTransform: 'uppercase' }}>
-                    STATUS
-                  </div>
-                  <div style={{ fontSize: '0.875rem', color: '#0F172A', marginTop: '2px' }}>
-                    {activeInstrument.status}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: History */}
-            {drawerTab === 'History' && (
-              <div>
-                {activeInstrument.history && activeInstrument.history.length > 0 ? (
-                  <div
-                    style={{
-                      backgroundColor: '#FFFFFF',
-                      borderRadius: '8px',
-                      border: '1px solid #E2E8F0',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-                      <thead style={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
-                        <tr>
-                          <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748B' }}>Date</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748B' }}>Calibrated by</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748B' }}>Result</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748B' }}>Certificate No.</th>
-                          <th style={{ padding: '10px 12px', fontWeight: 600, color: '#64748B' }}>Logged By</th>
-                          <th style={{ padding: '10px 12px', textAlign: 'right' }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeInstrument.history.map((hist, idx) => (
-                          <tr key={idx} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                            <td style={{ padding: '10px 12px', color: '#475569' }}>{hist.date}</td>
-                            <td style={{ padding: '10px 12px', color: '#0F172A', fontWeight: 500 }}>
-                              {hist.calibratedBy}
-                            </td>
-                            <td style={{ padding: '10px 12px' }}>
-                              <span style={{ color: '#15803D', fontWeight: 600 }}>{hist.result}</span>
-                            </td>
-                            <td style={{ padding: '10px 12px', color: '#475569' }}>
-                              {hist.certificateNo}
-                            </td>
-                            <td style={{ padding: '10px 12px', color: '#475569' }}>{hist.loggedBy}</td>
-                            <td style={{ padding: '10px 12px', textAlign: 'right' }}>
-                              <button
-                                onClick={() => alert(`Downloading Certificate: ${hist.certificateNo}`)}
-                                style={{
-                                  border: 'none',
-                                  background: 'none',
-                                  color: '#64748B',
-                                  cursor: 'pointer',
-                                }}
-                              >
-                                <FiDownload size={14} />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ) : (
-                  /* Empty state matching Screenshot 2026-10-12 132252.png */
-                  <div
-                    style={{
-                      padding: '40px 20px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      textAlign: 'center',
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '48px',
-                        height: '48px',
-                        borderRadius: '50%',
-                        backgroundColor: '#EFF6FF',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        marginBottom: '16px',
-                        color: '#1D4ED8',
-                      }}
-                    >
-                      <FiFileText size={24} />
-                    </div>
-                    <h3
-                      style={{
-                        margin: 0,
-                        fontSize: '1.1rem',
-                        fontWeight: 700,
-                        color: '#0F172A',
-                      }}
-                    >
-                      No Calibration History
-                    </h3>
-                    <p
-                      style={{
-                        margin: '6px 0 20px',
-                        fontSize: '0.875rem',
-                        color: '#64748B',
-                      }}
-                    >
-                      Full calibration history with certificates appears here.
-                    </p>
-                    <button
-                      onClick={() => setIsScheduleModalOpen(true)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: '#1D4ED8',
-                        color: '#FFFFFF',
-                        border: 'none',
-                        padding: '10px 20px',
-                        borderRadius: '6px',
-                        fontSize: '0.875rem',
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                      }}
-                    >
-                      <FiPlus size={16} />
-                      Schedule Calibration
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         )}
-      </Drawer>
+      />
 
-      {/* Schedule / Log Calibration Modal */}
-      {isScheduleModalOpen && activeInstrument && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(15, 23, 42, 0.5)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 110,
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '12px',
-              maxWidth: '500px',
-              width: '100%',
-              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
-            }}
-          >
-            <div
-              style={{
-                padding: '20px',
-                borderBottom: '1px solid #E2E8F0',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <div>
-                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#0F172A' }}>
-                  Log Calibration Result
-                </h3>
-                <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748B' }}>
-                  {activeInstrument.id} — {activeInstrument.name}
-                </p>
-              </div>
-              <button
-                onClick={() => setIsScheduleModalOpen(false)}
-                style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#64748B' }}
-              >
-                <FiX size={18} />
-              </button>
-            </div>
+      <FilterDrawer isOpen={filterOpen} onClose={() => setFilterOpen(false)} title="Filter Instruments" subtitle="Narrow the register by status, type and next due date." fields={filterFields} values={list.filters} onApply={list.applyFilters} />
 
-            <form onSubmit={handleScheduleCalibrationSubmit} style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Calibration Date
-                </label>
-                <input
-                  type="text"
-                  value={calibFormData.date}
-                  onChange={(e) => setCalibFormData({ ...calibFormData, date: e.target.value })}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                  Calibrated By (Laboratory)
-                </label>
-                <input
-                  type="text"
-                  value={calibFormData.calibratedBy}
-                  onChange={(e) => setCalibFormData({ ...calibFormData, calibratedBy: e.target.value })}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    fontSize: '0.875rem',
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    Result
-                  </label>
-                  <select
-                    value={calibFormData.result}
-                    onChange={(e) => setCalibFormData({ ...calibFormData, result: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  >
-                    <option value="Passed">Passed</option>
-                    <option value="Failed">Failed</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#334155', display: 'block', marginBottom: '6px' }}>
-                    Certificate Number
-                  </label>
-                  <input
-                    type="text"
-                    value={calibFormData.certificateNo}
-                    onChange={(e) => setCalibFormData({ ...calibFormData, certificateNo: e.target.value })}
-                    required
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      border: '1px solid #CBD5E1',
-                      borderRadius: '6px',
-                      fontSize: '0.875rem',
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsScheduleModalOpen(false)}
-                  style={{
-                    padding: '8px 16px',
-                    border: '1px solid #CBD5E1',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '0.85rem',
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  style={{
-                    padding: '8px 18px',
-                    backgroundColor: '#1D4ED8',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: '0.85rem',
-                  }}
-                >
-                  Save Calibration Record
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {viewId && <ViewInstrumentModal id={viewId} refreshKey={refreshKey} canLog={canLog} onLog={(record) => setLogFor(record)} onClose={() => setViewId(null)} />}
+      {logFor && (
+        <LogCalibrationModal
+          key={logFor === 'pick' ? 'pick' : logFor._id}
+          instrument={logFor === 'pick' ? null : logFor}
+          onClose={() => setLogFor(null)}
+          onSaved={(message) => { setLogFor(null); showToast(message, 'success'); refresh(); }}
+        />
       )}
     </div>
   );
