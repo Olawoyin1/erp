@@ -199,9 +199,13 @@ export const bankReconciliationService = {
   removeAttachment:   (id, attachmentId) => apiClient.delete(`/bank-reconciliations/${id}/attachments/${attachmentId}`),
   history:            (id) => apiClient.get(`/bank-reconciliations/${id}/history`),
   list:          (params) => apiClient.get('/bank-reconciliations', { params }),
+  stats:         ()       => apiClient.get('/bank-reconciliations/stats'),
   create:        (data)   => apiClient.post('/bank-reconciliations', data),
   get:           (id)     => apiClient.get(`/bank-reconciliations/${id}`),
   update:        (id, data) => apiClient.patch(`/bank-reconciliations/${id}`, data),
+  ledgerLines:   (id)     => apiClient.get(`/bank-reconciliations/${id}/ledger-lines`),
+  match:         (id, lineIds, matched = true) => apiClient.post(`/bank-reconciliations/${id}/match`, { lineIds, matched }),
+  autoMatch:     (id)     => apiClient.post(`/bank-reconciliations/${id}/auto-match`),
   markReconciled: (id)    => apiClient.post(`/bank-reconciliations/${id}/mark-reconciled`),
   submitReview:  (id)     => apiClient.post(`/bank-reconciliations/${id}/submit-review`),
 };
@@ -265,9 +269,14 @@ export const exchangeRateService = {
 
 export const financeReportService = {
   get: (params) => apiClient.get('/accounts-finance/reports', { params }),
+  /** `format` 'xlsx' (every block as a sheet) or 'csv' (one `section`: summary, cash_flow, departments, projects). */
+  download: (params, format = 'xlsx', section) => apiClient.get('/accounts-finance/reports', {
+    params: { ...params, format, ...(section ? { section } : {}) },
+    responseType: 'blob',
+  }),
 };
 
-/** Each statement takes `(params, format)`: `format` 'csv' or 'xlsx' downloads a file (blob), otherwise JSON. */
+/** Each statement takes `(params, format)`: `format` 'csv', 'xlsx' or 'pdf' downloads a file (blob), otherwise JSON. */
 const statementConfig = (params, format) => ({ params: format ? { ...params, format } : params, ...(format ? { responseType: 'blob' } : {}) });
 
 export const financialStatementService = {
