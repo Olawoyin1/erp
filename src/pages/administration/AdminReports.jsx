@@ -1,166 +1,221 @@
-import React from 'react';
-import { FiDownload, FiTrendingUp } from 'react-icons/fi';
-import { mockAdminReportStats, mockMonthlyRevenue, mockRFQPerformance, mockPipelineFunnel } from '../../data/mockAdmin';
+import { useState } from 'react';
+import { FiDownload, FiDollarSign, FiCheckCircle, FiTool, FiFileText } from 'react-icons/fi';
+import Toast, { useToast } from '../../components/ui/Toast';
+import { adminReportService } from '../../services/admin.service';
+import { compactMoney, downloadFile } from '../procurement/shared/procUtils';
+import { useFetched } from '../procurement/shared/procHooks';
+import { DataState, PageHeader, SecondaryButton, StatTiles } from '../procurement/shared/ProcUi';
 
-const FUNNEL_COLORS = ['#1E3A5F', '#1D4ED8', '#7C3AED', '#F59E0B', '#10B981', '#EF4444'];
+const COLORS = ['#2563EB', '#10B981', '#F59E0B', '#7C3AED', '#EF4444', '#0EA5E9', '#64748B'];
+
+function Card({ title, subtitle, badge, children }) {
+  return (
+    <div className="card" style={{ padding: 24, backgroundColor: '#FFFFFF', borderRadius: 12, minWidth: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4, gap: 8 }}>
+        <h3 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{title}</h3>
+        {badge && <span style={{ fontSize: '0.75rem', backgroundColor: '#F1F5F9', padding: '3px 10px', borderRadius: 12, color: '#64748B', fontWeight: 600, whiteSpace: 'nowrap' }}>{badge}</span>}
+      </div>
+      {subtitle && <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '0 0 18px' }}>{subtitle}</p>}
+      {children}
+    </div>
+  );
+}
+
+const NoAccess = () => <div style={{ color: '#94A3B8', fontSize: '0.84rem', padding: '12px 0' }}>Your role does not include access to the records behind this panel.</div>;
+
+function MiniStat({ label, value, caption }) {
+  return (
+    <div style={{ backgroundColor: '#F8FAFC', padding: 14, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+      <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#0F172A', marginTop: 4 }}>{value}</div>
+      {caption && <div style={{ fontSize: '0.7rem', color: '#64748B', marginTop: 2 }}>{caption}</div>}
+    </div>
+  );
+}
+
+function HBars({ rows, format = (v) => v, empty = 'No data yet.' }) {
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  if (!rows.length) return <div style={{ color: '#94A3B8', fontSize: '0.84rem', padding: '12px 0' }}>{empty}</div>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {rows.map((row, i) => (
+        <div key={row.label}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.813rem', marginBottom: 6, gap: 8 }}>
+            <span style={{ color: '#334155', fontWeight: 500 }}>{row.label}</span>
+            <span style={{ color: '#0F172A', fontWeight: 700 }}>{format(row.value)}</span>
+          </div>
+          <div style={{ width: '100%', height: 8, backgroundColor: '#F1F5F9', borderRadius: 4, overflow: 'hidden' }}>
+            <div style={{ width: `${(row.value / max) * 100}%`, height: '100%', backgroundColor: COLORS[i % COLORS.length], borderRadius: 4, transition: 'width 0.5s' }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function StatusList({ rows, money = false }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {rows.map((s, i) => (
+        <div key={s.status} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.813rem' }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: '#334155' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: COLORS[i % COLORS.length] }} />{s.label}
+          </span>
+          <span style={{ fontWeight: 600, color: '#0F172A' }}>
+            {s.count}{money && <span style={{ color: '#94A3B8', fontWeight: 400 }}> ({compactMoney(s.value)})</span>}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function monthLabel(key) {
+  const [year, month] = key.split('-').map(Number);
+  return new Date(Date.UTC(year, month - 1, 1)).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
+}
 
 export default function AdminReports() {
+  const [nonce, setNonce] = useState(0);
+  const { data: report, error, loading } = useFetched(() => adminReportService.get(), 'report', nonce);
+  const { toast, showToast, hideToast } = useToast();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const ready = report && !Array.isArray(report);
+
+  const exportAs = async (format) => {
+    setMenuOpen(false);
+    setExporting(true);
+    const message = await downloadFile(() => adminReportService.exportFile(format), `administration-report.${format}`);
+    setExporting(false);
+    if (message) showToast(message, 'error');
+    else showToast(`Administration report exported as ${format.toUpperCase()}`, 'success');
+  };
+
+  const tile = (key) => (report?.tiles || []).find((t) => t.key === key) || { value: 0, caption: '' };
+  const requests = ready ? report.requests : null;
+  const months = requests ? requests.monthly : [];
+  const monthMax = Math.max(1, ...months.map((m) => Math.max(m.raised, m.approved)));
+  const tasks = ready ? report.tasks : { total: 0, resolved: 0, overdue: 0 };
+
+  const tiles = ready
+    ? [
+        { label: 'TOTAL ASSET VALUE', value: report.assets ? compactMoney(tile('asset_book_value').value) : '—', sub: tile('asset_book_value').caption, icon: <FiDollarSign size={18} />, tone: 'amber' },
+        { label: 'REQUEST APPROVAL RATE', value: requests ? `${tile('request_approval_rate').value}%` : '—', sub: tile('request_approval_rate').caption, icon: <FiCheckCircle size={18} />, tone: 'green' },
+        { label: 'MAINTENANCE COMPLETION', value: report.maintenance ? `${tile('maintenance_completion_rate').value}%` : '—', sub: tile('maintenance_completion_rate').caption, subColor: report.maintenance?.overdue ? '#DC2626' : undefined, icon: <FiTool size={18} />, tone: 'blue' },
+        { label: 'TEAM TASKS RESOLVED', value: `${tasks.resolved}/${tasks.total}`, sub: tasks.overdue ? `${tasks.overdue} overdue` : 'No overdue tasks', subColor: tasks.overdue ? '#DC2626' : undefined, icon: <FiFileText size={18} />, tone: 'purple' },
+      ]
+    : [];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div>
-          <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#0F172A', margin: 0 }}>Reports — Administration</h2>
-          <p style={{ margin: '4px 0 0', color: '#64748B', fontSize: '14px' }}>Consolidated view of tender, client and deadline activity</p>
-        </div>
-        <button style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: '1px solid #E2E8F0', borderRadius: 8, background: '#fff', color: '#374151', fontSize: '14px', cursor: 'pointer' }}>
-          <FiDownload size={15} /> Export
-        </button>
-      </div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
-      {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
-        {mockAdminReportStats.map(s => (
-          <div key={s.label} className="card" style={{ padding: 20 }}>
-            <p style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>{s.label}</p>
-            <p style={{ fontSize: '28px', fontWeight: 800, color: '#0F172A', margin: '0 0 4px' }}>{s.value}</p>
-            <p style={{ fontSize: '12px', color: s.label === 'TEAM TASKS RESOLVED' ? '#DC2626' : '#15803D', margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <FiTrendingUp size={12} /> {s.trend}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      {/* Charts row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {/* Bar chart */}
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>Monthly Revenue Won</h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>Total volume of awarded & pipeline projects</p>
-            </div>
-            <span style={{ fontSize: '12px', color: '#1D4ED8', cursor: 'pointer', fontWeight: 500 }}>Contracts YTD</span>
-          </div>
-          <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
-            <span style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#EF4444', display: 'inline-block' }}></span> Awarded</span>
-            <span style={{ fontSize: '12px', color: '#64748B', display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 10, height: 10, borderRadius: 2, background: '#1E3A5F', display: 'inline-block' }}></span> Pipeline</span>
-          </div>
-          {/* Simple bar chart */}
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 160, paddingTop: 10 }}>
-            {mockMonthlyRevenue.map(m => (
-              <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
-                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 130 }}>
-                  <div style={{ width: 14, height: `${(m.awarded / 200) * 130}px`, background: '#EF4444', borderRadius: '3px 3px 0 0', minHeight: 4 }}></div>
-                  <div style={{ width: 14, height: `${(m.pipeline / 200) * 130}px`, background: '#1E3A5F', borderRadius: '3px 3px 0 0', minHeight: 4 }}></div>
+      <PageHeader title="Reports — Administration" subtitle="Consolidated view of requests, assets, maintenance, travel and disposal activity">
+        <div style={{ position: 'relative' }}>
+          <SecondaryButton icon={<FiDownload size={15} />} onClick={() => setMenuOpen((o) => !o)} disabled={exporting || !ready}>{exporting ? 'Exporting…' : 'Export'}</SecondaryButton>
+          {menuOpen && (
+            <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: '#fff', borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0', padding: '6px 0', zIndex: 60, minWidth: 160 }}>
+              {['csv', 'xlsx'].map((format) => (
+                <div key={format} className="menu-item-hover" onClick={() => exportAs(format)} style={{ padding: '8px 14px', fontSize: '0.813rem', color: '#334155', cursor: 'pointer' }}>
+                  Export as {format.toUpperCase()}
                 </div>
-                <span style={{ fontSize: '11px', color: '#94A3B8' }}>{m.month}</span>
-              </div>
-            ))}
-          </div>
-          {/* Y-axis labels */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-            {['0M', '50M', '100M', '150M', '200M'].map(l => (
-              <span key={l} style={{ fontSize: '10px', color: '#CBD5E1' }}>{l}</span>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
+      </PageHeader>
 
-        {/* RFQ Performance */}
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>RFQ Performance</h3>
-          <p style={{ margin: '0 0 20px', fontSize: '12px', color: '#64748B' }}>RFQ feedback speed & accuracy analysis pipeline</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-            <div style={{ background: '#F8FAFC', borderRadius: 10, padding: 16 }}>
-              <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600, margin: '0 0 6px', textTransform: 'uppercase' }}>SUBMITTED RFQS</p>
-              <p style={{ fontSize: '28px', fontWeight: 800, color: '#0F172A', margin: 0 }}>{mockRFQPerformance.submittedRFQs}</p>
-              <p style={{ fontSize: '11px', color: '#64748B', margin: '4px 0 0' }}>Estimations completed directly</p>
-            </div>
-            <div style={{ background: '#F8FAFC', borderRadius: 10, padding: 16 }}>
-              <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600, margin: '0 0 6px', textTransform: 'uppercase' }}>RFQ VALUE YTD</p>
-              <p style={{ fontSize: '28px', fontWeight: 800, color: '#1D4ED8', margin: 0 }}>{mockRFQPerformance.rfqValueYTD}</p>
-              <p style={{ fontSize: '11px', color: '#64748B', margin: '4px 0 0' }}>Estimations completed directly</p>
-            </div>
-          </div>
-          <p style={{ fontSize: '11px', fontWeight: 600, color: '#94A3B8', margin: '0 0 10px', textTransform: 'uppercase' }}>STATUS DISTRIBUTION VOLUME</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {mockRFQPerformance.distribution.map(d => (
-              <div key={d.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1D4ED8', display: 'inline-block' }}></span>
-                  <span style={{ fontSize: '13px', color: '#374151' }}>{d.label}</span>
-                </div>
-                <div style={{ display: 'flex', gap: 16 }}>
-                  <span style={{ fontSize: '13px', color: '#64748B' }}>{d.rfqs} RFQ</span>
-                  <span style={{ fontSize: '13px', color: '#64748B' }}>({d.value})</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      <DataState loading={loading} error={error} empty={false} onRetry={() => setNonce((n) => n + 1)}>
+        {ready && (
+          <>
+            <StatTiles tiles={tiles} />
 
-      {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        {/* Pipeline funnel */}
-        <div className="card" style={{ padding: 24 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>Commercial Conversion Pipeline Funnel</h3>
-              <p style={{ margin: '2px 0 0', fontSize: '12px', color: '#64748B' }}>Survival rates of opportunities from registration to close sign-off</p>
-            </div>
-            <span style={{ fontSize: '12px', color: '#1D4ED8', fontWeight: 500 }}>32 cases</span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {mockPipelineFunnel.map((s, i) => (
-              <div key={s.stage}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <span style={{ fontSize: '13px', color: '#374151' }}>{s.stage}</span>
-                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>{s.count}</span>
-                </div>
-                <div style={{ background: '#F1F5F9', borderRadius: 4, height: 8, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${s.percent}%`, background: FUNNEL_COLORS[i] || '#64748B', borderRadius: 4 }}></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+              <Card title="Monthly Requests" subtitle="Administrative requests raised against those approved or issued" badge="Last 6 months">
+                {!requests ? <NoAccess /> : (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 20, marginBottom: 16, fontSize: '0.8rem' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, backgroundColor: '#1E40AF', borderRadius: 2 }} />Raised</span>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><span style={{ width: 12, height: 12, backgroundColor: '#10B981', borderRadius: 2 }} />Approved or issued</span>
+                    </div>
+                    <div style={{ height: 200, display: 'flex', alignItems: 'flex-end', gap: 14, borderBottom: '1px solid #E2E8F0', paddingBottom: 10 }}>
+                      {months.map((m) => (
+                        <div key={m.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 160, width: '100%', justifyContent: 'center' }}>
+                            <div title={`Raised: ${m.raised}`} style={{ width: '40%', backgroundColor: '#1E40AF', height: `${(m.raised / monthMax) * 100}%`, borderRadius: '4px 4px 0 0', minHeight: m.raised ? 2 : 0 }} />
+                            <div title={`Approved or issued: ${m.approved}`} style={{ width: '40%', backgroundColor: '#10B981', height: `${(m.approved / monthMax) * 100}%`, borderRadius: '4px 4px 0 0', minHeight: m.approved ? 2 : 0 }} />
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: '#64748B', fontWeight: 600, marginTop: 8 }}>{monthLabel(m.month)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </Card>
 
-        {/* Tender outcome */}
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 700, color: '#0F172A' }}>Tender Outcome Analysis</h3>
-          <p style={{ margin: '0 0 20px', fontSize: '12px', color: '#64748B' }}>Win ratio breakdown & procurement bidding outcome metrics</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-            <div>
-              <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600, margin: '0 0 8px', textTransform: 'uppercase' }}>OVERALL BIDS WON</p>
-              <p style={{ fontSize: '42px', fontWeight: 800, color: '#0F172A', margin: 0 }}>4</p>
-              <p style={{ fontSize: '12px', color: '#64748B' }}>Out of 10 tracked</p>
+              <Card title="Maintenance Performance" subtitle="How planned facility maintenance jobs are progressing">
+                {!report.maintenance ? <NoAccess /> : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+                      <MiniStat label="Maintenance jobs" value={report.maintenance.total} caption={`${report.maintenance.completed} completed`} />
+                      <MiniStat label="Estimated cost" value={compactMoney(report.maintenance.estimatedCost)} caption="Excluding cancelled jobs" />
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 10 }}>Status distribution</div>
+                    <StatusList rows={report.maintenance.statusDistribution} money />
+                  </>
+                )}
+              </Card>
             </div>
-            <div>
-              <p style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600, margin: '0 0 8px', textTransform: 'uppercase' }}>AWAITING DECISION</p>
-              <p style={{ fontSize: '42px', fontWeight: 800, color: '#0F172A', margin: 0 }}>1</p>
-              <p style={{ fontSize: '12px', color: '#64748B' }}>Bids submitted</p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+              <Card title="Request Approval Funnel" subtitle="How requests progress through the four approval steps to issue" badge={requests ? `${requests.total} requests` : undefined}>
+                {!requests ? <NoAccess /> : <HBars rows={requests.funnel.map((f) => ({ label: f.stage, value: f.count }))} empty="No requests yet." />}
+              </Card>
+
+              <Card title="Travel & Movement Outcomes" subtitle="Where travel requests and equipment movements stand">
+                {!report.travel ? <NoAccess /> : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+                      <MiniStat label="Travel approved" value={report.travel.approved} caption={`Out of ${report.travel.total} requests`} />
+                      <MiniStat label="Awaiting decision" value={report.travel.awaitingDecision} caption={`${report.travel.movements.total} equipment movements`} />
+                    </div>
+                    <HBars rows={report.travel.byStatus.map((s) => ({ label: `Travel: ${s.label}`, value: s.count }))} empty="No travel requests yet." />
+                    <div style={{ height: 14 }} />
+                    <HBars rows={report.travel.movements.byStatus.map((s) => ({ label: `Movement: ${s.label}`, value: s.count }))} empty="No movements yet." />
+                  </>
+                )}
+              </Card>
             </div>
-          </div>
-          <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {[
-              { label: 'Under Review (2)', value: '#20.6M', color: '#1D4ED8' },
-              { label: 'Submitted (2)', value: '#59.0M', color: '#7C3AED' },
-              { label: 'Awaiting Decision (4)', value: '#10.8M', color: '#F59E0B' },
-              { label: 'Awarded (2)', value: '#47.0M', color: '#10B981' },
-              { label: 'Lost (1)', value: '#12.2M', color: '#EF4444' },
-            ].map(t => (
-              <div key={t.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: t.color, display: 'inline-block' }}></span>
-                  <span style={{ fontSize: '13px', color: '#374151' }}>{t.label}</span>
-                </div>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0F172A' }}>{t.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20 }}>
+              <Card title="Asset Register" subtitle="Fixed assets by status, with supplies needing attention">
+                {!report.assets ? <NoAccess /> : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+                      <MiniStat label="Purchase cost" value={compactMoney(report.assets.purchaseCost)} caption="Assets not retired" />
+                      <MiniStat label="Supplies to restock" value={report.assets.supplies.lowStock + report.assets.supplies.outOfStock} caption={`${report.assets.supplies.outOfStock} out of stock`} />
+                    </div>
+                    <StatusList rows={report.assets.byStatus} money />
+                  </>
+                )}
+              </Card>
+
+              <Card title="Waste Disposal" subtitle="Share of disposal records confirmed as completed">
+                {!report.disposals ? <NoAccess /> : (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 20 }}>
+                      <MiniStat label="Compliance rate" value={`${report.disposals.complianceRate}%`} caption={`${report.disposals.completed} of ${report.disposals.total} records`} />
+                      <MiniStat label="Awaiting completion" value={report.disposals.pending} caption="Records still pending" />
+                    </div>
+                    <HBars rows={[{ label: 'Completed', value: report.disposals.completed }, { label: 'Pending', value: report.disposals.pending }]} empty="No disposal records yet." />
+                  </>
+                )}
+              </Card>
+            </div>
+          </>
+        )}
+      </DataState>
     </div>
   );
 }
