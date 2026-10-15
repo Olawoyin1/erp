@@ -28,6 +28,7 @@ import TrainingCertifications from './pages/hr/training/TrainingCertifications';
 import DashboardOverview from './pages/dashboard/DashboardOverview';
 import Onboarding from './pages/hr/onboarding/Onboarding';
 import PayrollInputs from './pages/hr/payroll/PayrollInputs';
+import MyPayslips from './pages/hr/payroll/MyPayslips';
 import GrievancesDiscipline from './pages/hr/grievances/GrievancesDiscipline';
 import AttendanceTimesheets from './pages/hr/attendance/AttendanceTimesheets';
 import HRDocuments from './pages/hr/documents/HRDocuments';
@@ -142,6 +143,7 @@ export default function App() {
           <Route path="leave" element={<LeaveManagement />} />
           <Route path="attendance" element={<AttendanceTimesheets />} />
           <Route path="payroll" element={<PayrollInputs />} />
+          <Route path="my-payslips" element={<MyPayslips />} />
           <Route path="grievances" element={<GrievancesDiscipline />} />
           <Route path="requests" element={<Requests />} />
           <Route path="tasks" element={<Tasks />} />

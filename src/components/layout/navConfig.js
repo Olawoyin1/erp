@@ -80,6 +80,7 @@ export const NAV = [
           { label: 'Leave Management', path: '/hr/leave', permission: 'hr.leave.view' },
           { label: 'Attendance & Timesheets', path: '/hr/attendance', permission: 'hr.attendance.view' },
           { label: 'Payroll Inputs', path: '/hr/payroll', permission: 'hr.payroll.view' },
+          { label: 'My Payslips', path: '/hr/my-payslips', selfService: true },
           { label: 'Grievances & Discipline', path: '/hr/grievances', permission: 'hr.disciplinarycase.view' },
           { label: 'Requests', path: '/hr/requests', permission: 'administration.adminrequest.view' },
           { label: 'Tasks', path: '/hr/tasks', permission: 'core.task.view', shared: true },
@@ -221,7 +222,7 @@ export function allows(entry, can) {
  * open HR pages does not get a Tasks entry under Finance.
  */
 function moduleOpen(group, can) {
-  return !!group?.children?.some((child) => !child.shared && allows(child, can));
+  return !!group?.children?.some((child) => !child.shared && !child.selfService && allows(child, can));
 }
 
 /** Can the user open this leaf? `group` is the module entry that contains it (none for a top-level page). */
