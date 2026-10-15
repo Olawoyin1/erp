@@ -62,6 +62,7 @@ import ClientPipeline from './pages/bizdev/ClientPipeline';
 import RFQsTenders from './pages/bizdev/RFQsTenders';
 import Proposals from './pages/bizdev/Proposals';
 import CRMContacts from './pages/bizdev/CRMContacts';
+import BizDevReports from './pages/bizdev/BizDevReports';
 import PurchaseRequests from './pages/procurement/PurchaseRequests';
 import RFQManagement from './pages/procurement/RFQManagement';
 import PurchaseOrders from './pages/procurement/PurchaseOrders';
@@ -179,6 +180,7 @@ export default function App() {
           <Route path="edms" element={<EDMS />} />
           <Route path="maintenance" element={<FacilityMaintenance />} />
           <Route path="memos" element={<Memos />} />
+          <Route path="memos/:memoId" element={<Memos />} />
           <Route path="reports" element={<AdminReports />} />
           <Route path="tasks" element={<AdminTasks />} />
           <Route path="travels" element={<TravelsLogistics />} />
@@ -192,6 +194,7 @@ export default function App() {
           <Route path="tenders" element={<RFQsTenders />} />
           <Route path="proposals" element={<Proposals />} />
           <Route path="crm" element={<CRMContacts />} />
+          <Route path="reports" element={<BizDevReports />} />
         </Route>
 
         {/* Procurement Module Routes */}

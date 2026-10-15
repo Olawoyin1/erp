@@ -126,6 +126,7 @@ export const NAV = [
           { label: 'RFQs & Tenders', path: '/bizdev/tenders', anyOf: ['businessdev.tender.view', 'businessdev.rfq.view'] },
           { label: 'Proposals', path: '/bizdev/proposals', permission: 'businessdev.opportunity.view' },
           { label: 'CRM Contacts', path: '/bizdev/crm', permission: 'businessdev.interaction.view' },
+          { label: 'Reports', path: '/bizdev/reports', permission: 'businessdev.reports.view' },
         ],
       },
       {
