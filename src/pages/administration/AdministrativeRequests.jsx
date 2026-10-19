@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { FiPlus, FiEye, FiCheck, FiX, FiFileText, FiSlash, FiPackage } from 'react-icons/fi';
+import { FiPlus, FiEye, FiCheck, FiX, FiFileText, FiSlash, FiPackage, FiDownload, FiPaperclip } from 'react-icons/fi';
 import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -15,10 +16,10 @@ import {
 } from '../procurement/shared/procUtils';
 import { useExport, useProcList, useRecord, useRunAction, useSelection } from '../procurement/shared/procHooks';
 import {
-  Choice, ConfirmModal, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, Note, PageHeader, Panel,
-  PrimaryButton, ReasonModal, RecordSummary, SecondaryButton, StatusBadge, StatusLine, TabBar, Tag, TwoCol, ViewHeader,
+  Choice, ConfirmModal, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar,
+  PageHeader, PrimaryButton, ReasonModal, RecordSummary, SecondaryButton, StatusBadge, Tag, TwoCol,
 } from '../procurement/shared/ProcUi';
-import { AttachField, DocumentList } from '../procurement/shared/ProcExtras';
+import { AttachField } from '../procurement/shared/ProcExtras';
 import { HistoryTimeline } from './shared/AdmUi';
 import { useAdminLookups } from './shared/admHooks';
 
@@ -182,52 +183,234 @@ function NewRequestModal({ me, employees, onClose, onSaved }) {
   );
 }
 
-function ViewRequestModal({ id, refreshKey, actions, ownRequest, canApproveNow, canUpload, onClose }) {
+// ─── Urgency pill ─────────────────────────────────────────────────────────────
+const URGENCY_STYLES = {
+  critical: { bg: '#FEE2E2', color: '#DC2626' },
+  urgent:   { bg: '#FEF3C7', color: '#D97706' },
+  routine:  { bg: '#F1F5F9', color: '#64748B' },
+};
+function UrgencyPill({ value }) {
+  const s = URGENCY_STYLES[value] || URGENCY_STYLES.routine;
+  return (
+    <span style={{ backgroundColor: s.bg, color: s.color, padding: '3px 10px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 600 }}>
+      {statusLabel(value)}
+    </span>
+  );
+}
+
+// ─── History item (matches HR Requests style) ─────────────────────────────────
+function HistoryItem({ color, title, titleColor = '#0F172A', subtitle, when }) {
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ position: 'absolute', left: -25, top: 0, width: 16, height: 16, borderRadius: '50%', backgroundColor: color, border: '3px solid #fff' }} />
+      <div style={{ fontSize: '0.85rem', color: titleColor, fontWeight: 600 }}>{title}</div>
+      {subtitle ? <div style={{ fontSize: '0.75rem', color: '#64748B' }}>{subtitle}</div> : null}
+      {when ? <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: 4 }}>{formatDate(when)}</div> : null}
+    </div>
+  );
+}
+
+// ─── View Request Drawer ──────────────────────────────────────────────────────
+function ViewRequestDrawer({ id, refreshKey, onClose, canApproveNow, ownRequest, canUpload, onApprove, onReject, onComplete, onCancel, busy }) {
+  const { showToast } = useToast();
   const { record, error, loading } = useRecord(adminRequestService, id, refreshKey);
   const [tab, setTab] = useState('details');
-  const remaining = record && record.status === 'pending' && record.currentStep ? CHAIN.slice(CHAIN.indexOf(record.currentStep)).map((s) => STEP_LABELS[s]) : [];
+  const [fileState, setFileState] = useState({ id: null, files: [], loading: false });
+
+  // load attachments when record arrives
+  useState(() => {});
+  const loadFiles = (recordId) => {
+    if (!recordId || fileState.id === recordId) return;
+    setFileState({ id: recordId, files: [], loading: true });
+    adminRequestService.attachments(recordId)
+      .then((r) => setFileState({ id: recordId, files: r.data?.data || [], loading: false }))
+      .catch(() => setFileState({ id: recordId, files: [], loading: false }));
+  };
+  if (record?._id && fileState.id !== record._id) loadFiles(record._id);
+
+  const files = fileState.id === record?._id ? fileState.files : [];
+  const filesLoading = fileState.loading;
+
+  const openFile = async (file) => {
+    try {
+      const res = await adminRequestService.attachmentUrl(record._id, file._id);
+      window.open(res.data?.data?.url, '_blank', 'noopener');
+    } catch (err) {
+      showToast(apiError(err, 'Could not open the document'), 'error');
+    }
+  };
+
+  const remaining = record && record.status === 'pending' && record.currentStep
+    ? CHAIN.slice(CHAIN.indexOf(record.currentStep)).map((s) => STEP_LABELS[s])
+    : [];
+
+  const canAct = record && canApproveNow(record) && !ownRequest(record);
+  const isOwn = record && ownRequest(record);
+
+  const detailRows = record ? [
+    ['Request ID', record.requestId],
+    ['Request', record.requestTitle],
+    ['Request type', record.requestType],
+    ['Quantity', record.quantity != null ? `${record.quantity} ${record.unit || ''}`.trim() : '—'],
+    ['Requested by', refName(record.requestedBy, 'fullName')],
+    ['Department', refName(record.departmentId, 'name')],
+    ['Request date', formatDate(record.submittedAt)],
+    ['Required date', formatDate(record.requiredDate)],
+    ['Urgency', <UrgencyPill key="u" value={record.urgency} />],
+    ['Status', <RequestStatus key="s" row={record} />],
+  ] : [];
+
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="720px">
-      {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading request…</div>}
-      {error && <FormError message={error} />}
+    <Drawer isOpen onClose={onClose} title="View Request" width="520px">
+      {loading && <div style={{ padding: 24, color: '#64748B', fontSize: '0.875rem' }}>Loading request…</div>}
+      {error && <div style={{ padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.82rem', margin: '0 0 16px' }}>{error}</div>}
+
       {record && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: -10 }}>
-          <ViewHeader icon={<FiFileText size={22} />} title={record.requestTitle} subtitle={`${refName(record.requestedBy, 'fullName')} • ${record.requestId}`}>
-            {actions(record)}
-          </ViewHeader>
-          <StatusLine status={<RequestStatus row={record} />} />
-          {record.status === 'pending' && ownRequest(record) && canApproveNow(record) && (
-            <Note tone="amber">You raised this request, so another approver has to decide it.</Note>
+        <>
+          {/* Header */}
+          <div style={{ marginBottom: 20 }}>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#0F172A' }}>{record.requestTitle || record.requestType}</h3>
+            <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748B' }}>
+              {refName(record.requestedBy, 'fullName')} &bull; {record.requestId}
+            </p>
+          </div>
+
+          {/* Action bar — pending */}
+          {record.status === 'pending' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '10px 12px', marginBottom: 20 }}>
+              <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
+                Waiting on <strong style={{ color: '#0F172A' }}>{STEP_LABELS[record.currentStep] || 'review'}</strong>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {canAct && (
+                  <button onClick={() => onApprove(record)} disabled={busy}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#10B981', color: '#fff', borderRadius: 6, border: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.7 : 1 }}>
+                    <FiCheck size={14} /> Approve
+                  </button>
+                )}
+                {record.status === 'pending' && !ownRequest(record) && (
+                  <button onClick={() => onReject(record)} disabled={busy}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: 6, border: '1px solid #FECACA', cursor: busy ? 'not-allowed' : 'pointer' }}>
+                    <FiX size={14} /> Reject
+                  </button>
+                )}
+                {canUpload(record) && (
+                  <button onClick={() => onCancel(record)} disabled={busy}
+                    style={{ padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#fff', color: '#64748B', borderRadius: 6, border: '1px solid #E2E8F0', cursor: 'pointer' }}>
+                    Cancel request
+                  </button>
+                )}
+              </div>
+              {isOwn && (
+                <div style={{ flexBasis: '100%', fontSize: '0.75rem', color: '#B45309' }}>You raised this request — a different approver must decide it.</div>
+              )}
+            </div>
           )}
-          <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'history', label: 'Approval History' }]} active={tab} onChange={setTab} />
+
+          {/* Action bar — approved */}
+          {record.status === 'approved' && (
+            <div style={{ marginBottom: 20 }}>
+              <button onClick={() => onComplete(record)} disabled={busy}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', fontSize: '0.85rem', backgroundColor: '#10B981', color: '#fff', borderRadius: 6, border: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.7 : 1 }}>
+                <FiCheck size={14} /> Mark as Issued
+              </button>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginBottom: 20 }}>
+            {[['details', 'Details'], ['history', 'Approval History']].map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)}
+                style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid #1D4ED8' : '2px solid transparent', color: tab === key ? '#1D4ED8' : '#64748B', fontWeight: tab === key ? 600 : 400, cursor: 'pointer', fontSize: '0.9rem' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Details tab */}
           {tab === 'details' && (
-            <>
-              <DetailGrid
-                items={[
-                  ['Request ID', record.requestId],
-                  ['Request', record.requestTitle],
-                  ['Request type', record.requestType],
-                  ['Quantity', record.quantity != null ? `${record.quantity} ${record.unit || ''}`.trim() : '—'],
-                  ['Requested by', refName(record.requestedBy, 'fullName')],
-                  ['Department', refName(record.departmentId, 'name')],
-                  ['Request date', formatDate(record.submittedAt)],
-                  ['Required date', formatDate(record.requiredDate)],
-                  ['Urgency', statusLabel(record.urgency)],
-                  ['Status', record.status === 'completed' ? 'Issued' : record.status === 'pending' ? `In approval: ${STEP_LABELS[record.currentStep] || 'Pending'}` : statusLabel(record.status)],
-                ]}
-              />
-              <Panel title="Purpose">{record.description || 'No purpose was entered.'}</Panel>
-              {record.status === 'rejected' && <Panel title="Rejection reason" tone="red">{record.rejectionReason || 'No reason was recorded.'}</Panel>}
-              {record.status === 'cancelled' && <Panel title="Cancellation" tone="slate">{record.cancelReason || 'The request was withdrawn.'}</Panel>}
-              <DocumentList key={record._id} api={adminRequestService} id={record._id} canUpload={canUpload(record)} />
-            </>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                {detailRows.map(([label, value]) => (
+                  <div key={label}>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+                    <div style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {record.description && (
+                <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Purpose</div>
+                  <div style={{ fontSize: '0.875rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{record.description}</div>
+                </div>
+              )}
+
+              {record.status === 'rejected' && record.rejectionReason && (
+                <div style={{ backgroundColor: '#FEF2F2', padding: 16, borderRadius: 8, border: '1px solid #FECACA' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#991B1B', textTransform: 'uppercase', marginBottom: 8 }}>Rejection reason</div>
+                  <div style={{ fontSize: '0.875rem', color: '#991B1B' }}>{record.rejectionReason}</div>
+                </div>
+              )}
+
+              {record.status === 'cancelled' && (
+                <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Cancellation</div>
+                  <div style={{ fontSize: '0.875rem', color: '#334155' }}>{record.cancelReason || 'The request was withdrawn.'}</div>
+                </div>
+              )}
+
+              <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Attached documents</div>
+                {filesLoading ? (
+                  <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Loading…</div>
+                ) : files.length === 0 ? (
+                  <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>No documents attached.</div>
+                ) : files.map((f) => (
+                  <div key={f._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: 6, marginBottom: 6 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: '#0F172A' }}>
+                      <FiPaperclip size={14} /> {f.originalName}
+                    </span>
+                    <button className="icon-btn" title="Open" onClick={() => openFile(f)}><FiDownload size={15} /></button>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
+
+          {/* History tab */}
           {tab === 'history' && (
-            <HistoryTimeline key={`${record._id}-${refreshKey}`} load={adminRequestService.history} id={record._id} title="Approval history" pending={remaining} />
+            <div style={{ position: 'relative', borderLeft: '2px solid #E2E8F0', paddingLeft: 16, marginLeft: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <HistoryItem color="#1E3A8A" title="Request submitted" subtitle={`Submitted by ${refName(record.requestedBy, 'fullName')}`} when={record.submittedAt} />
+              {(record.approvals || []).map((approval, i) => (
+                <HistoryItem key={`${approval.step}-${i}`} color="#10B981"
+                  title={STEP_LABELS[approval.step] || statusLabel(approval.step)}
+                  subtitle={`Approved by ${refName(approval.by, 'fullName')}`}
+                  when={approval.at} />
+              ))}
+              {record.status === 'pending' && record.currentStep && (
+                <HistoryItem color="#F59E0B" title={STEP_LABELS[record.currentStep]} subtitle="Waiting for reviewer" />
+              )}
+              {remaining.slice(1).map((step) => (
+                <HistoryItem key={step} color="#E2E8F0" title={step} subtitle="Pending" />
+              ))}
+              {record.status === 'rejected' && (
+                <HistoryItem color="#EF4444" titleColor="#DC2626" title="Rejected" subtitle={record.rejectionReason || ''} />
+              )}
+              {record.status === 'cancelled' && (
+                <HistoryItem color="#94A3B8" title="Cancelled" subtitle={record.cancelReason || ''} when={record.cancelledAt} />
+              )}
+              {record.status === 'approved' && (
+                <HistoryItem color="#10B981" title="Fully approved" subtitle="Ready to be marked as issued" />
+              )}
+              {record.status === 'completed' && (
+                <HistoryItem color="#10B981" title="Issued" subtitle="Items issued to requester" />
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -394,14 +577,18 @@ export default function AdministrativeRequests() {
       )}
 
       {viewId && (
-        <ViewRequestModal
+        <ViewRequestDrawer
           id={viewId}
           refreshKey={refreshKey}
-          actions={viewActions}
-          ownRequest={ownRequest}
-          canApproveNow={canApproveNow}
-          canUpload={canAttach}
           onClose={() => setViewId(null)}
+          canApproveNow={canApproveNow}
+          ownRequest={ownRequest}
+          canUpload={canAttach}
+          busy={busy}
+          onApprove={(record) => open('approve', record)}
+          onReject={(record) => open('reject', record)}
+          onComplete={(record) => open('complete', record)}
+          onCancel={(record) => open('cancel', record)}
         />
       )}
 

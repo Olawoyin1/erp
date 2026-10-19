@@ -14,7 +14,8 @@ import { peekAuthNotice, clearAuthNotice } from '../../services/apiClient';
 import { usePermissions } from '../../hooks/usePermission';
 import { canOpenPath, getLandingPath } from '../../components/layout/navConfig';
 import AuthLayout, { AuthCard, AuthLogo, AuthInput, AuthButton } from './AuthLayout';
-import { AuthAlert, EyeToggle, FieldError } from './AuthParts';
+import { EyeToggle, FieldError } from './AuthParts';
+import Toast, { useToast } from '../../components/ui/Toast';
 
 export default function Login() {
   const dispatch = useDispatch();
@@ -32,11 +33,14 @@ export default function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPwd, setShowPwd] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
+  const { toast, showToast, hideToast } = useToast();
 
   useEffect(() => {
     clearAuthNotice();
     dispatch(clearError());
-  }, [dispatch]);
+    if (notice) showToast(notice, 'info');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Signed in: go back to where the user was heading if they may open it, else to their home page.
   useEffect(() => {
@@ -54,6 +58,14 @@ export default function Login() {
   useEffect(() => {
     if (mfaToken) navigate('/auth/verify', { replace: true });
   }, [mfaToken, navigate]);
+
+  // Show login errors as a toast instead of an inline banner
+  useEffect(() => {
+    if (error?.message) {
+      showToast(error.message, 'error');
+      dispatch(clearError());
+    }
+  }, [error, showToast, dispatch]);
 
   const handleChange = (e) => {
     setForm((p) => ({ ...p, [e.target.id]: e.target.value }));
@@ -77,8 +89,7 @@ export default function Login() {
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: '0 0 6px 0' }}>Welcome back</h1>
         <p style={{ fontSize: '0.85rem', color: '#64748B', margin: '0 0 24px 0' }}>Sign in to your PGSL ERP account.</p>
 
-        {notice && !error && <AuthAlert tone="info">{notice}</AuthAlert>}
-        <AuthAlert>{error?.message}</AuthAlert>
+        {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <div>

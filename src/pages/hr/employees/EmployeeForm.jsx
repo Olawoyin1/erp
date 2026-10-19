@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
+import { Country, State } from 'country-state-city';
 import Drawer from '../../../components/ui/Drawer';
 import { FormField, Input, Select, Textarea, DatePicker } from '../../../components/ui/FormField';
 import { employeeService } from '../../../services/hr.service';
@@ -9,14 +10,31 @@ import { fieldErrorsOf, ymd } from '../hrUtils';
 import EmployeePicker from '../EmployeePicker';
 import Avatar from '../Avatar';
 
+const DEFAULT_COUNTRY_CODE = 'NG'; // Nigeria
+
 const CONTRACT_TYPES = ['permanent', 'contract', 'temporary'];
 const EMPLOYMENT_TYPES = ['Full-time', 'Part-time'];
 
 const idOf = (ref) => (ref && typeof ref === 'object' ? ref._id : ref);
 const NAIRA = /^\d+(\.\d{1,2})?$/;
 
+/** Resolve the ISO country code from a stored nationality string (e.g. "Nigerian" → "NG"). */
+function countryCodeFromNationality(nationality) {
+  if (!nationality) return DEFAULT_COUNTRY_CODE;
+  const all = Country.getAllCountries();
+  // Try exact match on name first, then "Nigerian" → "Nigeria" style suffix strip
+  const exact = all.find((c) => c.name.toLowerCase() === nationality.toLowerCase());
+  if (exact) return exact.isoCode;
+  // Demonym-style: strip trailing "an"/"ian"/"n" and fuzzy match
+  const stripped = nationality.replace(/i?a?n$/i, '').toLowerCase();
+  const fuzzy = all.find((c) => c.name.toLowerCase().startsWith(stripped));
+  return fuzzy ? fuzzy.isoCode : DEFAULT_COUNTRY_CODE;
+}
+
 function initialForm(employee) {
   const kin = employee?.nextOfKin || {};
+  const countryCode = countryCodeFromNationality(employee?.nationality);
+  const countryName = Country.getCountryByCode(countryCode)?.name || 'Nigeria';
   return {
     fullName: employee?.fullName || '',
     email: employee?.email || '',
@@ -33,7 +51,8 @@ function initialForm(employee) {
     baseSalary: employee?.baseSalary != null ? String(employee.baseSalary / 100) : '',
     notes: employee?.notes || '',
     dateOfBirth: ymd(employee?.dateOfBirth),
-    nationality: employee?.nationality || '',
+    countryCode,
+    nationality: employee?.nationality || countryName,
     state: employee?.state || '',
     address: employee?.address || '',
     kinName: kin.name || '',
@@ -124,6 +143,13 @@ export default function EmployeeForm({ mode, employee, onClose, onSubmit, onPhot
   const [saving, setSaving] = useState(false);
   const [lookups, setLookups] = useState({ loading: true, error: '', departments: [], grades: [] });
   const [showPersonal, setShowPersonal] = useState(false);
+
+  // Country / state options derived from country-state-city
+  const countryOptions = useMemo(() => Country.getAllCountries().map((c) => ({ value: c.isoCode, label: c.name })), []);
+  const stateOptions = useMemo(() => {
+    const states = State.getStatesOfCountry(form.countryCode || DEFAULT_COUNTRY_CODE);
+    return states.map((s) => ({ value: s.name, label: s.name }));
+  }, [form.countryCode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -347,13 +373,35 @@ export default function EmployeeForm({ mode, employee, onClose, onSubmit, onPhot
                   <FormField label="Date of birth" error={errors.dateOfBirth}>
                     <DatePicker value={form.dateOfBirth} max={new Date().toISOString().slice(0, 10)} onChange={(e) => set('dateOfBirth', e.target.value)} />
                   </FormField>
-                  <FormField label="Nationality" error={errors.nationality}>
-                    <Input value={form.nationality} onChange={(e) => set('nationality', e.target.value)} />
+                  <FormField label="Country / Nationality" error={errors.nationality}>
+                    <Select
+                      value={form.countryCode}
+                      searchable
+                      placeholder="Select country"
+                      options={countryOptions}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        const name = Country.getCountryByCode(code)?.name || '';
+                        set('countryCode', code);
+                        set('nationality', name);
+                        set('state', ''); // reset state when country changes
+                      }}
+                    />
                   </FormField>
                 </div>
                 <div style={row}>
                   <FormField label="State" error={errors.state}>
-                    <Input value={form.state} onChange={(e) => set('state', e.target.value)} />
+                    {stateOptions.length > 0 ? (
+                      <Select
+                        value={form.state}
+                        searchable
+                        placeholder="Select state"
+                        options={[{ value: '', label: 'Select state' }, ...stateOptions]}
+                        onChange={(e) => set('state', e.target.value)}
+                      />
+                    ) : (
+                      <Input value={form.state} placeholder="Enter state / region" onChange={(e) => set('state', e.target.value)} />
+                    )}
                   </FormField>
                   <FormField label="Address" error={errors.address}>
                     <Input value={form.address} onChange={(e) => set('address', e.target.value)} />
