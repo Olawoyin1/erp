@@ -7,7 +7,7 @@ import {
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Badge from '../../components/ui/Badge';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { Input, FormField, Select, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -223,8 +223,19 @@ export default function GeneralAdmin() {
         </div>
       </div>
 
-      {/* New Notice Modal */}
-      <Modal isOpen={noticeModal} onClose={() => setNoticeModal(false)} title="Create Notice / Circular" size="md">
+      {/* New Notice Drawer */}
+      <Drawer isOpen={noticeModal} onClose={() => setNoticeModal(false)} title="Create Notice / Circular" subtitle="Draft and publish a company-wide notice or circular" width="560px"
+        footer={
+          <>
+            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setNoticeModal(false)}>Cancel</button>
+            <button className="btn btn-primary"
+              onClick={() => { setNoticeModal(false); showToast('Notice published successfully', 'success'); }}
+              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FiSend size={14} /> Publish Notice
+            </button>
+          </>
+        }
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <FormField label="Notice Title">
             <Input placeholder="e.g. Office Closure – Public Holiday" />
@@ -243,19 +254,22 @@ export default function GeneralAdmin() {
           <FormField label="Notice Content">
             <Textarea placeholder="Enter notice body..." rows={4} />
           </FormField>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px' }}>
-            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setNoticeModal(false)}>Cancel</button>
-            <button className="btn btn-primary"
-              onClick={() => { setNoticeModal(false); showToast('Notice published successfully', 'success'); }}
-              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <FiSend size={14} /> Publish Notice
-            </button>
-          </div>
         </div>
-      </Modal>
+      </Drawer>
 
-      {/* Schedule Meeting Modal */}
-      <Modal isOpen={meetingModal} onClose={() => setMeetingModal(false)} title="Schedule New Meeting" size="md">
+      {/* Schedule Meeting Drawer */}
+      <Drawer isOpen={meetingModal} onClose={() => setMeetingModal(false)} title="Schedule New Meeting" subtitle="Plan and organise a meeting with attendees" width="560px"
+        footer={
+          <>
+            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setMeetingModal(false)}>Cancel</button>
+            <button className="btn btn-primary"
+              onClick={() => { setMeetingModal(false); showToast('Meeting scheduled successfully', 'success'); }}
+              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FiCalendar size={14} /> Schedule Meeting
+            </button>
+          </>
+        }
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <FormField label="Meeting Title">
             <Input placeholder="e.g. Q4 Strategy Meeting" />
@@ -278,16 +292,8 @@ export default function GeneralAdmin() {
           <FormField label="Agenda / Notes">
             <Textarea placeholder="Meeting agenda..." rows={3} />
           </FormField>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px' }}>
-            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setMeetingModal(false)}>Cancel</button>
-            <button className="btn btn-primary"
-              onClick={() => { setMeetingModal(false); showToast('Meeting scheduled successfully', 'success'); }}
-              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <FiCalendar size={14} /> Schedule Meeting
-            </button>
-          </div>
         </div>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

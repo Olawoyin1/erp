@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiDownload } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import { apiError } from '../../../services/apiHelpers';
 import { inventoryImportService } from '../../../services/procurement.service';
 import { downloadFile } from '../shared/procUtils';
@@ -46,12 +46,12 @@ export default function ImportDialog({ onClose, onDone }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Import Inventory Items"
       subtitle="Add many items at once from a spreadsheet. Nothing is saved until you confirm."
-      maxWidth="680px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Close</SecondaryButton>
@@ -91,6 +91,6 @@ export default function ImportDialog({ onClose, onDone }) {
         )}
         <FormError message={error} />
       </div>
-    </Modal>
+    </Drawer>
   );
 }

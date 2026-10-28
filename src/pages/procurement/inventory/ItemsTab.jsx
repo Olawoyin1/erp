@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiEdit, FiRepeat } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
@@ -78,12 +78,12 @@ function ItemFormModal({ item, lookups, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Inventory Item' : 'Add Inventory Item'}
       subtitle={editing ? 'The warehouse and stock level are changed through movements, receipts and stock adjustments.' : 'The same item code can exist once per warehouse.'}
-      maxWidth="620px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -136,7 +136,7 @@ function ItemFormModal({ item, lookups, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -175,12 +175,12 @@ function AdjustmentModal({ item, onClose, onSaved }) {
   const delta = Number(newStock) - item.currentStock;
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Stock Adjustment"
       subtitle={`Update the available stock for ${item.itemCode}`}
-      maxWidth="560px"
+      width="560px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -206,7 +206,7 @@ function AdjustmentModal({ item, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -215,7 +215,7 @@ function ViewItemModal({ id, refreshKey, canUpdate, onAdjust, onEdit, onClose })
   const { record, error, loading } = useRecord(inventoryItemService, id, refreshKey);
   const history = useFetched(() => inventoryItemService.history(id), tab === 'history' ? `${id}:${refreshKey}` : null);
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="780px">
+    <Drawer isOpen onClose={onClose} title="Inventory Item" subtitle="Stock information and movement history" width="780px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading item…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -262,7 +262,7 @@ function ViewItemModal({ id, refreshKey, canUpdate, onAdjust, onEdit, onClose })
           )}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

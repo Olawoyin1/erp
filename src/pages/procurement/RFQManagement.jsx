@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiUpload, FiPlus, FiEye, FiEdit, FiCheck, FiX, FiCheckCircle, FiAward, FiFileText, FiTrash2, FiSend, FiShoppingBag } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -114,12 +114,12 @@ function LogResponseModal({ rfq, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Log Vendor Response"
       subtitle="Record a quotation received from an invited vendor. Logging again for the same vendor replaces its quotation."
-      maxWidth="680px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -177,7 +177,7 @@ function LogResponseModal({ rfq, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -187,7 +187,7 @@ function ViewRfqModal({ id, refreshKey, tab, onTab, canDecide, canUpdate, canOrd
   const awardedId = record ? refId((record.vendorResponses || []).find((r) => r.awarded)?.vendorId) : '';
 
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="780px">
+    <Drawer isOpen onClose={onClose} title="RFQ / RFP Details" subtitle="Sourcing request, quotations and evaluation" width="780px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading RFQ…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -283,7 +283,7 @@ function ViewRfqModal({ id, refreshKey, tab, onTab, canDecide, canUpdate, canOrd
           )}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

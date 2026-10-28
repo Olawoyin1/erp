@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiUpload, FiPlus, FiEye, FiTruck, FiCheckCircle, FiClock, FiAlertTriangle, FiEdit2 } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -89,12 +89,12 @@ function NewDeliveryModal({ lookups, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="New Delivery"
       subtitle="Start tracking a delivery against an acknowledged purchase order."
-      maxWidth="600px"
+      width="600px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -145,7 +145,7 @@ function NewDeliveryModal({ lookups, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -171,12 +171,12 @@ function UpdateStatusModal({ delivery, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Update Delivery Status"
       subtitle={`${delivery.deliveryRef} • ${refName(delivery.poId, 'poNo')}`}
-      maxWidth="480px"
+      width="480px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -197,7 +197,7 @@ function UpdateStatusModal({ delivery, onClose, onSaved }) {
         {delivery.statusNote && <Panel title="Previous note">{delivery.statusNote}</Panel>}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -205,7 +205,7 @@ function ViewDeliveryModal({ id, refreshKey, tab, onTab, canUpdate, onUpdate, on
   const { record, error, loading } = useRecord(deliveryService, id, refreshKey);
   const timeline = useFetched(() => deliveryService.timeline(id), tab === 'timeline' ? `${id}:${refreshKey}` : null);
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="760px">
+    <Drawer isOpen onClose={onClose} title="Delivery Details" subtitle="Shipment tracking and timeline" width="760px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading delivery…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -267,7 +267,7 @@ function ViewDeliveryModal({ id, refreshKey, tab, onTab, canUpdate, onUpdate, on
           )}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

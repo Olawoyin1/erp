@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { FiPaperclip, FiUploadCloud, FiX, FiDownload, FiUpload } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import { apiError } from '../../../services/apiHelpers';
 import { formatDateTime, uploadStagedFiles, useDebounced } from './procUtils';
 import { Choice, Field, FormError, PrimaryButton, SecondaryButton, Skeleton } from './ProcUi';
@@ -170,12 +170,12 @@ export function AttachToRecordDialog({ api, title, recordNoun, recordLabel, list
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={title}
       subtitle={`Attach supporting documents to a ${recordNoun}`}
-      maxWidth="520px"
+      width="520px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -206,6 +206,6 @@ export function AttachToRecordDialog({ api, title, recordNoun, recordLabel, list
         </Field>
         <FormError message={error} />
       </div>
-    </Modal>
+    </Drawer>
   );
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiCheck, FiX } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
@@ -75,12 +75,12 @@ function NewMovementModal({ lookups, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="New Stock Movement"
       subtitle="Track material movements across warehouses and project sites. Stock only changes when the movement is completed."
-      maxWidth="680px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -147,14 +147,14 @@ function NewMovementModal({ lookups, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
 function ViewMovementModal({ id, refreshKey, canUpdate, onComplete, onCancel, onClose }) {
   const { record, error, loading } = useRecord(stockMovementService, id, refreshKey);
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="680px">
+    <Drawer isOpen onClose={onClose} title="Stock Movement" subtitle="Movement details and attached documents" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading movement…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -186,7 +186,7 @@ function ViewMovementModal({ id, refreshKey, canUpdate, onComplete, onCancel, on
           <DocumentList key={record._id} api={stockMovementService} id={record._id} canUpload={canUpdate && record.status === 'pending'} title="Attachments" />
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

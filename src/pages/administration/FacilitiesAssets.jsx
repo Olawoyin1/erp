@@ -7,7 +7,6 @@ import {
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Badge from '../../components/ui/Badge';
-import Modal from '../../components/ui/Modal';
 import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { Input, FormField, Select, Textarea } from '../../components/ui/FormField';
@@ -231,8 +230,19 @@ export default function FacilitiesAssets() {
         </div>
       </div>
 
-      {/* Add Asset Modal */}
-      <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Asset" size="md">
+      {/* Add Asset Drawer */}
+      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Asset" subtitle="Add an asset to the company asset register" width="560px"
+        footer={
+          <>
+            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>
+            <button className="btn btn-primary"
+              onClick={() => { setAddModal(false); showToast('Asset registered successfully', 'success'); }}
+              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600 }}>
+              Register Asset
+            </button>
+          </>
+        }
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <FormField label="Asset Name">
             <Input placeholder="e.g. Dell OptiPlex 7090 Desktop" />
@@ -256,16 +266,8 @@ export default function FacilitiesAssets() {
               <Input type="date" />
             </FormField>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px' }}>
-            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>
-            <button className="btn btn-primary"
-              onClick={() => { setAddModal(false); showToast('Asset registered successfully', 'success'); }}
-              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600 }}>
-              Register Asset
-            </button>
-          </div>
         </div>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

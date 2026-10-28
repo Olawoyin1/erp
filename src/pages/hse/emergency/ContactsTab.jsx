@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { FiPlus, FiEye, FiEdit, FiTrash2, FiPhoneCall } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
 import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { Input } from '../../../components/ui/FormField';
@@ -85,12 +84,12 @@ function ContactFormModal({ record, lookups, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Contact' : 'Add Contact'}
       subtitle={editing ? undefined : 'Add an emergency contact for quick access during incidents and emergency response'}
-      maxWidth="640px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -130,7 +129,7 @@ function ContactFormModal({ record, lookups, onClose, onSaved }) {
         </TwoCol>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

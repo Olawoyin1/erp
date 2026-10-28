@@ -7,7 +7,6 @@ import {
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Badge from '../../components/ui/Badge';
-import Modal from '../../components/ui/Modal';
 import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { Input, FormField, Select, Textarea } from '../../components/ui/FormField';
@@ -281,8 +280,19 @@ export default function CompanyFleet() {
         </div>
       </div>
 
-      {/* Add Vehicle Modal */}
-      <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Vehicle" size="md">
+      {/* Add Vehicle Drawer */}
+      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Vehicle" subtitle="Add a vehicle to the company fleet register" width="620px"
+        footer={
+          <>
+            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>
+            <button className="btn btn-primary"
+              onClick={() => { setAddModal(false); showToast('Vehicle registered successfully', 'success'); }}
+              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600 }}>
+              Register Vehicle
+            </button>
+          </>
+        }
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <FormField label="Make"><Input placeholder="e.g. Toyota" /></FormField>
@@ -303,16 +313,8 @@ export default function CompanyFleet() {
             <FormField label="Insurance Expiry"><Input type="date" /></FormField>
             <FormField label="Next Service Due"><Input type="date" /></FormField>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px' }}>
-            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>
-            <button className="btn btn-primary"
-              onClick={() => { setAddModal(false); showToast('Vehicle registered successfully', 'success'); }}
-              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600 }}>
-              Register Vehicle
-            </button>
-          </div>
         </div>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

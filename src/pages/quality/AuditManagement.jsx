@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiPlus, FiEye, FiDownload, FiEdit, FiPlay, FiCheck, FiUpload, FiCalendar, FiLock, FiAlertCircle, FiList, FiArrowDown, FiArrowUp } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -118,12 +118,12 @@ function AuditFormModal({ record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Audit' : 'Schedule Audit'}
       subtitle={editing ? undefined : 'Create an audit schedule and assign the responsible auditor'}
-      maxWidth="700px"
+      width="660px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -183,7 +183,7 @@ function AuditFormModal({ record, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -207,12 +207,12 @@ function UploadReportModal({ audit, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Upload Audit Report"
       subtitle="The findings document for a completed audit"
-      maxWidth="520px"
+      width="500px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -227,7 +227,7 @@ function UploadReportModal({ audit, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -259,12 +259,12 @@ function RescheduleModal({ audit, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Reschedule Audit"
       subtitle="Choose new dates for the overdue audit"
-      maxWidth="520px"
+      width="500px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -284,7 +284,7 @@ function RescheduleModal({ audit, onClose, onSaved }) {
         </TwoCol>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -292,7 +292,7 @@ function ViewAuditModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(qualityAuditService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="700px">
+    <Drawer isOpen onClose={onClose} title="" width="660px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading audit…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -331,7 +331,7 @@ function ViewAuditModal({ id, refreshKey, actions, onClose }) {
           {tab === 'history' && <HistoryTimeline key={`${record._id}-${refreshKey}`} load={qualityAuditService.history} id={record._id} title="Audit history" />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

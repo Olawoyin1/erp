@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { FiPlus, FiEye, FiDownload, FiRefreshCw, FiArchive, FiCheck, FiSearch } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
 import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
@@ -83,12 +82,12 @@ function UploadPlanModal({ onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Upload Plan"
       subtitle="Upload an emergency response plan for employee access and operational readiness"
-      maxWidth="640px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -131,7 +130,7 @@ function UploadPlanModal({ onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -164,12 +163,12 @@ function ReplacePlanModal({ plan, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Replace Plan"
       subtitle="Upload a newer version of this emergency plan"
-      maxWidth="600px"
+      width="580px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -192,7 +191,7 @@ function ReplacePlanModal({ plan, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

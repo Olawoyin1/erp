@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiClipboard } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
@@ -94,12 +94,12 @@ function LogReceiptModal({ lookups, onClose, onSaved }) {
   const warehouseItems = items(form.warehouse);
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Log Goods Receipt"
       subtitle="Record materials arriving against an acknowledged purchase order. The receipt starts as pending inspection."
-      maxWidth="760px"
+      width="760px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -163,7 +163,7 @@ function LogReceiptModal({ lookups, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -203,12 +203,12 @@ function InspectionModal({ receipt, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Update Inspection Status"
       subtitle={`${receipt.grnNo} • ${refName(receipt.poId, 'poNo')}`}
-      maxWidth="680px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -253,7 +253,7 @@ function InspectionModal({ receipt, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -261,7 +261,7 @@ function ViewReceiptModal({ id, refreshKey, canInspect, onInspect, onClose }) {
   const [tab, setTab] = useState('details');
   const { record, error, loading } = useRecord(goodsReceiptService, id, refreshKey);
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="780px">
+    <Drawer isOpen onClose={onClose} title="Goods Receipt" subtitle="Delivery and inspection record" width="780px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading goods receipt…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -305,7 +305,7 @@ function ViewReceiptModal({ id, refreshKey, canInspect, onInspect, onClose }) {
           {tab === 'documents' && <DocumentList key={record._id} api={goodsReceiptService} id={record._id} canUpload={false} title="Delivery documents and inspection evidence" />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

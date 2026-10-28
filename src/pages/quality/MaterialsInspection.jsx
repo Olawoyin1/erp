@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiEye, FiEdit2, FiHome, FiArrowDown, FiArrowUp } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import { Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { usePermissions } from '../../hooks/usePermission';
@@ -85,12 +85,12 @@ function UpdateInspectionModal({ receipt, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Update Inspection Status"
       subtitle={`Current status: ${statusLabel(receipt.status)}`}
-      maxWidth="680px"
+      width="660px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -144,7 +144,7 @@ function UpdateInspectionModal({ receipt, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -165,7 +165,7 @@ function ViewReceiptModal({ id, refreshKey, canUpdate, onUpdate, onClose }) {
   const { record, error, loading } = useRecord(qualityInspectionService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="700px">
+    <Drawer isOpen onClose={onClose} title="" width="660px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading goods receipt…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -218,7 +218,7 @@ function ViewReceiptModal({ id, refreshKey, canUpdate, onUpdate, onClose }) {
           {tab === 'history' && <HistoryTimeline key={`${record._id}-${refreshKey}`} load={qualityInspectionService.history} id={record._id} title="Receipt history" />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

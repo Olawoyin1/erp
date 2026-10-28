@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { FiEye, FiDownload, FiList, FiPlus, FiUpload, FiFileText } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import { DatePicker, Input } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { usePermissions } from '../../hooks/usePermission';
@@ -107,12 +107,12 @@ function LogCalibrationModal({ instrument, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Schedule Calibration"
       subtitle="Record a completed calibration with its certificate"
-      maxWidth="640px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -171,7 +171,7 @@ function LogCalibrationModal({ instrument, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -227,7 +227,7 @@ function ViewInstrumentModal({ id, refreshKey, canLog, onLog, onClose }) {
   const { record, error, loading } = useRecord(qualityCalibrationService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="700px">
+    <Drawer isOpen onClose={onClose} title="" width="660px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading instrument…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -259,7 +259,7 @@ function ViewInstrumentModal({ id, refreshKey, canLog, onLog, onClose }) {
           {tab === 'history' && <HistoryTab key={`${record._id}-${refreshKey}`} record={record} refreshKey={refreshKey} canLog={canLog} onLog={() => onLog(record)} />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

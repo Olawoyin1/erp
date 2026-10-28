@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiEdit, FiPlay, FiCheck, FiX, FiTool } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -102,12 +102,12 @@ function ScheduleFormModal({ record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Schedule Maintenance"
-      subtitle={editing ? undefined : 'Schedule maintenance for review and execution'}
-      maxWidth="680px"
+      subtitle={editing ? 'Update the maintenance schedule details' : 'Schedule maintenance for review and execution'}
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -150,7 +150,7 @@ function ScheduleFormModal({ record, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -158,11 +158,11 @@ function ViewMaintenanceModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(facilityMaintenanceService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="680px">
+    <Drawer isOpen onClose={onClose} title="View Maintenance" width="620px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading job…</div>}
       {error && <FormError message={error} />}
       {record && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 18, marginTop: -10 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <ViewHeader icon={<FiTool size={22} />} title={record.facilityOrAsset} subtitle={`${record.assignedTo} • ${record.maintenanceId}`}>{actions(record)}</ViewHeader>
           <StatusLine status={<Status status={record.status} />} />
           <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'history', label: 'History' }]} active={tab} onChange={setTab} />
@@ -187,7 +187,7 @@ function ViewMaintenanceModal({ id, refreshKey, actions, onClose }) {
           {tab === 'history' && <HistoryTimeline key={`${record._id}-${refreshKey}`} load={facilityMaintenanceService.history} id={record._id} title="Job history" />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

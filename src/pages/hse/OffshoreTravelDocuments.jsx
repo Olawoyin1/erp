@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiDownload, FiAlertTriangle, FiEdit, FiCheck, FiX, FiRefreshCw, FiAward } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -100,12 +100,12 @@ function DocumentFormModal({ record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Offshore Travel Document' : 'Add Offshore Travel Document'}
       subtitle="Upload and submit offshore travel document for HSE verification"
-      maxWidth="680px"
+      width="660px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -149,7 +149,7 @@ function DocumentFormModal({ record, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -183,12 +183,12 @@ function RenewModal({ record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Renew Certificate"
       subtitle="The renewed certificate goes back to HSE for verification"
-      maxWidth="560px"
+      width="540px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -214,7 +214,7 @@ function RenewModal({ record, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -222,7 +222,7 @@ function ViewDocumentModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(offshoreTravelService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="680px">
+    <Drawer isOpen onClose={onClose} title="" width="660px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading document…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -264,7 +264,7 @@ function ViewDocumentModal({ id, refreshKey, actions, onClose }) {
           {tab === 'history' && <HistoryTimeline key={`${record._id}-${refreshKey}`} load={offshoreTravelService.history} id={record._id} title="Document history" />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import { DatePicker, Input } from '../../../components/ui/FormField';
 import { apiError } from '../../../services/apiHelpers';
 import { procurementRfqService, purchaseRequisitionService } from '../../../services/procurement.service';
@@ -142,12 +142,12 @@ export default function RfqFormModal({ rfq, requisition, lookups, canIssue, onCl
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit RFQ / RFP' : 'Create RFQ / RFP'}
       subtitle={editing ? 'Only a draft can be edited.' : 'Create a sourcing request for approved procurement requirements.'}
-      maxWidth="720px"
+      width="720px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -270,6 +270,6 @@ export default function RfqFormModal({ rfq, requisition, lookups, canIssue, onCl
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }

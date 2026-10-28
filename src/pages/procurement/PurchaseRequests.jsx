@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FiUpload, FiPlus, FiEye, FiEdit, FiCheck, FiX, FiArrowRight, FiFileText, FiTrash2 } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -124,12 +124,12 @@ function RequisitionFormModal({ record, lookups, myEmployeeId, onClose, onSaved 
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Requisition' : 'New Requisition'}
       subtitle={editing ? 'Only a draft can be edited.' : 'Submit a new procurement request for review and approval'}
-      maxWidth="720px"
+      width="720px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -196,14 +196,14 @@ function RequisitionFormModal({ record, lookups, myEmployeeId, onClose, onSaved 
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
 function ViewRequisitionModal({ id, refreshKey, actions, canDecide, ownRequest, canUpload, onClose }) {
   const { record, error, loading } = useRecord(purchaseRequisitionService, id, refreshKey);
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="760px">
+    <Drawer isOpen onClose={onClose} title="Requisition Details" subtitle="Purchase requisition record" width="760px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading requisition…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -236,7 +236,7 @@ function ViewRequisitionModal({ id, refreshKey, actions, canDecide, ownRequest, 
           <DocumentList key={record._id} api={purchaseRequisitionService} id={record._id} canUpload={canUpload && ['draft', 'pending_approval'].includes(record.status)} />
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

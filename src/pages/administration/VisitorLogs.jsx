@@ -7,7 +7,6 @@ import {
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Badge from '../../components/ui/Badge';
-import Modal from '../../components/ui/Modal';
 import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { Input, FormField, Select, Textarea } from '../../components/ui/FormField';
@@ -320,8 +319,19 @@ export default function VisitorLogs() {
         </div>
       </div>
 
-      {/* Register Visitor Modal */}
-      <Modal isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Visitor" size="md">
+      {/* Register Visitor Drawer */}
+      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Visitor" subtitle="Log a new visitor and assign an access badge" width="560px"
+        footer={
+          <>
+            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>
+            <button className="btn btn-primary"
+              onClick={() => { setAddModal(false); showToast('Visitor registered & badge assigned', 'success'); }}
+              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FiUserCheck size={14} /> Register Visitor
+            </button>
+          </>
+        }
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <FormField label="Visitor Name"><Input placeholder="Full name" /></FormField>
@@ -343,16 +353,8 @@ export default function VisitorLogs() {
           <FormField label="Additional Notes">
             <Textarea placeholder="Any additional visit details..." rows={2} />
           </FormField>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '8px' }}>
-            <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>
-            <button className="btn btn-primary"
-              onClick={() => { setAddModal(false); showToast('Visitor registered & badge assigned', 'success'); }}
-              style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <FiUserCheck size={14} /> Register Visitor
-            </button>
-          </div>
         </div>
-      </Modal>
+      </Drawer>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FiUpload, FiPlus, FiEye, FiEdit, FiCheck, FiX, FiCheckCircle, FiFileText, FiShoppingBag, FiAlertTriangle } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -183,12 +183,12 @@ function OrderFormModal({ order, presetRfqId, lookups, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Purchase Order' : 'Create Purchase Order'}
       subtitle={editing ? order.poNo : 'Create a purchase order for goods or services.'}
-      maxWidth="780px"
+      width="780px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -319,7 +319,7 @@ function OrderFormModal({ order, presetRfqId, lookups, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -370,7 +370,7 @@ function TrackingTab({ order }) {
 function ViewOrderModal({ id, refreshKey, tab, onTab, canUpdate, canDecide, onAction, onEdit, onClose }) {
   const { record, error, loading } = useRecord(purchaseOrderService, id, refreshKey);
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="800px">
+    <Drawer isOpen onClose={onClose} title="Purchase Order" subtitle="Order details, items, tracking and documents" width="800px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading purchase order…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -429,7 +429,7 @@ function ViewOrderModal({ id, refreshKey, tab, onTab, canUpdate, canDecide, onAc
           {tab === 'documents' && <DocumentList key={record._id} api={purchaseOrderService} id={record._id} canUpload={canUpdate && record.status !== 'cancelled'} title="Purchase order documents" />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

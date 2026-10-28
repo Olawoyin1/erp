@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FiUpload, FiPlus, FiEye, FiEdit, FiCheck, FiX, FiCheckCircle, FiShield, FiClock, FiFileText, FiAlertTriangle } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -134,12 +134,12 @@ function PrequalFormModal({ record, lookups, myEmployeeId, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Details' : 'New Vendor Prequalification'}
       subtitle={editing ? 'Only an assessment still pending approval can be edited.' : 'Register a new vendor for procurement and service management. The vendor joins the Approved Vendor List once the assessment is approved.'}
-      maxWidth="720px"
+      width="720px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -200,14 +200,14 @@ function PrequalFormModal({ record, lookups, myEmployeeId, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
 function ViewPrequalModal({ id, refreshKey, canDecide, canUpdate, onApprove, onReject, onEdit, onClose }) {
   const { record, error, loading } = useRecord(vendorPrequalificationService, id, refreshKey);
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="760px">
+    <Drawer isOpen onClose={onClose} title="Vendor Prequalification" subtitle="Assessment details and approval status" width="760px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading assessment…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -242,7 +242,7 @@ function ViewPrequalModal({ id, refreshKey, canDecide, canUpdate, onApprove, onR
           <DocumentList key={record._id} api={vendorPrequalificationService} id={record._id} canUpload={canUpdate && record.status === 'pending_approval'} />
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -255,7 +255,7 @@ function ViewVendorModal({ id, refreshKey, tab, onTab, canUpdate, onAction, onCl
     ...history.orders.map((o) => ({ _id: `po-${o._id}`, ref: o.poNo, description: `${o.procurementCategory || 'Purchase order'} (${money(o.poValue)})`, date: o.poDate, status: o.status, kind: 'PO' })),
   ];
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="760px">
+    <Drawer isOpen onClose={onClose} title="Vendor Profile" subtitle="Approved vendor details and procurement history" width="760px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading vendor…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -312,7 +312,7 @@ function ViewVendorModal({ id, refreshKey, tab, onTab, canUpdate, onAction, onCl
           )}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

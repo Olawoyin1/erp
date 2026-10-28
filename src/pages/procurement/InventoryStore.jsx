@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiUpload, FiBox, FiCheckCircle, FiAlertTriangle, FiRepeat } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { usePermission } from '../../hooks/usePermission';
 import { goodsReceiptsSlice, inventoryItemsSlice, stockMovementsSlice } from '../../store/procurement/slices';
@@ -17,7 +17,7 @@ import { ITEM_EXPORT, MOVEMENT_EXPORT, RECEIPT_EXPORT } from './inventory/invent
 
 function HandoverNote({ onClose }) {
   return (
-    <Modal isOpen onClose={onClose} title="QHSE Handover Info" maxWidth="560px" footer={<PrimaryButton onClick={onClose}>Close</PrimaryButton>}>
+    <Drawer isOpen onClose={onClose} title="QHSE Handover Info" subtitle="How goods receipts, inspections and inventory updates work" width="560px" footer={<PrimaryButton onClick={onClose}>Close</PrimaryButton>}>
       <div style={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>
           <strong>Materials received and QHSE inspection</strong>
@@ -35,7 +35,7 @@ function HandoverNote({ onClose }) {
         </div>
         <p style={{ margin: 0 }}>A decided inspection is locked. Its notes and delivery document stay linked to the receipt and to the delivery for end-to-end traceability.</p>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 
