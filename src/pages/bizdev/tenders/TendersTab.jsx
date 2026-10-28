@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { FiFileText, FiCheckCircle, FiSend, FiBarChart2, FiEye, FiEdit, FiPlus, FiArchive, FiCheck, FiX, FiBriefcase } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
@@ -91,11 +90,11 @@ function TenderFormModal({ tender, clients, officers, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? `Edit Tender (${tender.tenderId})` : 'Add New Tender'}
-      maxWidth="680px"
+      width="660px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -130,7 +129,7 @@ function TenderFormModal({ tender, clients, officers, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -163,12 +162,12 @@ function ConvertToProjectModal({ tender, onClose, onDone }) {
     }
   };
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Convert Tender to Project"
       subtitle={`${tender.tenderId} • ${tender.clientName || ''}. The client, value and tender link are carried over.`}
-      maxWidth="600px"
+      width="580px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -190,7 +189,7 @@ function ConvertToProjectModal({ tender, onClose, onDone }) {
         <Field label="Description (optional)"><Textarea rows={2} value={form.description} onChange={(e) => set('description', e.target.value)} /></Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

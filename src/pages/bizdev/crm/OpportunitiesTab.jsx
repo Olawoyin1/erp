@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiTarget, FiTrendingUp, FiFileText, FiAward, FiEye, FiEdit, FiPlus, FiCheck, FiX, FiGrid, FiList, FiArrowLeft, FiArrowRight, FiCalendar, FiUser } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
@@ -94,12 +93,12 @@ function OpportunityFormModal({ opportunity, clientId, clients, officers, onClos
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Opportunity' : 'Add Opportunity'}
       subtitle={editing ? undefined : 'Create a new sales opportunity linked to a client'}
-      maxWidth="680px"
+      width="660px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -134,7 +133,7 @@ function OpportunityFormModal({ opportunity, clientId, clients, officers, onClos
         <Field label="Description" error={errors.description}><Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Add description…" /></Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -182,11 +181,11 @@ function CreateTenderModal({ opportunity, officers, onClose, onDone }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Create Tender for this Opportunity"
-      maxWidth="680px"
+      width="660px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -219,7 +218,7 @@ function CreateTenderModal({ opportunity, officers, onClose, onDone }) {
         <Field label="Attach documents"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

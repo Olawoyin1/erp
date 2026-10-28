@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiCamera, FiFilter, FiSearch, FiUser } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import { Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
@@ -42,12 +42,12 @@ function UploadPhotoModal({ projectId, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Upload Field Photo"
       subtitle="Store site photos for audit tracking"
-      maxWidth="520px"
+      width="500px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -61,7 +61,7 @@ function UploadPhotoModal({ projectId, onClose, onSaved }) {
         <Field label="Upload image" required error={errors.file}><AttachField files={files} onChange={setFiles} multiple={false} accept=".png,.jpg,.jpeg" hint="PNG, JPG, up to 50MB" disabled={busy} /></Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

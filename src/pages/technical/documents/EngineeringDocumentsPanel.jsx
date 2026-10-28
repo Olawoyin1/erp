@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiCheck, FiCheckCircle, FiClock, FiDownload, FiEye, FiFile, FiFileText, FiPlus, FiRefreshCw, FiSend, FiX } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import { Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
@@ -104,12 +103,12 @@ function DocumentFormModal({ record, fixedProjectId, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={replacing ? 'Replace Document' : 'Upload Engineering Document'}
       subtitle={replacing ? 'Upload a new version of this document' : 'Create or upload a project document'}
-      maxWidth="620px"
+      width="600px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -158,7 +157,7 @@ function DocumentFormModal({ record, fixedProjectId, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

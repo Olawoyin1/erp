@@ -5,7 +5,6 @@ import {
 } from 'react-icons/fi';
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
-import Modal from '../../components/ui/Modal';
 import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -127,7 +126,7 @@ function PayableFormModal({ payable, perms, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Payable ${payable.payableId}` : 'Record Payable'} subtitle="Record a supplier invoice for payment processing" maxWidth="720px">
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Payable ${payable.payableId}` : 'Record Payable'} subtitle="Record a supplier invoice for payment processing" width="720px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton><PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Record Payable'}</PrimaryButton></>}>
       <FormBody onSubmit={submit}>
         {locked && <Note tone="amber">A payment has been made on this payable, so its amounts are locked.</Note>}
         {!editing && <Note>A second person must approve a new vendor invoice before it can be paid (you cannot approve your own).</Note>}
@@ -186,12 +185,8 @@ function PayableFormModal({ payable, perms, onClose, onSaved }) {
         <Field label="Description (optional)"><Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Supply of structural steel materials for Phase 2 construction." /></Field>
         {perms.attach && !editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Record Payable'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

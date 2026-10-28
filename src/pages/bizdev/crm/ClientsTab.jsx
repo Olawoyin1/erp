@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { FiUsers, FiUserPlus, FiCheckCircle, FiAlertTriangle, FiEye, FiEdit, FiArchive, FiPlus, FiRotateCcw } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import RowMenu from '../../../components/ui/RowMenu';
 import { Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
@@ -73,11 +72,12 @@ function ClientFormModal({ client, officers, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Client' : 'Add New Client'}
-      maxWidth="680px"
+      subtitle={editing ? undefined : 'Register a client to track interactions and opportunities'}
+      width="640px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -118,7 +118,7 @@ function ClientFormModal({ client, officers, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

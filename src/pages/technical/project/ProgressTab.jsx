@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FiActivity, FiAlertTriangle, FiCheck, FiCreditCard, FiEdit2, FiFolder, FiPlay, FiPlus, FiX } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
@@ -118,12 +117,12 @@ function LogFormModal({ projectId, record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Log' : 'Log New Entry'}
       subtitle={editing ? undefined : 'Record a new project risk, issue, or change request'}
-      maxWidth="720px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -171,7 +170,7 @@ function LogFormModal({ projectId, record, onClose, onSaved }) {
           : <Field label="Attach document (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

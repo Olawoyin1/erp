@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { FiFileText, FiAlertTriangle, FiSend, FiCheckCircle, FiEye, FiEdit, FiPlus, FiArchive, FiCheck, FiX } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
@@ -104,12 +103,12 @@ function RfqFormModal({ rfq, clients, officers, opportunities, tenders, onClose,
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? `Edit RFQ (${rfq.rfqId})` : 'Log RFQ'}
       subtitle={editing ? undefined : 'Record a quotation request received from a client and track its progress'}
-      maxWidth="700px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -160,7 +159,7 @@ function RfqFormModal({ rfq, clients, officers, opportunities, tenders, onClose,
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

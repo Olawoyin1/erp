@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiBox, FiCheck, FiCheckCircle, FiClock, FiEdit2, FiList, FiPlus, FiRotateCcw, FiTruck, FiX } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
@@ -103,12 +102,12 @@ function RequestFormModal({ record, fixedProjectId, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Request' : 'Request Resource'}
       subtitle={editing ? undefined : 'Request equipment, tools or materials from the store for this project'}
-      maxWidth="640px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -181,7 +180,7 @@ function RequestFormModal({ record, fixedProjectId, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

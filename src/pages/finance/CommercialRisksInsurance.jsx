@@ -3,6 +3,7 @@ import { FiPlus, FiEye, FiEdit2, FiCheck, FiTrash2, FiRefreshCw, FiAlertTriangle
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
@@ -89,7 +90,14 @@ function RiskFormModal({ risk, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Risk ${risk.riskId}` : 'Log Risk'} subtitle="Record a commercial risk and its potential business impact" maxWidth="700px">
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Risk ${risk.riskId}` : 'Log Risk'} subtitle="Record a commercial risk and its potential business impact" width="700px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Log Risk'}</PrimaryButton>
+        </>
+      )}
+    >
       <FormBody onSubmit={submit}>
         <TwoCol>
           <Field label="Risk ID"><Input value={editing ? risk.riskId : 'Assigned on save'} disabled /></Field>
@@ -116,12 +124,8 @@ function RiskFormModal({ risk, onClose, onSaved }) {
         <Field label="Mitigation plan" required error={errors.mitigationPlan}><Textarea rows={3} value={form.mitigationPlan} onChange={(e) => set('mitigationPlan', e.target.value)} placeholder="Secure forward exchange contracts and review procurement schedules." error={Boolean(errors.mitigationPlan)} /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Log Risk'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -317,7 +321,14 @@ function PolicyFormModal({ policy, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Policy / Bond ${policy.policyNo}` : 'Register Policy / Bond'} subtitle="Register a new insurance policy or performance bond" maxWidth="700px">
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Policy / Bond ${policy.policyNo}` : 'Register Policy / Bond'} subtitle="Register a new insurance policy or performance bond" width="700px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Register Policy / Bond'}</PrimaryButton>
+        </>
+      )}
+    >
       <FormBody onSubmit={submit}>
         <TwoCol>
           <Field label="Policy no"><Input value={editing ? policy.policyNo : 'Assigned on save'} disabled /></Field>
@@ -343,12 +354,8 @@ function PolicyFormModal({ policy, onClose, onSaved }) {
         <Field label="Remarks (optional)"><Textarea rows={3} value={form.remarks} onChange={(e) => set('remarks', e.target.value)} placeholder="Annual contractor's all-risk policy covering offshore construction activities." /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Register Policy / Bond'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -393,7 +400,14 @@ function RenewModal({ policy, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title="Renew Policy / Bond" subtitle="Extend this policy or bond; the same record keeps its history" maxWidth="640px">
+    <Drawer isOpen onClose={onClose} title="Renew Policy / Bond" subtitle="Extend this policy or bond; the same record keeps its history" width="640px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Renewing…' : 'Renew Policy / Bond'}</PrimaryButton>
+        </>
+      )}
+    >
       <FormBody onSubmit={submit}>
         <TwoCol>
           <Field label="Policy no"><Input value={policy.policyNo} disabled /></Field>
@@ -411,12 +425,8 @@ function RenewModal({ policy, onClose, onSaved }) {
         <Field label="Remarks"><Textarea rows={3} value={form.remarks} onChange={(e) => set('remarks', e.target.value)} /></Field>
         <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Renewing…' : 'Renew Policy / Bond'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { populatedName } from '../../../services/apiHelpers';
 import { AttachField } from './FinanceRecordExtras';
@@ -64,12 +64,18 @@ export default function RecordPaymentModal({ kind, slice, api, record, canAttach
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Record Payment"
       subtitle={receipt ? 'Record a payment received from the customer' : 'Record a payment made against an outstanding supplier invoice'}
-      maxWidth="640px"
+      width="640px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Recording…' : 'Record Payment'}</PrimaryButton>
+        </>
+      )}
     >
       <FormBody onSubmit={submit}>
         <TwoCol>
@@ -103,11 +109,7 @@ export default function RecordPaymentModal({ kind, slice, api, record, canAttach
         <Field label="Remarks (optional)"><Textarea rows={3} value={form.note} onChange={(e) => set('note', e.target.value)} placeholder={receipt ? 'First milestone payment received from client.' : 'First instalment payment for the invoice.'} /></Field>
         {canAttach && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 6 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Recording…' : 'Record Payment'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }

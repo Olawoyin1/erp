@@ -17,7 +17,7 @@ import { formatDate, titleCase } from '../../../services/apiHelpers';
 import { usePermission } from '../../../hooks/usePermission';
 import { saveBlob, blobErrorMessage, fullName } from '../hrUtils';
 import ApplyLeaveDrawer from './ApplyLeaveDrawer';
-import LeaveDetailsModal from './LeaveDetailsModal';
+import LeaveDetailsDrawer from './LeaveDetailsModal';
 import HolidaysDrawer from './HolidaysDrawer';
 
 const ROWS_PER_PAGE = 10;
@@ -334,7 +334,7 @@ export default function LeaveManagement() {
       </div>
 
       {viewLeave && (
-        <LeaveDetailsModal leave={viewLeave} canDecide={mayDecide(viewLeave)} ownRequest={isOwn(viewLeave) && canDecide} showToast={showToast}
+        <LeaveDetailsDrawer leave={viewLeave} canDecide={mayDecide(viewLeave)} ownRequest={isOwn(viewLeave) && canDecide} showToast={showToast}
           onClose={() => setViewId(null)} onApprove={handleApprove}
           onDecline={(l) => { setViewId(null); setDeclineTarget(l); }} onRequestChanges={handleRequestChanges} />
       )}

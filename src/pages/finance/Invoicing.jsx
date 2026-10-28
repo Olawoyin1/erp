@@ -6,6 +6,7 @@ import {
 import ImportDialog from '../hr/ImportDialog';
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
+import Drawer from '../../components/ui/Drawer';
 import Modal from '../../components/ui/Modal';
 import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -85,7 +86,7 @@ function InvoiceFormModal({ invoice, canAttach, onClose, onSaved }) {
   };
 
   const submit = async (e) => {
-    e.preventDefault();
+    if (e?.preventDefault) e.preventDefault();
     const found = validate();
     setErrors(found);
     setFormError('');
@@ -139,12 +140,18 @@ function InvoiceFormModal({ invoice, canAttach, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? `Edit Invoice ${invoice.invoiceId}` : 'Create Invoice'}
       subtitle={editing ? 'Update the invoice details' : 'Create and issue a client invoice'}
-      maxWidth="680px"
+      width="640px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Create Invoice'}</PrimaryButton>
+        </>
+      )}
     >
       <FormBody onSubmit={submit}>
         {locked && <Note tone="amber">A payment has been recorded on this invoice, so its amounts, currency and project are locked. Only the client, due date, terms and description can change.</Note>}
@@ -186,12 +193,8 @@ function InvoiceFormModal({ invoice, canAttach, onClose, onSaved }) {
           <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>
         )}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 6 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Create Invoice'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

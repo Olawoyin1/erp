@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FiCalendar, FiCheck, FiClock, FiEdit2, FiPlus, FiTrash2, FiUsers, FiX, FiZap } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
@@ -99,12 +98,12 @@ function TimesheetFormModal({ projectId, record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Timesheet' : 'Log Timesheet'}
       subtitle={editing ? undefined : 'Log your work hours for this project'}
-      maxWidth="640px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -142,7 +141,7 @@ function TimesheetFormModal({ projectId, record, onClose, onSaved }) {
           : <Field label="File upload (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

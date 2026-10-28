@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FiEdit2, FiEye, FiList, FiPlus } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
@@ -87,12 +86,12 @@ function InspectionFormModal({ projectId, record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Inspection' : 'Add Inspection'}
       subtitle={editing ? undefined : 'Record site findings and observations for this project'}
-      maxWidth="640px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -119,7 +118,7 @@ function InspectionFormModal({ projectId, record, onClose, onSaved }) {
           : <Field label="Upload image"><AttachField files={files} onChange={setFiles} accept={IMAGE_ACCEPT} hint="PNG, JPG, up to 50MB" disabled={busy} /></Field>}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

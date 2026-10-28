@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiAlertCircle, FiCheck, FiDownload, FiEdit2, FiList, FiPlus, FiSlash } from 'react-icons/fi';
 import Drawer from '../../components/ui/Drawer';
-import Modal from '../../components/ui/Modal';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import { usePermission } from '../../hooks/usePermission';
@@ -113,12 +112,12 @@ function InstrumentFormModal({ record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Calibration' : 'Schedule Calibration'}
       subtitle={editing ? undefined : 'Record calibration details for an instrument and upload its calibration certificate'}
-      maxWidth="640px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -167,7 +166,7 @@ function InstrumentFormModal({ record, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -211,11 +210,11 @@ function LogCalibrationModal({ record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={`Log Calibration — ${record.instrumentId} ${record.instrumentName}`}
-      maxWidth="560px"
+      width="540px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -248,7 +247,7 @@ function LogCalibrationModal({ record, onClose, onSaved }) {
         <Field label="Attach certificate (optional)"><AttachField files={files} onChange={setFiles} multiple={false} disabled={busy} /></Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

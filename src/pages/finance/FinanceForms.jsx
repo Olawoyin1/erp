@@ -4,6 +4,7 @@ import { FiPlus, FiEye, FiEdit2, FiCheck, FiX, FiSend, FiTrash2, FiFileText, FiC
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
@@ -88,8 +89,16 @@ function FormModal({ form: record, canSubmit, requesterName, onClose, onSaved })
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Form ${record.formId}` : 'Add Finance Form'} subtitle="Create a finance request that needs approval" maxWidth="700px">
-      <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Form ${record.formId}` : 'Add Finance Form'} subtitle="Create a finance request that needs approval" width="700px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <SecondaryButton onClick={() => save(false)} disabled={busy}>{editing ? 'Save Changes' : 'Save as Draft'}</SecondaryButton>
+          {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : editing ? 'Submit for Approval' : 'Add Finance Form'}</PrimaryButton>}
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => e.preventDefault()}>
         <TwoCol>
           <Field label="Form ID"><Input value={editing ? record.formId : 'Assigned on save'} disabled /></Field>
           <Field label="Form type" required><Choice value={form.formType} onChange={(v) => set('formType', v)} options={FORM_TYPES} /></Field>
@@ -111,13 +120,8 @@ function FormModal({ form: record, canSubmit, requesterName, onClose, onSaved })
         <Field label="Justification" required error={errors.justification}><Textarea rows={3} value={form.justification} onChange={(e) => set('justification', e.target.value)} placeholder="Payment for structural steel supplied under Purchase Order PO-2026-045." error={Boolean(errors.justification)} /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <SecondaryButton onClick={() => save(false)} disabled={busy}>{editing ? 'Save Changes' : 'Save as Draft'}</SecondaryButton>
-          {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : editing ? 'Submit for Approval' : 'Add Finance Form'}</PrimaryButton>}
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

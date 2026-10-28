@@ -5,6 +5,7 @@ import {
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
@@ -120,8 +121,22 @@ function ContractFormModal({ contract, canSubmit, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Contract ${contract.contractId}` : 'Create Contract'} subtitle="Create a new project contract" maxWidth="700px">
-      <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Contract ${contract.contractId}` : 'Create Contract'} subtitle="Create a new project contract" width="700px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          {editing ? (
+            <PrimaryButton onClick={() => save(false)} disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>
+          ) : (
+            <>
+              <SecondaryButton onClick={() => save(false)} disabled={busy}>Save as Draft</SecondaryButton>
+              {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Contract'}</PrimaryButton>}
+            </>
+          )}
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => e.preventDefault()}>
         <TwoCol>
           <Field label="Contract ID"><Input value={editing ? contract.contractId : 'Assigned on save'} disabled /></Field>
           <Field label="Client" required error={errors.client}>
@@ -148,19 +163,8 @@ function ContractFormModal({ contract, canSubmit, onClose, onSaved }) {
         <Field label="Description (optional)"><Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="EPC contract for engineering, procurement, installation and commissioning." /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          {editing ? (
-            <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>
-          ) : (
-            <>
-              <SecondaryButton onClick={() => save(false)} disabled={busy}>Save as Draft</SecondaryButton>
-              {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Contract'}</PrimaryButton>}
-            </>
-          )}
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -370,8 +374,16 @@ function VariationFormModal({ variation, canSubmit, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Variation ${variation.variationId}` : 'Create Variation'} subtitle="Create a variation to update contract scope, cost, or schedule" maxWidth="700px">
-      <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Variation ${variation.variationId}` : 'Create Variation'} subtitle="Create a variation to update contract scope, cost, or schedule" width="700px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <SecondaryButton onClick={() => save(false)} disabled={busy}>{editing ? 'Save Changes' : 'Save as Draft'}</SecondaryButton>
+          {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Submit Variation'}</PrimaryButton>}
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => e.preventDefault()}>
         <TwoCol>
           <Field label="Variation ID"><Input value={editing ? variation.variationId : 'Assigned on save'} disabled /></Field>
           <Field label="Contract" required error={errors.contract}>
@@ -392,13 +404,8 @@ function VariationFormModal({ variation, canSubmit, onClose, onSaved }) {
         <Field label="Description (optional)"><Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Installation of an additional 2.5 km pipeline section requested by the client." /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <SecondaryButton onClick={() => save(false)} disabled={busy}>{editing ? 'Save Changes' : 'Save as Draft'}</SecondaryButton>
-          {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Submit Variation'}</PrimaryButton>}
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -599,8 +606,16 @@ function ClaimFormModal({ claim, canSubmit, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Claim ${claim.claimId}` : 'Raise Claim'} subtitle="Raise a contract claim for additional cost, time, or scope adjustments" maxWidth="700px">
-      <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Claim ${claim.claimId}` : 'Raise Claim'} subtitle="Raise a contract claim for additional cost, time, or scope adjustments" width="700px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <SecondaryButton onClick={() => save(false)} disabled={busy}>{editing ? 'Save Changes' : 'Save as Draft'}</SecondaryButton>
+          {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Submit Claim'}</PrimaryButton>}
+        </>
+      )}
+    >
+      <FormBody onSubmit={(e) => e.preventDefault()}>
         <TwoCol>
           <Field label="Claim ID"><Input value={editing ? claim.claimId : 'Assigned on save'} disabled /></Field>
           <Field label="Variation" required error={errors.variation} help="The contract, client and project follow the variation. A rejected variation cannot take a claim.">
@@ -622,13 +637,8 @@ function ClaimFormModal({ claim, canSubmit, onClose, onSaved }) {
         <Field label="Description (optional)"><Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Additional welding activities required due to revised client specifications." /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <SecondaryButton onClick={() => save(false)} disabled={busy}>{editing ? 'Save Changes' : 'Save as Draft'}</SecondaryButton>
-          {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Submit Claim'}</PrimaryButton>}
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

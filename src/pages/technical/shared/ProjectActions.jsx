@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { FiShare2 } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { apiError } from '../../../services/apiHelpers';
 import { projectService } from '../../../services/technical.service';
@@ -37,12 +37,12 @@ function TimelineModal({ project, onClose, onDone }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Update Timeline"
       subtitle="Moving the completion date later marks the project Delayed."
-      maxWidth="480px"
+      width="480px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -65,7 +65,7 @@ function TimelineModal({ project, onClose, onDone }) {
         </label>
         <FormError message={error} />
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -90,12 +90,12 @@ function ShareModal({ project, onClose, onDone }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Share Progress"
       subtitle="Email the current progress summary to the client."
-      maxWidth="480px"
+      width="480px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -109,7 +109,7 @@ function ShareModal({ project, onClose, onDone }) {
         <Field label="Message (optional)"><Textarea rows={3} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Add a short note for the client" /></Field>
         <FormError message={error} />
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 

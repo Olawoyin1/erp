@@ -101,9 +101,23 @@ function BudgetFormModal({ budget, canSubmit, onClose, onSaved }) {
     onSaved(editing ? 'Budget updated successfully' : submitAfter ? `${saved?.budgetId} submitted for approval` : `${saved?.budgetId} saved as a draft`, failed);
   };
 
+  const footer = (
+    <>
+      <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+      {editing ? (
+        <PrimaryButton onClick={() => save(false)} disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>
+      ) : (
+        <>
+          <SecondaryButton onClick={() => save(false)} disabled={busy}>Save as Draft</SecondaryButton>
+          {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Budget'}</PrimaryButton>}
+        </>
+      )}
+    </>
+  );
+
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Budget ${budget.budgetId}` : 'Create Budget'} subtitle="Create a new budget for planning and approval" maxWidth="680px">
-      <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Budget ${budget.budgetId}` : 'Create Budget'} subtitle="Create a new budget for planning and approval" width="680px" footer={footer}>
+      <FormBody onSubmit={(e) => e.preventDefault()}>
         {activeEdit && <Note tone="amber">This budget is active. Only the forecast amount and description can be changed; the approved amount, project and dates are what was signed off.</Note>}
         <TwoCol>
           <Field label="Budget ID"><Input value={editing ? budget.budgetId : 'Assigned on save'} disabled /></Field>
@@ -127,19 +141,8 @@ function BudgetFormModal({ budget, canSubmit, onClose, onSaved }) {
         <Field label="Description (optional)"><Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Annual budget for civil works, equipment procurement and mobilisation." /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          {editing ? (
-            <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>
-          ) : (
-            <>
-              <SecondaryButton onClick={() => save(false)} disabled={busy}>Save as Draft</SecondaryButton>
-              {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Budget'}</PrimaryButton>}
-            </>
-          )}
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

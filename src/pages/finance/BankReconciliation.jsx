@@ -3,6 +3,7 @@ import { FiPlus, FiEye, FiEdit2, FiPlay, FiSend, FiFileText, FiClock, FiCheckCir
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
@@ -133,7 +134,17 @@ function StatementFormModal({ record, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Statement ${record.reconciliationId}` : 'Import Bank Statement'} subtitle={editing ? 'Changing the account or period clears the matches made so far' : 'Import a bank statement to begin reconciliation'} maxWidth="640px">
+    <Drawer isOpen onClose={onClose}
+      title={editing ? `Edit Statement ${record.reconciliationId}` : 'Import Bank Statement'}
+      subtitle={editing ? 'Changing the account or period clears the matches made so far' : 'Import a bank statement to begin reconciliation'}
+      width="640px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Import Statement'}</PrimaryButton>
+        </>
+      )}
+    >
       <FormBody onSubmit={submit}>
         <TwoCol>
           <Field label="Reconciliation ID"><Input value={editing ? record.reconciliationId : 'Assigned on import'} disabled /></Field>
@@ -162,12 +173,8 @@ function StatementFormModal({ record, onClose, onSaved }) {
         </Field>
         {!editing && <Field label="Attach documents (optional)" help="Attach the bank statement file (PDF, CSV or XLSX) so reviewers can compare it."><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Import Statement'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

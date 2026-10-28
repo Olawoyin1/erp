@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FiCalendar, FiCheck, FiCheckCircle, FiEdit2, FiFileText, FiAlertTriangle, FiGrid, FiList, FiPlay, FiPlus, FiTrash2 } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import TaskBoard from '../../../components/tasks/TaskBoard';
 import TaskDetail from '../../../components/tasks/TaskDetail';
@@ -124,11 +124,11 @@ function TaskFormModal({ project, task, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Task' : 'Assign Task'}
-      maxWidth="600px"
+      width="580px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -162,7 +162,7 @@ function TaskFormModal({ project, task, onClose, onSaved }) {
           : <Field label="Attach documents"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

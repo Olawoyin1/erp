@@ -92,7 +92,7 @@ function AccountFormModal({ account, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? 'Edit Account' : 'Create Account'} subtitle="Create and manage general ledger accounts" maxWidth="600px">
+    <Drawer isOpen onClose={onClose} title={editing ? 'Edit Account' : 'Create Account'} subtitle="Create and manage general ledger accounts" width="600px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton><PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Create Account'}</PrimaryButton></>}>
       <FormBody onSubmit={submit}>
         <TwoCol>
           <Field label="Account code" required error={errors.accountCode} help={editing ? 'The code cannot be changed after creation.' : undefined}>
@@ -121,12 +121,8 @@ function AccountFormModal({ account, onClose, onSaved }) {
           <Textarea rows={3} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Records routine maintenance costs for project equipment." />
         </Field>
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Create Account'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -446,7 +442,7 @@ function JournalFormModal({ entry, canSubmit, onClose, onSaved }) {
   );
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Journal Entry ${entry.journalId}` : 'New Journal Entry'} subtitle="Create a new journal entry for the general ledger" maxWidth="760px">
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Journal Entry ${entry.journalId}` : 'New Journal Entry'} subtitle="Create a new journal entry for the general ledger" width="760px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>{editing ? (<PrimaryButton onClick={() => save(false)} disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>) : (<><SecondaryButton onClick={() => save(false)} disabled={busy}>Save Draft</SecondaryButton>{canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Journal Entry'}</PrimaryButton>}</>)}</>}>
       <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
         <TwoCol>
           <Field label="Journal date" required error={errors.journalDate}><DatePicker value={form.journalDate} onChange={(e) => set('journalDate', e.target.value)} error={Boolean(errors.journalDate)} /></Field>
@@ -504,19 +500,8 @@ function JournalFormModal({ entry, canSubmit, onClose, onSaved }) {
         <Field label="Memo / narration (optional)"><Textarea rows={3} value={form.memo} onChange={(e) => set('memo', e.target.value)} placeholder="Purchase of structural steel for the Chevron wellhead project." /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          {editing ? (
-            <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>
-          ) : (
-            <>
-              <SecondaryButton onClick={() => save(false)} disabled={busy}>Save Draft</SecondaryButton>
-              {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Journal Entry'}</PrimaryButton>}
-            </>
-          )}
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

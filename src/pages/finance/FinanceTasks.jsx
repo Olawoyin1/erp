@@ -2,7 +2,7 @@ import ModuleTasks from '../../components/tasks/ModuleTasks';
 
 const CONFIG = {
   accent: '#1D4ED8',
-  formStyle: 'modal',
+  formStyle: 'drawer',
   viewStyle: 'drawer',
   layout: 'compact',
   statKeys: [],

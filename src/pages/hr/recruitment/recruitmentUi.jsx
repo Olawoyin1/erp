@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FiMoreVertical, FiCheckCircle, FiX, FiPauseCircle, FiPlayCircle, FiEdit2, FiUserPlus, FiSend } from 'react-icons/fi';
 import Modal from '../../../components/ui/Modal';
 import { FormField, Textarea } from '../../../components/ui/FormField';
@@ -36,22 +37,57 @@ const ICONS = { check: FiCheckCircle, x: FiX, pause: FiPauseCircle, play: FiPlay
 
 export function RowActionsMenu({ actions, onAction }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    if (!open) return undefined;
+    const h = (e) => {
+      if (
+        btnRef.current && !btnRef.current.contains(e.target) &&
+        menuRef.current && !menuRef.current.contains(e.target)
+      ) setOpen(false);
+    };
     document.addEventListener('mousedown', h);
     return () => document.removeEventListener('mousedown', h);
-  }, []);
+  }, [open]);
+
+  // Reposition on scroll/resize while open
+  useEffect(() => {
+    if (!open) return undefined;
+    const reposition = () => {
+      if (!btnRef.current) return;
+      const rect = btnRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    };
+    window.addEventListener('scroll', reposition, true);
+    window.addEventListener('resize', reposition);
+    return () => {
+      window.removeEventListener('scroll', reposition, true);
+      window.removeEventListener('resize', reposition);
+    };
+  }, [open]);
+
   if (!actions?.length) return null;
 
+  const handleOpen = (e) => {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen((v) => !v);
+  };
+
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button type="button" onClick={(e) => { e.stopPropagation(); setOpen(!open); }}
+    <>
+      <button ref={btnRef} type="button" onClick={handleOpen}
         style={{ width: 28, height: 28, borderRadius: 6, border: 'none', backgroundColor: 'transparent', color: '#64748B', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
         <FiMoreVertical size={15} />
       </button>
-      {open && (
-        <div style={{ position: 'absolute', right: 0, top: 34, zIndex: 1200, backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E2E8F0', boxShadow: '0 10px 25px -5px rgba(15,23,42,0.12)', minWidth: 190, padding: 6 }}>
+      {open && createPortal(
+        <div ref={menuRef} style={{ position: 'fixed', top: menuPos.top, right: menuPos.right, zIndex: 9999, backgroundColor: '#FFFFFF', borderRadius: 10, border: '1px solid #E2E8F0', boxShadow: '0 10px 25px -5px rgba(15,23,42,0.12)', minWidth: 190, padding: 6 }}>
           {actions.map((act) => {
             const Icon = ICONS[act.icon];
             return (
@@ -63,9 +99,10 @@ export function RowActionsMenu({ actions, onAction }) {
               </button>
             );
           })}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 }
 

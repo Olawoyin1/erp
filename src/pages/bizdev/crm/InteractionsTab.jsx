@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { FiMessageSquare, FiCalendar, FiAlertTriangle, FiCheckCircle, FiEye, FiEdit, FiPlus } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
@@ -87,12 +86,12 @@ function InteractionFormModal({ interaction, parent, clients, officers, defaultC
   const title = followUp ? 'Add Follow-up Interaction' : editing ? 'Edit Interaction' : 'Add New Interaction';
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={title}
       subtitle={followUp ? 'Schedule a follow-up interaction linked to the previous engagement' : editing ? undefined : 'Log a client interaction to track engagement and follow-ups'}
-      maxWidth="640px"
+      width="620px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -149,7 +148,7 @@ function InteractionFormModal({ interaction, parent, clients, officers, defaultC
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

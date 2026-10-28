@@ -3,6 +3,7 @@ import { FiPlus, FiEye, FiEdit2, FiCheck, FiTrash2, FiSend, FiCreditCard, FiFile
 import DataTable from '../../components/ui/DataTable';
 import Pagination from '../../components/ui/Pagination';
 import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import Toast, { useToast } from '../../components/ui/Toast';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
@@ -84,9 +85,23 @@ function TaxFormModal({ record, canSubmit, onClose, onSaved }) {
     onSaved(editing ? 'Tax record updated successfully' : `${saved?.taxId} ${submitAfter ? 'submitted for filing' : 'saved as a draft'}`, failed);
   };
 
+  const footer = (
+    <>
+      <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+      {editing ? (
+        <PrimaryButton onClick={() => save(false)} disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>
+      ) : (
+        <>
+          <SecondaryButton onClick={() => save(false)} disabled={busy}>Save as Draft</SecondaryButton>
+          {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Add Tax Record'}</PrimaryButton>}
+        </>
+      )}
+    </>
+  );
+
   return (
-    <Modal isOpen onClose={onClose} title={editing ? `Edit Filing ${record.taxId}` : 'Add Tax Record'} subtitle="Record a tax obligation for filing and payment" maxWidth="680px">
-      <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Filing ${record.taxId}` : 'Add Tax Record'} subtitle="Record a tax obligation for filing and payment" width="680px" footer={footer}>
+      <FormBody onSubmit={(e) => e.preventDefault()}>
         <TwoCol>
           <Field label="Tax ID"><Input value={editing ? record.taxId : 'Assigned on save'} disabled /></Field>
           <Field label="Tax type" required><Choice value={form.taxType} onChange={(v) => set('taxType', v)} options={TAX_TYPES} /></Field>
@@ -108,19 +123,8 @@ function TaxFormModal({ record, canSubmit, onClose, onSaved }) {
         <Field label="Remarks (optional)"><Textarea rows={3} value={form.remarks} onChange={(e) => set('remarks', e.target.value)} placeholder="VAT liability for Q2 2026 operations." /></Field>
         {!editing && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          {editing ? (
-            <PrimaryButton type="submit" disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>
-          ) : (
-            <>
-              <SecondaryButton onClick={() => save(false)} disabled={busy}>Save as Draft</SecondaryButton>
-              {canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Add Tax Record'}</PrimaryButton>}
-            </>
-          )}
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -160,7 +164,14 @@ function PaymentModal({ record, canAttach, onClose, onSaved }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title="Record Payment" subtitle="Record payment for this tax obligation" maxWidth="640px">
+    <Drawer isOpen onClose={onClose} title="Record Payment" subtitle="Record payment for this tax obligation" width="640px"
+      footer={(
+        <>
+          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
+          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Recording…' : 'Record Payment'}</PrimaryButton>
+        </>
+      )}
+    >
       <FormBody onSubmit={submit}>
         <TwoCol>
           <Field label="Tax ID"><Input value={record.taxId} disabled /></Field>
@@ -185,12 +196,8 @@ function PaymentModal({ record, canAttach, onClose, onSaved }) {
         {canAttach && <Field label="Attach documents (optional)"><AttachField files={files} onChange={setFiles} disabled={busy} /></Field>}
         <Note>The payment is posted to the ledger: debit the matching tax liability account, credit the bank.</Note>
         <FormError message={formError} />
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton type="submit" disabled={busy}>{busy ? 'Recording…' : 'Record Payment'}</PrimaryButton>
-        </div>
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 

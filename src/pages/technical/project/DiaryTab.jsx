@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FiCheck, FiClipboard, FiEdit2, FiPlus, FiRotateCcw, FiSend, FiTrash2 } from 'react-icons/fi';
 import Drawer from '../../../components/ui/Drawer';
-import Modal from '../../../components/ui/Modal';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
@@ -103,12 +102,12 @@ function EntryFormModal({ projectId, record, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Entry' : 'New Site Diary Entry'}
       subtitle={editing ? undefined : 'Log daily site activities and project updates'}
-      maxWidth="680px"
+      width="660px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -141,7 +140,7 @@ function EntryFormModal({ projectId, record, onClose, onSaved }) {
         <Note tone="amber"><strong>COMPLIANCE DIRECTIVE.</strong> Once submitted, a site diary entry is validated and locked. False reporting is a violation of HSE field compliance.</Note>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
