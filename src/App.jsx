@@ -35,7 +35,6 @@ import HRDocuments from './pages/hr/documents/HRDocuments';
 import Tasks from './pages/hr/tasks/Tasks';
 import Settings from './pages/settings/Settings';
 import Reports from './pages/hr/reports/Reports';
-import Requests from './pages/hr/requests/Requests';
 import OffshoreTravelDocuments from './pages/hse/OffshoreTravelDocuments';
 import EmergencyPreparedness from './pages/hse/EmergencyPreparedness';
 import HSETasks from './pages/hse/HSETasks';
@@ -145,7 +144,7 @@ export default function App() {
           <Route path="payroll" element={<PayrollInputs />} />
           <Route path="my-payslips" element={<MyPayslips />} />
           <Route path="grievances" element={<GrievancesDiscipline />} />
-          <Route path="requests" element={<Requests />} />
+          <Route path="requests" element={<AdministrativeRequests module="human resources|hr" />} />
           <Route path="tasks" element={<Tasks />} />
           <Route path="documents" element={<HRDocuments />} />
           <Route path="reports" element={<Reports />} />
@@ -157,6 +156,7 @@ export default function App() {
           <Route path="offshore-travel" element={<OffshoreTravelDocuments />} />
           <Route path="emergency" element={<EmergencyPreparedness />} />
           <Route path="tasks" element={<HSETasks />} />
+          <Route path="requests" element={<AdministrativeRequests module="health|hse" />} />
           <Route path="documents" element={<HSEDocuments />} />
           <Route path="reports" element={<HSEReports />} />
         </Route>
@@ -169,6 +169,7 @@ export default function App() {
           <Route path="engineering-docs" element={<EngineeringDocuments />} />
           <Route path="calibration" element={<CalibrationRecords />} />
           <Route path="resources" element={<ResourceAllocation />} />
+          <Route path="requests" element={<AdministrativeRequests module="technical|engineering" />} />
           <Route path="tasks" element={<TechnicalTasks />} />
           <Route path="reports" element={<TechnicalReports />} />
         </Route>
@@ -196,6 +197,7 @@ export default function App() {
           <Route path="tenders" element={<RFQsTenders />} />
           <Route path="proposals" element={<Proposals />} />
           <Route path="crm" element={<CRMContacts />} />
+          <Route path="requests" element={<AdministrativeRequests module="business development" />} />
           <Route path="reports" element={<BizDevReports />} />
         </Route>
 
@@ -203,6 +205,7 @@ export default function App() {
         <Route path="procurement">
           <Route index element={<SectionIndex base="/procurement" />} />
           <Route path="requests" element={<PurchaseRequests />} />
+          <Route path="admin-requests" element={<AdministrativeRequests module="procurement" />} />
           <Route path="rfq" element={<RFQManagement />} />
           <Route path="orders" element={<PurchaseOrders />} />
           <Route path="expediting" element={<ExpeditingDelivery />} />
@@ -225,6 +228,7 @@ export default function App() {
           <Route path="bank-reconciliation" element={<BankReconciliation />} />
           <Route path="tax" element={<TaxManagement />} />
           <Route path="forms" element={<FinanceForms />} />
+          <Route path="requests" element={<AdministrativeRequests module="finance" />} />
           <Route path="tasks" element={<FinanceTasks />} />
           <Route path="reports" element={<FinanceReports />} />
         </Route>
@@ -235,6 +239,7 @@ export default function App() {
           <Route path="audits" element={<AuditManagement />} />
           <Route path="calibration" element={<QualityCalibrationRecords />} />
           <Route path="inspections" element={<MaterialsInspection />} />
+          <Route path="requests" element={<AdministrativeRequests module="quality" />} />
           <Route path="tasks" element={<QualityTasks />} />
           <Route path="documents" element={<QMSDocuments />} />
           <Route path="reports" element={<QualityReports />} />

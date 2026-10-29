@@ -21,7 +21,7 @@ import {
 import { grievanceService } from '../../../services/hr.service';
 import { apiError, titleCase, formatDate } from '../../../services/apiHelpers';
 import { usePermission } from '../../../hooks/usePermission';
-import { fieldErrorsOf, fullName, saveBlob, blobErrorMessage, ymd } from '../hrUtils';
+import { errorInfo, fieldErrorsOf, fullName, saveBlob, blobErrorMessage, ymd } from '../hrUtils';
 import { CaseFileDialog } from '../FileUploadDialogs';
 import EmployeePicker from '../EmployeePicker';
 
@@ -245,6 +245,88 @@ function CaseDrawer({ onClose, editItem, onSaved }) {
   );
 }
 
+// ─── Raise Grievance Drawer (staff self-service) ──────────────────────────────
+const GRIEVANCE_TYPES = ['Workplace conditions', 'Payroll', 'Harassment', 'Safety', 'Management', 'Other'];
+
+function RaiseGrievanceDrawer({ onClose, onSaved }) {
+  const { showToast } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [formError, setFormError] = useState('');
+  const [form, setForm] = useState({ caseType: '', severity: 'medium', incidentDate: '', caseTitle: '', description: '' });
+  const set = (k, v) => {
+    setForm((f) => ({ ...f, [k]: v }));
+    setErrors((e) => ({ ...e, [k]: undefined }));
+  };
+
+  const handleSave = async () => {
+    setFormError('');
+    const next = {};
+    if (!form.caseType) next.caseType = 'Choose what this is about';
+    if (!form.incidentDate) next.incidentDate = 'Enter when it happened';
+    else if (form.incidentDate > new Date().toISOString().slice(0, 10)) next.incidentDate = 'The date cannot be in the future';
+    if (!form.caseTitle.trim()) next.caseTitle = 'Give the grievance a title';
+    setErrors(next);
+    if (Object.keys(next).length) return;
+    setSaving(true);
+    try {
+      await grievanceService.raise({
+        caseType: form.caseType,
+        severity: form.severity,
+        incidentDate: form.incidentDate,
+        caseTitle: form.caseTitle.trim(),
+        ...(form.description.trim() ? { description: form.description.trim() } : {}),
+      });
+      showToast('Grievance submitted. HR will review it.', 'success');
+      onSaved();
+    } catch (err) {
+      const info = errorInfo(err, 'Failed to submit the grievance');
+      setErrors((e) => ({ ...e, ...info.fields }));
+      setFormError(info.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Drawer isOpen onClose={onClose} title="Raise a Grievance" subtitle="Tell HR about a concern. Only you and HR can see it." width="480px"
+      footer={
+        <>
+          <button onClick={onClose} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ padding: '8px 20px', backgroundColor: '#1D4ED8', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
+            {saving ? 'Submitting…' : 'Submit Grievance'}
+          </button>
+        </>
+      }>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {formError && (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '10px 12px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.8rem' }}>
+            <FiAlertCircle size={15} style={{ marginTop: 2 }} /> <span>{formError}</span>
+          </div>
+        )}
+        <FormField label="Title" required error={errors.caseTitle}>
+          <Input value={form.caseTitle} error={!!errors.caseTitle} onChange={(e) => set('caseTitle', e.target.value)} placeholder="e.g. Broken air conditioning in the office" />
+        </FormField>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <FormField label="What is it about?" required error={errors.caseType}>
+            <Select value={form.caseType} placeholder="Select a type" error={!!errors.caseType} onChange={(e) => set('caseType', e.target.value)} options={GRIEVANCE_TYPES} />
+          </FormField>
+          <FormField label="How serious is it?" required>
+            <Select value={form.severity} onChange={(e) => set('severity', e.target.value)} options={SEVERITIES} />
+          </FormField>
+        </div>
+        <FormField label="When did it happen?" required error={errors.incidentDate}>
+          <DatePicker value={form.incidentDate} max={new Date().toISOString().slice(0, 10)} error={!!errors.incidentDate} onChange={(e) => set('incidentDate', e.target.value)} />
+        </FormField>
+        <FormField label="Details (optional)" error={errors.description}>
+          <Textarea rows={5} value={form.description} onChange={(e) => set('description', e.target.value)} placeholder="Describe what happened and what you would like done." />
+        </FormField>
+      </div>
+    </Drawer>
+  );
+}
+
 // ─── Add Note Modal ───────────────────────────────────────────────────────────
 function AddNoteModal({ caseItem, onClose, onSaved }) {
   const dispatch = useDispatch();
@@ -376,7 +458,7 @@ function ViewCaseDrawer({ caseId, onClose, perms, onAction, refreshToken }) {
               ['Date reported', formatDate(record.createdAt)],
               ['Case title', record.caseTitle],
               ['Status', <Badge key="s" status={titleCase(record.status)} />],
-              ['Assigned officer', fullName(record.assignedOfficerId)],
+              ['Assigned officer', record.assignedOfficerId ? fullName(record.assignedOfficerId) : 'Not assigned yet'],
             ].map(([label, value]) => (
               <div key={label}>
                 <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
@@ -412,6 +494,7 @@ function ViewCaseDrawer({ caseId, onClose, perms, onAction, refreshToken }) {
             ))}
           </div>
 
+          {Array.isArray(record.internalNotes) && (
           <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
             <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Internal notes</div>
             {(record.internalNotes || []).length === 0 ? (
@@ -423,7 +506,8 @@ function ViewCaseDrawer({ caseId, onClose, perms, onAction, refreshToken }) {
               </div>
             ))}
           </div>
-          {perms.update && (
+          )}
+          {perms.update && Array.isArray(record.internalNotes) && (
             <div>
               <button onClick={() => onAction('addNote', record)} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <FiPlus size={14} /> Add Note
@@ -481,6 +565,8 @@ export default function GrievancesDiscipline() {
   const canCreate  = usePermission('hr.disciplinarycase.create');
   const canUpdate  = usePermission('hr.disciplinarycase.update');
   const canResolve = usePermission('hr.disciplinarycase.resolve');
+  const canViewAll = usePermission('hr.disciplinarycase.view-all');
+  const [raiseOpen, setRaiseOpen] = useState(false);
   const perms = { update: canUpdate, resolve: canResolve };
 
   const [page, setPage]       = useState(1);
@@ -608,9 +694,11 @@ export default function GrievancesDiscipline() {
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Grievances &amp; Discipline</h1>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{canViewAll ? 'Grievances & Discipline' : 'My Grievances'}</h1>
           <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>
-            Track employee complaints, investigations, disciplinary actions, and case resolutions
+            {canViewAll
+              ? 'Track employee complaints, investigations, disciplinary actions, and case resolutions'
+              : 'Raise a concern with HR and follow its progress. You only see cases you raised or that concern you.'}
           </p>
         </div>
       </div>
@@ -656,6 +744,12 @@ export default function GrievancesDiscipline() {
                 Upload <FiUpload size={14} />
               </button>
             )}
+            {!canCreate && (
+              <button onClick={() => setRaiseOpen(true)} className="btn btn-primary"
+                style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <FiPlus size={14} /> Raise Grievance
+              </button>
+            )}
             {canCreate && (
               <button onClick={() => setDrawer({ item: null })} className="btn btn-primary"
                 style={{ backgroundColor: '#1D4ED8', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -683,7 +777,7 @@ export default function GrievancesDiscipline() {
             onSelectRow={(id) => setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))}
             onSelectAll={() => setSelectedIds(selectedIds.length === items.length ? [] : items.map((e) => e._id))}
             keyField="_id"
-            emptyMessage={activeSearch || activeFilterCount ? 'No cases match your search or filters.' : 'No cases logged yet.'}
+            emptyMessage={activeSearch || activeFilterCount ? 'No cases match your search or filters.' : (canViewAll ? 'No cases logged yet.' : 'You have not raised any grievances.')}
           />
         )}
 
@@ -699,6 +793,10 @@ export default function GrievancesDiscipline() {
           onClose={() => setDrawer(null)}
           onSaved={() => { setDrawer(null); refreshAll(); }}
         />
+      )}
+
+      {raiseOpen && (
+        <RaiseGrievanceDrawer onClose={() => setRaiseOpen(false)} onSaved={() => { setRaiseOpen(false); refreshAll(); }} />
       )}
 
       {viewId && (

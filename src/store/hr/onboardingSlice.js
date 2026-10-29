@@ -1,6 +1,11 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { onboardingService } from '../../services/hr.service';
 
+const failure = (err, fallback) => {
+  const e = err.response?.data?.error;
+  return { message: e?.message || fallback, code: e?.code, details: e?.details || [] };
+};
+
 // ─── Thunks ───────────────────────────────────────────────────────────────────
 export const fetchOnboarding = createAsyncThunk(
   'onboarding/fetchList',
@@ -9,7 +14,7 @@ export const fetchOnboarding = createAsyncThunk(
       const { data } = await onboardingService.list(params);
       return { records: data.data, meta: data.meta };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to load onboarding cases');
+      return rejectWithValue(failure(err, 'Failed to load onboarding cases').message);
     }
   }
 );
@@ -21,52 +26,65 @@ export const fetchOnboardingStats = createAsyncThunk(
       const { data } = await onboardingService.stats();
       return data.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to load stats');
+      return rejectWithValue(failure(err, 'Failed to load stats').message);
     }
   }
 );
 
-export const fetchOnboardingByEmployee = createAsyncThunk(
-  'onboarding/fetchByEmployee',
-  async (employeeId, { rejectWithValue }) => {
+export const fetchOnboardingDetail = createAsyncThunk(
+  'onboarding/fetchDetail',
+  async (caseId, { rejectWithValue }) => {
     try {
-      const { data } = await onboardingService.getByEmployee(employeeId);
-      return data.data; // { onboardingCase, checklist, documents, progressPercent }
+      const { data } = await onboardingService.getDetail(caseId);
+      return data.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to load onboarding details');
+      return rejectWithValue(failure(err, 'Failed to load onboarding details').message);
     }
   }
 );
 
 export const advanceOnboardingStatus = createAsyncThunk(
   'onboarding/advance',
-  async (employeeId, { rejectWithValue }) => {
+  async (caseId, { rejectWithValue }) => {
     try {
-      const { data } = await onboardingService.advance(employeeId);
+      const { data } = await onboardingService.advance(caseId);
       return data.data;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to advance onboarding status');
+      return rejectWithValue(failure(err, 'Failed to advance onboarding status').message);
+    }
+  }
+);
+
+export const convertOnboardingCase = createAsyncThunk(
+  'onboarding/convert',
+  async ({ caseId, data: body }, { rejectWithValue }) => {
+    try {
+      const { data } = await onboardingService.convert(caseId, body);
+      return data.data;
+    } catch (err) {
+      return rejectWithValue(failure(err, 'Failed to convert the candidate'));
     }
   }
 );
 
 export const verifyOnboardingDocument = createAsyncThunk(
   'onboarding/verifyDoc',
-  async ({ employeeId, docId }, { rejectWithValue }) => {
+  async ({ caseId, docId }, { rejectWithValue }) => {
     try {
-      const { data } = await onboardingService.verifyDoc(employeeId, docId);
+      const { data } = await onboardingService.verifyDoc(caseId, docId);
       return { docId, result: data.data };
     } catch (err) {
-      return rejectWithValue(err.response?.data?.error?.message || 'Failed to verify document');
+      return rejectWithValue(failure(err, 'Failed to verify document').message);
     }
   }
 );
 
+/** The action label for each status; Convert to Employee is its own control, shown once a case is completed. */
 export const NEXT_STATUS_LABEL = {
-  pending:               'Start Onboarding',
-  in_progress:           'Mark Complete',
-  completed:             'Ready for Deployment',
-  ready_for_deployment:  null,
+  pending:     'Start Onboarding',
+  in_progress: 'Mark Complete',
+  completed:   null,
+  converted:   null,
 };
 
 const onboardingSlice = createSlice({
@@ -94,19 +112,18 @@ const onboardingSlice = createSlice({
       .addCase(fetchOnboardingStats.fulfilled, (s, { payload }) => { s.statsLoading = false; s.stats = payload; })
       .addCase(fetchOnboardingStats.rejected,  (s) => { s.statsLoading = false; })
 
-      .addCase(fetchOnboardingByEmployee.pending,   (s) => { s.detailLoading = true; })
-      .addCase(fetchOnboardingByEmployee.fulfilled, (s, { payload }) => { s.detailLoading = false; s.activeDetail = payload; })
-      .addCase(fetchOnboardingByEmployee.rejected,  (s) => { s.detailLoading = false; })
+      .addCase(fetchOnboardingDetail.pending,   (s) => { s.detailLoading = true; })
+      .addCase(fetchOnboardingDetail.fulfilled, (s, { payload }) => { s.detailLoading = false; s.activeDetail = payload; })
+      .addCase(fetchOnboardingDetail.rejected,  (s) => { s.detailLoading = false; })
 
       .addCase(advanceOnboardingStatus.fulfilled, (s, { payload }) => {
         if (!payload) return;
-        const empId = typeof payload.employeeId === 'object' ? payload.employeeId?._id : payload.employeeId;
-        const idx = s.records.findIndex((r) => {
-          const rEmpId = typeof r.employeeId === 'object' ? r.employeeId?._id : r.employeeId;
-          return r._id === payload._id || rEmpId === empId;
-        });
-        if (idx !== -1) s.records[idx] = { ...s.records[idx], status: payload.status };
-        if (s.activeDetail?.onboardingCase) s.activeDetail.onboardingCase.status = payload.status;
+        const idx = s.records.findIndex((r) => r._id === payload._id);
+        if (idx !== -1) s.records[idx] = { ...s.records[idx], status: payload.status, canConvert: payload.canConvert };
+        if (s.activeDetail?.onboardingCase?._id === payload._id) {
+          s.activeDetail.onboardingCase.status = payload.status;
+          s.activeDetail.canConvert = payload.canConvert;
+        }
       })
 
       .addCase(verifyOnboardingDocument.fulfilled, (s, { payload }) => {

@@ -1,3 +1,6 @@
+import { useSelector } from 'react-redux';
+import { usePermission } from '../../hooks/usePermission';
+
 export const STATUS_LABEL = { todo: 'To Do', in_progress: 'In Progress', done: 'Done' };
 export const STATUS_KEYS = ['todo', 'in_progress', 'done'];
 
@@ -42,5 +45,22 @@ export function formFromTask(task) {
     description: task.description || '',
     projectId: task.projectId?._id || task.projectId || '',
     linkedActivityId: task.linkedActivityId?._id || task.linkedActivityId || '',
+  };
+}
+
+const idOf = (ref) => (ref && typeof ref === 'object' ? ref._id : ref);
+
+/**
+ * What the signed-in user may do to a task, mirroring the server: anyone who can see a task may move it along, but
+ * only its creator (or a holder of core.task.view-all) may edit or delete it. The server enforces this regardless.
+ */
+export function useTaskRights() {
+  const user = useSelector((state) => state.auth.user);
+  const viewAll = usePermission('core.task.view-all');
+  const userId = user?._id || user?.id || '';
+  return {
+    viewAll,
+    userId,
+    canManage: (task) => viewAll || (!!userId && idOf(task?.createdBy) === userId),
   };
 }

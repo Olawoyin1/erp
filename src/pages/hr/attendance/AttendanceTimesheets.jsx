@@ -17,7 +17,7 @@ import { usePermission } from '../../../hooks/usePermission';
 import { saveBlob, blobErrorMessage, fullName } from '../hrUtils';
 import ImportDialog from '../ImportDialog';
 import LogAttendanceDrawer from './LogAttendanceDrawer';
-import { lagosToday, fmtTime, fmtDay, fmtHours, longDay } from './attendanceUtils';
+import { lagosToday, fmtTime, fmtDay, fmtHours, longDay, setAttendanceZone, fmtMinutes, fmtClock } from './attendanceUtils';
 
 const ITEMS_PER_PAGE = 10;
 const idOf = (ref) => (ref && typeof ref === 'object' ? ref._id : ref);
@@ -30,6 +30,17 @@ const STATUS_CONFIG = {
   on_leave:  { color: '#7C3AED', bg: '#F5F3FF', label: 'On Leave' },
 };
 const STATUS_FILTERS = [{ value: '', label: 'All statuses' }, ...Object.entries(STATUS_CONFIG).map(([value, c]) => ({ value, label: c.label }))];
+
+const DAY_TYPE = {
+  holiday: { color: '#7C3AED', bg: '#F5F3FF', label: 'Public holiday' },
+  non_working: { color: '#0F766E', bg: '#CCFBF1', label: 'Day off' },
+};
+
+function DayTypeBadge({ dayType }) {
+  const cfg = DAY_TYPE[dayType];
+  if (!cfg) return null;
+  return <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: '0.68rem', fontWeight: 600, color: cfg.color, backgroundColor: cfg.bg, whiteSpace: 'nowrap' }}>{cfg.label}</span>;
+}
 
 function StatusBadge({ status }) {
   const cfg = STATUS_CONFIG[status] || { color: '#64748B', bg: '#F1F5F9', label: titleCase(status) };
@@ -58,7 +69,7 @@ function RecordDetailModal({ record, canApprove, ownRecord, onClose, onApproveOv
         </button>
       ) : null}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#64748B' }}>Status: <StatusBadge status={record.status} /></div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#64748B' }}>Status: <StatusBadge status={record.status} /><DayTypeBadge dayType={record.dayType} /></div>
         {error && <div style={{ padding: '10px 12px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.8rem' }}>{error}</div>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px 24px', border: '1px solid #E2E8F0', borderRadius: 8, padding: 16 }}>
           {[
@@ -67,6 +78,8 @@ function RecordDetailModal({ record, canApprove, ownRecord, onClose, onApproveOv
             ['DATE', fmtDay(record.date)], ['LOCATION', record.locationId?.name],
             ['CLOCK IN', fmtTime(record.clockIn)], ['CLOCK OUT', fmtTime(record.clockOut)],
             ['HOURS WORKED', fmtHours(record.hoursWorked)], ['OVERTIME', hasOvertime ? fmtHours(record.overtimeHours) : '—'],
+            ['LATE BY', record.lateMinutes > 0 ? fmtMinutes(record.lateMinutes) : 'On time'],
+            ['LEFT EARLY BY', record.earlyLeaveMinutes > 0 ? fmtMinutes(record.earlyLeaveMinutes) : '—'],
           ].map(([label, value]) => (
             <div key={label}>
               <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 700, letterSpacing: '0.5px', marginBottom: 4 }}>{label}</div>
@@ -139,6 +152,7 @@ export default function AttendanceTimesheets() {
   const [clockBusy, setClockBusy] = useState(false);
   const [mine, setMine] = useState({ record: null, loading: !!ownEmployeeId, error: '' });
   const [mineTick, setMineTick] = useState(0);
+  const [schedule, setSchedule] = useState(null);
   const debounceRef = useRef(null);
 
   const listParams = useCallback(() => ({
@@ -162,6 +176,22 @@ export default function AttendanceTimesheets() {
     let cancelled = false;
     attendanceService.locations()
       .then((res) => { if (!cancelled) setLocations(res.data?.data || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    attendanceService.workSchedule()
+      .then((res) => {
+        if (cancelled) return;
+        const data = res.data?.data;
+        if (!data) return;
+        const before = lagosToday();
+        setAttendanceZone(data.timeZone);
+        setSchedule(data);
+        setDateFilter((d) => (d === before ? lagosToday() : d));
+      })
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
@@ -240,9 +270,10 @@ export default function AttendanceTimesheets() {
   const isToday = dateFilter === today;
   const statCards = [
     { title: isToday ? 'PRESENT TODAY' : 'PRESENT', value: statMap.present, subtitle: 'Employees successfully clocked in', icon: <FiUsers size={14} />, color: '#16A34A', bg: '#D1FAE5' },
-    { title: 'LATE ARRIVALS', value: statMap.late, subtitle: 'Clocked in after scheduled start time', icon: <FiClock size={14} />, color: '#D97706', bg: '#FEF3C7' },
+    { title: 'LATE ARRIVALS', value: statMap.late, subtitle: statMap.late_minutes > 0 ? `${fmtMinutes(statMap.late_minutes)} late in total` : 'Clocked in after start time plus grace', icon: <FiClock size={14} />, color: '#D97706', bg: '#FEF3C7' },
+    { title: 'LEFT EARLY', value: statMap.early_leave, subtitle: 'Clocked out before the scheduled end', icon: <FiLogOut size={14} />, color: '#0F766E', bg: '#CCFBF1' },
     { title: isToday ? 'ABSENT TODAY' : 'ABSENT', value: statMap.absent, subtitle: 'Recorded as absent', icon: <FiAlertCircle size={14} />, color: '#DC2626', bg: '#FEE2E2' },
-    { title: 'OVERTIME HOURS', value: statMap.overtime_hours != null ? `${statMap.overtime_hours} hrs` : undefined, subtitle: 'Total approved overtime hours', icon: <FiActivity size={14} />, color: '#1D4ED8', bg: '#DBEAFE' },
+    { title: 'OVERTIME HOURS', value: statMap.overtime_hours != null ? `${statMap.overtime_hours} hrs` : undefined, subtitle: statMap.overtime_pending_hours > 0 ? `Approved; ${statMap.overtime_pending_hours} hrs awaiting approval` : 'Total approved overtime hours', icon: <FiActivity size={14} />, color: '#1D4ED8', bg: '#DBEAFE' },
   ];
 
   const viewRecord = records.find((r) => r._id === viewId);
@@ -256,8 +287,25 @@ export default function AttendanceTimesheets() {
     { key: 'clockOut', label: 'CLOCK OUT', nowrap: true, render: (v) => <span style={{ color: '#475569', fontSize: '0.85rem' }}>{v ? fmtTime(v) : '-'}</span> },
     { key: 'hoursWorked', label: 'HOURS WORKED', render: (v) => <span style={{ color: '#334155', fontWeight: 500 }}>{v != null ? fmtHours(v) : '—'}</span> },
     {
+      key: 'lateMinutes', label: 'LATE', nowrap: true,
+      render: (v) => (v > 0
+        ? <span style={{ color: '#B45309', backgroundColor: '#FEF3C7', padding: '2px 8px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 600 }}>{fmtMinutes(v)} late</span>
+        : <span style={{ color: '#94A3B8' }}>—</span>),
+    },
+    {
+      key: 'earlyLeaveMinutes', label: 'EARLY LEAVE', nowrap: true,
+      render: (v) => (v > 0
+        ? <span style={{ color: '#0F766E', backgroundColor: '#CCFBF1', padding: '2px 8px', borderRadius: 10, fontSize: '0.75rem', fontWeight: 600 }}>{fmtMinutes(v)} early</span>
+        : <span style={{ color: '#94A3B8' }}>—</span>),
+    },
+    {
       key: 'overtimeHours', label: 'OVERTIME',
-      render: (v, row) => <span style={{ color: v > 0 ? '#D97706' : '#94A3B8', fontWeight: v > 0 ? 600 : 400 }}>{v > 0 ? `${fmtHours(v)}${row.overtimeApproved ? ' (approved)' : ''}` : '—'}</span>,
+      render: (v, row) => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ color: v > 0 ? '#D97706' : '#94A3B8', fontWeight: v > 0 ? 600 : 400 }}>{v > 0 ? `${fmtHours(v)}${row.overtimeApproved ? ' (approved)' : ''}` : '—'}</span>
+          {v > 0 && <DayTypeBadge dayType={row.dayType} />}
+        </span>
+      ),
     },
     { key: 'status', label: 'STATUS', render: (v) => <StatusBadge status={v} /> },
     { key: '__actions', label: 'ACTIONS', align: 'right', render: (_, row) => <button className="icon-btn" onClick={() => setViewId(row._id)} title="View Details"><FiEye size={15} /></button> },
@@ -309,10 +357,20 @@ export default function AttendanceTimesheets() {
           {mine.error && <div style={{ fontSize: '0.8rem', color: '#991B1B', marginBottom: 10 }}>{mine.error}</div>}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 16 }}>
             {[
-              ['Current Attendance Status', myStatus ? <StatusBadge status={myStatus} /> : <span style={{ color: '#94A3B8' }}>Not Clocked In</span>],
+              ['Current Attendance Status', myStatus ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                  <StatusBadge status={myStatus} />
+                  {myRecord?.lateMinutes > 0 && <span style={{ fontSize: '0.75rem', color: '#B45309', fontWeight: 600 }}>{fmtMinutes(myRecord.lateMinutes)} late</span>}
+                  {myRecord?.earlyLeaveMinutes > 0 && <span style={{ fontSize: '0.75rem', color: '#0F766E', fontWeight: 600 }}>left {fmtMinutes(myRecord.earlyLeaveMinutes)} early</span>}
+                </span>
+              ) : <span style={{ color: '#94A3B8' }}>Not Clocked In</span>],
               ['Clock-In Time', <span key="i" style={{ fontWeight: 600, color: clockedIn ? '#0F172A' : '#94A3B8' }}>{clockedIn ? fmtTime(myRecord.clockIn) : '--:--'}</span>],
               ['Clock-Out Time', <span key="o" style={{ fontWeight: 600, color: clockedOut ? '#0F172A' : '#94A3B8' }}>{clockedOut ? fmtTime(myRecord.clockOut) : '--:--'}</span>],
               ['Total Hours Worked', <span key="h" style={{ fontWeight: 600, color: '#0F172A' }}>{myRecord?.hoursWorked != null ? fmtHours(myRecord.hoursWorked) : '0 hrs'}</span>],
+              ['Work Hours', <span key="w" style={{ fontWeight: 600, color: '#0F172A' }}>
+                {schedule ? `${fmtClock(schedule.startTime)} – ${fmtClock(schedule.endTime)}` : '--:--'}
+                {schedule && <span style={{ display: 'block', fontWeight: 400, fontSize: '0.72rem', color: '#64748B', marginTop: 2 }}>{schedule.graceMinutes} min grace for arrival</span>}
+              </span>],
             ].map(([label, value]) => (
               <div key={label} style={{ padding: 16, backgroundColor: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
                 <div style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 600, marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{label}</div>
@@ -376,7 +434,7 @@ export default function AttendanceTimesheets() {
         ) : loading ? (
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <tbody>{Array.from({ length: 6 }).map((_, i) => (
-              <tr key={i}>{Array.from({ length: 9 }).map((__, j) => <td key={j} style={{ padding: '12px 16px' }}><div style={{ height: 14, backgroundColor: '#E2E8F0', borderRadius: 4, width: '60%' }} /></td>)}</tr>
+              <tr key={i}>{Array.from({ length: 11 }).map((__, j) => <td key={j} style={{ padding: '12px 16px' }}><div style={{ height: 14, backgroundColor: '#E2E8F0', borderRadius: 4, width: '60%' }} /></td>)}</tr>
             ))}</tbody>
           </table>
         ) : (

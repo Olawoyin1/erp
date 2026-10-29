@@ -87,7 +87,6 @@ function TaskFormModal({ project, task, onClose, onSaved }) {
     setError('');
     const next = {};
     if (form.title.trim().length < 3) next.title = 'Task name must be at least 3 characters';
-    if (!form.activityId) next.linkedActivityId = 'Choose the linked activity';
     if (!form.assigneeId) next.assigneeId = 'Choose who this task is assigned to';
     if (form.startDate && form.dueDate && form.startDate > form.dueDate) next.startDate = 'Start date must be on or before the due date';
     setErrors(next);
@@ -99,7 +98,7 @@ function TaskFormModal({ project, task, onClose, onSaved }) {
       assigneeId: form.assigneeId,
       priority: form.priority,
       projectId: project._id,
-      linkedActivityId: form.activityId,
+      linkedActivityId: optional(form.activityId),
       startDate: optional(form.startDate),
       dueDate: optional(form.dueDate),
       description: optional(form.description.trim()),
@@ -140,8 +139,8 @@ function TaskFormModal({ project, task, onClose, onSaved }) {
         <Field label="Task name" required error={errors.title}><Input value={form.title} onChange={(e) => set('title', e.target.value)} maxLength={300} error={Boolean(errors.title)} /></Field>
         <TwoCol>
           <Field label="Project" required><Input value={project.projectName} disabled /></Field>
-          <Field label="Linked activity" required error={errors.linkedActivityId}>
-            <Choice value={form.activityId} onChange={(v) => set('activityId', v)} searchable placeholder={activities.loading ? 'Loading…' : 'Select an activity'} options={activities.options} error={errors.linkedActivityId || activities.error} />
+          <Field label="Linked activity (optional)" error={errors.linkedActivityId}>
+            <Choice value={form.activityId} onChange={(v) => set('activityId', v)} searchable placeholder={activities.loading ? 'Loading…' : 'No linked activity'} options={[{ value: '', label: 'No linked activity' }, ...activities.options]} error={errors.linkedActivityId || activities.error} />
           </Field>
         </TwoCol>
         <TwoCol>

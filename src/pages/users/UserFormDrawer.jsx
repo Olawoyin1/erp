@@ -185,7 +185,7 @@ export default function UserFormDrawer({
           <FormField label="Phone Number (Optional)" error={errors.phoneNumber}>
             <Input value={form.phoneNumber} onChange={(e) => set('phoneNumber', e.target.value)} placeholder="0803 456 7890" />
           </FormField>
-          <FormField label="Role" style={{ gridColumn: '1 / -1' }} error={errors.roleIds} helpText="Roles that grant more access than you hold are locked.">
+          <FormField label="Role" style={{ gridColumn: '1 / -1' }} error={errors.roleIds} helpText="Roles that grant more access than you hold are locked. Leave empty to give the baseline Staff (All Employees) role.">
             <RolePicker roles={roles} selected={form.roleIds} onToggle={toggleRole} canGrant={canGrant} error={!!errors.roleIds} disabled={rolesDisabled} />
           </FormField>
         </div>

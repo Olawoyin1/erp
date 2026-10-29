@@ -38,6 +38,10 @@ export const settingsService = {
   updateNotificationPrefs: (data) => apiClient.patch('/settings/notification-preferences', data),
 
   updateMailReplyTo: (data) => apiClient.patch('/settings/mail-reply-to', data),
+
+  // Work schedule used by attendance (core.settings.view / .update)
+  getWorkHours:    () => apiClient.get('/settings/work-hours'),
+  updateWorkHours: (data) => apiClient.patch('/settings/work-hours', data),
 };
 
 // ─── Legal entities (finance.legalentity.view; writes need core.settings.update) ─

@@ -4,7 +4,7 @@ import Drawer from '../../../components/ui/Drawer';
 import { FormField, Input, Select, Textarea, DatePicker } from '../../../components/ui/FormField';
 import { fieldErrorsOf } from '../hrUtils';
 import EmployeePicker from '../EmployeePicker';
-import { lagosToday, lagosInstant, hoursBetween, fmtHours } from './attendanceUtils';
+import { lagosToday, lagosInstant, hoursBetween, fmtHours, attendanceZone } from './attendanceUtils';
 
 const STATUSES = [
   { value: 'present', label: 'Present' },
@@ -17,7 +17,7 @@ const STATUSES = [
 const nextDay = (ymd) => new Date(new Date(`${ymd}T12:00:00Z`).getTime() + 86_400_000).toISOString().slice(0, 10);
 
 /**
- * Manual attendance entry (needs hr.attendance.log). Times are typed in Lagos time. When a record already exists
+ * Manual attendance entry (needs hr.attendance.log). Times are typed in the company time zone. When a record already exists
  * for that employee and day the server asks for a correction reason; the field then appears and the form is sent again.
  * `onSubmit(body)` resolves to nothing on success or `{ message, details, code }`.
  */
@@ -94,10 +94,10 @@ export default function LogAttendanceDrawer({ locations, onClose, onSubmit }) {
           <FormField label="Date" required error={errors.date}>
             <DatePicker value={form.date} max={lagosToday()} error={!!errors.date} onChange={(e) => set('date', e.target.value)} />
           </FormField>
-          <FormField label="Clock in (Lagos time)" error={errors.clockIn}>
+          <FormField label={`Clock in (${attendanceZone()} time)`} error={errors.clockIn} helpText="Late arrival is worked out from the work schedule">
             <Input type="time" value={form.clockIn} error={!!errors.clockIn} onChange={(e) => set('clockIn', e.target.value)} />
           </FormField>
-          <FormField label="Clock out (Lagos time)" error={errors.clockOut} helpText="Must be within 24 hours of clock-in">
+          <FormField label={`Clock out (${attendanceZone()} time)`} error={errors.clockOut} helpText="Within 24 hours of clock-in; overtime and early leave follow the work schedule">
             <Input type="time" value={form.clockOut} error={!!errors.clockOut} onChange={(e) => set('clockOut', e.target.value)} />
           </FormField>
           <FormField label="Hours worked"><Input value={worked == null ? '' : fmtHours(worked)} readOnly disabled style={{ backgroundColor: '#F1F5F9' }} /></FormField>

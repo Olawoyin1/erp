@@ -18,6 +18,16 @@ import {
  * (several keys, for pages that show more than one resource). The key is the `.view` key of the
  * page's main resource from docs/RBAC-MATRIX.md. An entry with neither is open to every signed-in user.
  *
+ * Baseline: the self-service pages (My Payslips, Leave, Attendance, Grievances, Training, Travel & Logistics,
+ * Memos, Requests) are gated by keys that every role carries (the baseline "Staff (All Employees)" role and the
+ * Manager/Staff role of each module hold them, see docs/api/platform-core.md section 4.0), and the server limits
+ * every one of those pages to the person's own data. So a user whose only role is the baseline role sees exactly
+ * these pages plus Dashboard, Settings and the Tasks/Documents entries of the modules they can open.
+ *
+ * A `Requests` entry in a module other than Administration is the SAME Administrative Requests page and data as
+ * Administration > Administrative Requests (one shared component). It is `shared`, so it only shows in a module the
+ * user can already open: nobody gets a whole module in the sidebar just because of Requests.
+ *
  * A new page needs one line here (and its <Route> in App.jsx); the sidebar, the "no access" page and the
  * landing redirect then pick it up with no further change.
  */
@@ -59,8 +69,12 @@ export const NAV = [
             anyOf: [
               'administration.asset.view',
               'administration.supplyitem.view',
-              'administration.adminrequest.view',
-              'administration.travelrequest.view',
+              'administration.adminrequest.view-all',
+              'administration.adminrequest.update',
+              'administration.adminrequest.decide',
+              'administration.travelrequest.view-all',
+              'administration.travelrequest.update',
+              'administration.travelrequest.decide',
               'administration.facilitymaintenance.view',
               'administration.disposal.view',
             ],
@@ -82,7 +96,7 @@ export const NAV = [
           { label: 'Payroll Inputs', path: '/hr/payroll', permission: 'hr.payroll.view' },
           { label: 'My Payslips', path: '/hr/my-payslips', selfService: true },
           { label: 'Grievances & Discipline', path: '/hr/grievances', permission: 'hr.disciplinarycase.view' },
-          { label: 'Requests', path: '/hr/requests', permission: 'administration.adminrequest.view' },
+          { label: 'Requests', path: '/hr/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/hr/tasks', permission: 'core.task.view', shared: true },
           { label: 'HR Documents', path: '/hr/documents', permission: 'core.document.view', shared: true },
           { label: 'Reports', path: '/hr/reports', permission: 'hr.reports.view' },
@@ -114,6 +128,7 @@ export const NAV = [
           { label: 'Bank Reconciliation', path: '/finance/bank-reconciliation', permission: 'finance.bankreconciliation.view' },
           { label: 'Tax Management', path: '/finance/tax', permission: 'finance.taxrecord.view' },
           { label: 'Finance Requests & Forms', path: '/finance/forms', permission: 'finance.financeform.view' },
+          { label: 'Requests', path: '/finance/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/finance/tasks', permission: 'core.task.view', shared: true },
           { label: 'Financial Reports', path: '/finance/reports', permission: 'finance.reports.view' },
         ],
@@ -127,6 +142,7 @@ export const NAV = [
           { label: 'RFQs & Tenders', path: '/bizdev/tenders', anyOf: ['businessdev.tender.view', 'businessdev.rfq.view'] },
           { label: 'Proposals', path: '/bizdev/proposals', permission: 'businessdev.opportunity.view' },
           { label: 'CRM Contacts', path: '/bizdev/crm', permission: 'businessdev.interaction.view' },
+          { label: 'Requests', path: '/bizdev/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Reports', path: '/bizdev/reports', permission: 'businessdev.reports.view' },
         ],
       },
@@ -139,6 +155,7 @@ export const NAV = [
           { label: 'Engineering Documents', path: '/technical/engineering-docs', permission: 'technical.engineeringdocument.view' },
           { label: 'Calibration Records', path: '/technical/calibration', permission: 'technical.calibrationrecord.view' },
           { label: 'Resource Allocation', path: '/technical/resources', permission: 'technical.resourcerequest.view' },
+          { label: 'Requests', path: '/technical/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/technical/tasks', permission: 'core.task.view', shared: true },
           { label: 'Technical Reports', path: '/technical/reports', permission: 'technical.reports.view' },
         ],
@@ -156,6 +173,7 @@ export const NAV = [
           { label: 'Audit Management', path: '/quality/audits', permission: 'quality.audit.view' },
           { label: 'Calibration Records', path: '/quality/calibration', permission: 'quality.calibrationrecord.view' },
           { label: 'Materials Inspection', path: '/quality/inspections', permission: 'quality.goodsreceipt.view' },
+          { label: 'Requests', path: '/quality/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/quality/tasks', permission: 'core.task.view', shared: true },
           { label: 'QMS Documents', path: '/quality/documents', permission: 'core.document.view', shared: true },
           { label: 'Reports', path: '/quality/reports', permission: 'quality.reports.view' },
@@ -168,6 +186,7 @@ export const NAV = [
         children: [
           { label: 'Offshore Travel Documents', path: '/hse/offshore-travel', permission: 'hse.offshoretraveldocument.view' },
           { label: 'Emergency Preparedness', path: '/hse/emergency', anyOf: ['hse.emergencyplan.view', 'hse.emergencycontact.view'] },
+          { label: 'Requests', path: '/hse/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/hse/tasks', permission: 'core.task.view', shared: true },
           { label: 'HSE Documents', path: '/hse/documents', permission: 'core.document.view', shared: true },
           { label: 'Reports', path: '/hse/reports', permission: 'hse.reports.view' },
@@ -189,6 +208,7 @@ export const NAV = [
           { label: 'Expediting & Delivery', path: '/procurement/expediting', permission: 'procurement.delivery.view' },
           { label: 'Vendor Management', path: '/procurement/vendors', permission: 'procurement.vendor.view' },
           { label: 'Inventory & Warehouse', path: '/procurement/inventory', permission: 'procurement.inventoryitem.view' },
+          { label: 'Requests', path: '/procurement/admin-requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/procurement/tasks', permission: 'core.task.view', shared: true },
           { label: 'Procurement Documents', path: '/procurement/documents', permission: 'core.document.view', shared: true },
           { label: 'Reports', path: '/procurement/reports', permission: 'procurement.reports.view' },
