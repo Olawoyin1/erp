@@ -2,27 +2,37 @@ import { useState } from 'react';
 import Drawer from '../ui/Drawer';
 import { FormField, Input, Select, Textarea } from '../ui/FormField';
 import FileDrop from './FileDrop';
+import MultiEmployeePicker from '../../pages/hr/MultiEmployeePicker';
 import { documentService } from '../../services/documents.service';
 import { apiError, unwrap } from '../../services/apiHelpers';
 import { fieldErrors, validateUpload } from './fileHelpers';
-import { ACCESS_OPTIONS } from './documentUtils';
+import { ACCESS_OPTIONS, HR_ACCESS_OPTIONS } from './documentUtils';
 
 const buttonBase = { padding: '8px 20px', borderRadius: 6, fontWeight: 600, cursor: 'pointer' };
 
-function initialForm(mode, doc, config) {
+function initialForm(mode, doc, config, isHr) {
   if (doc && mode !== 'upload') {
     return {
       title: doc.title || '',
       category: doc.category || '',
-      accessLevel: doc.accessLevel || 'all_staff',
+      accessLevel: isHr ? 'assigned' : doc.accessLevel || 'all_staff',
       description: mode === 'version' && config.variant === 'controlled' ? '' : doc.description || '',
     };
   }
-  return { title: '', category: config.categories?.[0] || '', accessLevel: 'all_staff', description: '' };
+  return { title: '', category: config.categories?.[0] || '', accessLevel: isHr ? 'assigned' : 'all_staff', description: '' };
+}
+
+/** An HR document's assigned employees, as the `{ [id]: employee }` map MultiEmployeePicker owns. */
+function initialAssigned(mode, doc) {
+  if (!doc || mode === 'upload') return {};
+  const list = Array.isArray(doc.assignedTo) ? doc.assignedTo : [];
+  return Object.fromEntries(list.filter((e) => e && typeof e === 'object').map((e) => [e._id, e]));
 }
 
 function FormPanel({ mode, doc, module, config, onClose, onSaved, notify }) {
-  const [form, setForm] = useState(() => initialForm(mode, doc, config));
+  const isHr = module === 'hr';
+  const [form, setForm] = useState(() => initialForm(mode, doc, config, isHr));
+  const [assigned, setAssigned] = useState(() => initialAssigned(mode, doc));
   const [file, setFile] = useState(null);
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(null);
@@ -38,6 +48,7 @@ function FormPanel({ mode, doc, module, config, onClose, onSaved, notify }) {
     const problems = {};
     if (form.title.trim().length < 3) problems.title = `${plain ? 'Document name' : 'Document title'} must be at least 3 characters`;
     if (!plain && !form.category) problems.category = 'Choose a category';
+    if (isHr && Object.keys(assigned).length === 0) problems.assignedTo = 'Choose at least one employee to share this document with';
     if (mode !== 'edit') {
       const fileProblem = validateUpload(file);
       if (fileProblem) problems.file = fileProblem;
@@ -58,6 +69,7 @@ function FormPanel({ mode, doc, module, config, onClose, onSaved, notify }) {
           title: form.title.trim(),
           category: form.category,
           accessLevel: form.accessLevel,
+          ...(isHr ? { assignedTo: Object.keys(assigned) } : {}),
           ...(form.description.trim() ? { description: form.description.trim() } : {}),
         });
         message = 'Document updated';
@@ -89,6 +101,7 @@ function FormPanel({ mode, doc, module, config, onClose, onSaved, notify }) {
         body.append('category', plain ? config.defaultCategory : form.category);
         body.append('controlled', controlled ? 'true' : 'false');
         if (!plain) body.append('accessLevel', form.accessLevel);
+        if (isHr) body.append('assignedTo', JSON.stringify(Object.keys(assigned)));
         if (form.description.trim()) body.append('description', form.description.trim());
         const created = unwrap(await documentService.create(body));
         message = 'Document uploaded';
@@ -162,11 +175,17 @@ function FormPanel({ mode, doc, module, config, onClose, onSaved, notify }) {
               <Select
                 value={form.accessLevel}
                 onChange={(e) => set('accessLevel', e.target.value)}
-                options={ACCESS_OPTIONS}
-                disabled={lockedMeta || (mode === 'version' && !controlled)}
+                options={isHr ? HR_ACCESS_OPTIONS : ACCESS_OPTIONS}
+                disabled={isHr || lockedMeta || (mode === 'version' && !controlled)}
               />
             </FormField>
           </div>
+        )}
+
+        {!plain && isHr && mode !== 'version' && (
+          <FormField label="ASSIGN TO" required error={errors.assignedTo} helpText="Only these employees (and HR) will be able to see this document.">
+            <MultiEmployeePicker selected={assigned} onChange={setAssigned} />
+          </FormField>
         )}
 
         {mode === 'version' && currentFile && (

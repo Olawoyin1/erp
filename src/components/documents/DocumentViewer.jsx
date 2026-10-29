@@ -137,6 +137,13 @@ function ViewerPanel({ docId, config, actions, userId, onAction, onClose, notify
                 <Field label="VERSION">{doc.version || '—'}</Field>
                 <Field label="UPLOADED BY">{personName(doc.uploadedBy)}</Field>
                 <Field label="ACCESS LEVEL">{ACCESS_LABEL[doc.accessLevel] || doc.accessLevel}</Field>
+                {doc.accessLevel === 'assigned' && (
+                  <Field label="ASSIGNED TO">
+                    {Array.isArray(doc.assignedTo) && doc.assignedTo.length
+                      ? doc.assignedTo.map((e) => (typeof e === 'object' ? e.fullName : e)).join(', ')
+                      : 'Nobody yet'}
+                  </Field>
+                )}
                 <Field label="DATE UPLOADED">{displayDate(doc.createdAt)}</Field>
                 <Field label="LAST MODIFIED">{displayDate(doc.updatedAt)}</Field>
                 <Field label="DEPARTMENT">{doc.departmentId?.name || '—'}</Field>
