@@ -9,7 +9,7 @@ import Pagination from '../../../components/ui/Pagination';
 import Drawer from '../../../components/ui/Drawer';
 import { FormField, Input, Select, Textarea } from '../../../components/ui/FormField';
 import {
-  fetchCandidates, advanceCandidateStage, rejectCandidateAction, createCandidateAction, convertCandidateAction,
+  fetchCandidates, advanceCandidateStage, rejectCandidateAction, createCandidateAction, startOnboardingAction,
 } from '../../../store/hr/recruitmentSlice';
 import { recruitmentService } from '../../../services/hr.service';
 import { apiError, formatDate } from '../../../services/apiHelpers';
@@ -17,7 +17,6 @@ import { usePermission } from '../../../hooks/usePermission';
 import { fieldErrorsOf, fullName, saveBlob, blobErrorMessage } from '../hrUtils';
 import EmployeePicker from '../EmployeePicker';
 import ImportDialog from '../ImportDialog';
-import ConvertCandidateDrawer from './ConvertCandidateDrawer';
 import { StatusPill, Section, InfoItem, RowActionsMenu, ReasonModal } from './recruitmentUi';
 import { STAGE_STYLES, ADVANCE_LABEL, btnOutline, btnPrimary, btnCancel } from './recruitmentConstants';
 
@@ -25,6 +24,8 @@ const ROWS_PER_PAGE = 10;
 const nameOf = (ref) => (ref && typeof ref === 'object' ? ref.name : '') || '—';
 const canReject = (stage) => ['applied', 'screening', 'assessment', 'interview', 'offer'].includes(stage);
 const isConverted = (c) => !!c.employeeId;
+const ONBOARDING_LABEL = { pending: 'Pending', in_progress: 'In progress', completed: 'Completed, ready to convert', converted: 'Converted' };
+const needsOnboarding = (c) => c.stage === 'hired' && !isConverted(c) && !c.onboardingCase;
 
 const STAGE_FILTERS = [
   { value: '', label: 'All stages' },
@@ -143,7 +144,7 @@ function AddCandidateDrawer({ onClose, onSave }) {
 }
 
 // ─── View candidate ───────────────────────────────────────────────────────────
-function ViewCandidateDrawer({ candidateId, listRow, onClose, perms, onAdvance, onReject, onConvert, showToast, refreshToken }) {
+function ViewCandidateDrawer({ candidateId, listRow, onClose, perms, onAdvance, onReject, onStartOnboarding, showToast, refreshToken }) {
   const [state, setState] = useState({ id: null, detail: null, error: '' });
   const [uploading, setUploading] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -186,10 +187,10 @@ function ViewCandidateDrawer({ candidateId, listRow, onClose, perms, onAdvance, 
     }
   };
 
-  const footer = perms.update || perms.convert ? (
+  const footer = perms.update ? (
     <>
-      {perms.convert && stage === 'hired' && !isConverted(candidate) && (
-        <button onClick={() => onConvert(candidate)} style={btnPrimary}><FiUserPlus size={14} /> Convert to Employee</button>
+      {needsOnboarding(candidate) && (
+        <button onClick={() => onStartOnboarding(candidate)} style={btnPrimary}><FiUserPlus size={14} /> Start Onboarding</button>
       )}
       {perms.update && canReject(stage) && (
         <button onClick={() => onReject(candidate)} style={btnOutline('#DC2626', '#FEF2F2', '#FECACA')}><FiX size={14} /> Reject Candidate</button>
@@ -209,6 +210,13 @@ function ViewCandidateDrawer({ candidateId, listRow, onClose, perms, onAdvance, 
 
       {state.error && <div style={{ padding: 12, marginBottom: 16, color: '#991B1B', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: '0.82rem' }}>{state.error}</div>}
 
+      {stage === 'hired' && !isConverted(candidate) && (
+        <div style={{ padding: '10px 14px', marginBottom: 16, backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, fontSize: '0.82rem', color: '#1E3A8A' }}>
+          {candidate.onboardingCase
+            ? <>Onboarding: {ONBOARDING_LABEL[candidate.onboardingCase.status] || candidate.onboardingCase.status}. Finish it and convert this candidate to an employee on the <Link to="/hr/onboarding" style={{ color: '#1D4ED8', fontWeight: 700 }}>Onboarding</Link> page.</>
+            : <>Onboarding has not been started. Start it to track the checklist and documents before this candidate becomes an employee.</>}
+        </div>
+      )}
       {isConverted(candidate) && (
         <div style={{ padding: '10px 14px', marginBottom: 16, backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, fontSize: '0.82rem', color: '#166534' }}>
           Registered as employee{' '}
@@ -287,7 +295,6 @@ export default function CandidatesTab({ showToast }) {
   const perms = {
     create: usePermission('hr.candidate.create'),
     update: usePermission('hr.candidate.update'),
-    convert: usePermission('hr.candidate.convert'),
   };
 
   const [search, setSearch] = useState('');
@@ -297,7 +304,6 @@ export default function CandidatesTab({ showToast }) {
   const [selectedIds, setSelectedIds] = useState([]);
   const [viewId, setViewId] = useState(null);
   const [rejectTarget, setRejectTarget] = useState(null);
-  const [convertTarget, setConvertTarget] = useState(null);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -321,7 +327,7 @@ export default function CandidatesTab({ showToast }) {
   const handleAdvance = async (candidate) => {
     const result = await dispatch(advanceCandidateStage(candidate._id));
     if (advanceCandidateStage.fulfilled.match(result)) {
-      showToast(`${candidate.fullName}: ${ADVANCE_LABEL[candidate.stage]}`, 'success');
+      showToast(candidate.stage === 'offer' ? `${candidate.fullName} hired. Onboarding has started.` : `${candidate.fullName}: ${ADVANCE_LABEL[candidate.stage]}`, 'success');
       setRefreshToken((t) => t + 1);
       reload();
     } else {
@@ -353,16 +359,15 @@ export default function CandidatesTab({ showToast }) {
     return failureOf(result.payload);
   };
 
-  const handleConvert = async (body) => {
-    const result = await dispatch(convertCandidateAction({ id: convertTarget._id, data: body }));
-    if (convertCandidateAction.fulfilled.match(result)) {
-      showToast(`${convertTarget.fullName} registered as employee ${result.payload.employeeId}`, 'success');
-      setConvertTarget(null);
+  const handleStartOnboarding = async (candidate) => {
+    const result = await dispatch(startOnboardingAction(candidate._id));
+    if (startOnboardingAction.fulfilled.match(result)) {
+      showToast(`Onboarding started for ${candidate.fullName}`, 'success');
       setRefreshToken((t) => t + 1);
       reload();
-      return undefined;
+    } else {
+      showToast(result.payload?.message || 'Could not start onboarding', 'error');
     }
-    return failureOf(result.payload);
   };
 
   const handleExport = async () => {
@@ -389,7 +394,7 @@ export default function CandidatesTab({ showToast }) {
       render: (_, row) => {
         const acts = [];
         if (perms.update && ADVANCE_LABEL[row.stage]) acts.push({ label: ADVANCE_LABEL[row.stage], icon: row.stage === 'interview' ? 'send' : 'check', action: 'advance' });
-        if (perms.convert && row.stage === 'hired' && !isConverted(row)) acts.push({ label: 'Convert to Employee', icon: 'convert', action: 'convert' });
+        if (perms.update && needsOnboarding(row)) acts.push({ label: 'Start Onboarding', icon: 'convert', action: 'startOnboarding' });
         if (perms.update && canReject(row.stage)) acts.push({ label: 'Reject Candidate', icon: 'x', action: 'reject', danger: true });
         return (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
@@ -398,7 +403,7 @@ export default function CandidatesTab({ showToast }) {
               <RowActionsMenu actions={acts} onAction={(action) => {
                 if (action === 'advance') handleAdvance(row);
                 if (action === 'reject') setRejectTarget(row);
-                if (action === 'convert') setConvertTarget(row);
+                if (action === 'startOnboarding') handleStartOnboarding(row);
               }} />
             </div>
           </div>
@@ -454,7 +459,7 @@ export default function CandidatesTab({ showToast }) {
           onClose={() => setViewId(null)}
           onAdvance={handleAdvance}
           onReject={(c) => setRejectTarget(c)}
-          onConvert={(c) => setConvertTarget(c)} />
+          onStartOnboarding={handleStartOnboarding} />
       )}
 
       {addOpen && <AddCandidateDrawer onClose={() => setAddOpen(false)} onSave={handleAdd} />}
@@ -463,7 +468,6 @@ export default function CandidatesTab({ showToast }) {
           onClose={() => setImportOpen(false)}
           onImported={(report) => { showToast(`${report.created} candidate(s) imported`, 'success'); setPage(1); reload(); }} />
       )}
-      {convertTarget && <ConvertCandidateDrawer candidate={convertTarget} onClose={() => setConvertTarget(null)} onConvert={handleConvert} />}
       {rejectTarget && (
         <ReasonModal onClose={() => setRejectTarget(null)} onConfirm={handleRejectConfirm} title="Reject Candidate?"
           subtitle={`${rejectTarget.fullName} will be removed from the active recruitment pipeline and marked as rejected. This action is recorded for audit purposes.`}

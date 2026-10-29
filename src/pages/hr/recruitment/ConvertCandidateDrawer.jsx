@@ -12,7 +12,7 @@ const NAIRA = /^\d+(\.\d{1,2})?$/;
 const CONTRACT_TYPES = ['permanent', 'contract', 'temporary'];
 
 /**
- * Turns a hired candidate into an employee (POST /candidates/:id/convert-to-employee).
+ * Turns a hired candidate whose onboarding is completed into an employee. Opened from the Onboarding page.
  * `onConvert(body)` resolves to nothing on success or `{ message, details }` when the server refuses.
  */
 export default function ConvertCandidateDrawer({ candidate, onClose, onConvert }) {
@@ -88,13 +88,13 @@ export default function ConvertCandidateDrawer({ candidate, onClose, onConvert }
         <>
           <button onClick={onClose} style={btnCancel}>Cancel</button>
           <button onClick={submit} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.7 : 1, cursor: saving ? 'wait' : 'pointer' }}>
-            {saving ? 'Registering…' : 'Register as Employee'}
+            {saving ? 'Converting…' : 'Convert to Employee'}
           </button>
         </>
       }>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748B', lineHeight: 1.5 }}>
-          Name, email, phone and department carry over from the application. The new employee starts on probation and an onboarding case is opened.
+          Onboarding is complete. Name, email, phone and department carry over from the application, the onboarding documents move to the new employee, and the employee starts on probation.
         </p>
         {(formError || lookups.error) && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '10px 12px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.8rem' }}>

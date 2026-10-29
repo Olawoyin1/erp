@@ -111,6 +111,7 @@ export const attendanceService = {
   log:            (data)       => apiClient.post('/attendance', data),
   approveOvertime:(id)         => apiClient.post(`/attendance/${id}/approve`),
   locations:      ()           => apiClient.get('/attendance/locations'),
+  workSchedule:   ()           => apiClient.get('/attendance/work-schedule'),
   exportList:     (params)     => apiClient.get('/attendance/export', { params, responseType: 'blob' }),
 };
 
@@ -131,7 +132,7 @@ export const recruitmentService = {
   createCandidate: (data)   => apiClient.post('/candidates', data),
   advanceCandidate:(id)     => apiClient.post(`/candidates/${id}/advance`),
   rejectCandidate: (id, reason) => apiClient.post(`/candidates/${id}/reject`, { reason }),
-  convertCandidate:(id, data) => apiClient.post(`/candidates/${id}/convert-to-employee`, data),
+  startOnboarding: (id)     => apiClient.post(`/candidates/${id}/start-onboarding`),
   exportCandidates:(params) => apiClient.get('/candidates/export', { params, responseType: 'blob' }),
   uploadCandidateDocument: (id, file) => {
     const form = new FormData();
@@ -145,9 +146,16 @@ export const recruitmentService = {
 export const onboardingService = {
   list:      (params) => apiClient.get('/onboarding', { params }),
   stats:     ()       => apiClient.get('/onboarding/stats'),
-  getByEmployee: (empId) => apiClient.get(`/onboarding/${empId}`),
-  advance:   (empId)  => apiClient.post(`/onboarding/${empId}/status`),
-  verifyDoc: (empId, docId) => apiClient.post(`/onboarding/${empId}/documents/${docId}/verify`),
+  getDetail: (caseId) => apiClient.get(`/onboarding/${caseId}`),
+  advance:   (caseId) => apiClient.post(`/onboarding/${caseId}/status`),
+  convert:   (caseId, data) => apiClient.post(`/onboarding/${caseId}/convert`, data),
+  uploadDocument: (caseId, file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiClient.post(`/onboarding/${caseId}/documents`, form);
+  },
+  documentUrl: (caseId, docId) => apiClient.get(`/onboarding/${caseId}/documents/${docId}/download`),
+  verifyDoc: (caseId, docId) => apiClient.post(`/onboarding/${caseId}/documents/${docId}/verify`),
   exportList: (params) => apiClient.get('/onboarding/export', { params, responseType: 'blob' }),
 };
 
@@ -185,6 +193,7 @@ export const trainingService = {
     return apiClient.post(`/training-programs/${id}/participants/${empId}/certificate`, form);
   },
   certificateUrl:  (id, empId)            => apiClient.get(`/training-programs/${id}/participants/${empId}/certificate/download`),
+  myCertifications: ()                    => apiClient.get('/training-programs/my/certifications'),
 };
 
 // ─── Payroll ──────────────────────────────────────────────────────────────────
@@ -261,6 +270,7 @@ export const grievanceService = {
   stats:       ()             => apiClient.get('/disciplinary-cases/stats'),
   get:         (id)           => apiClient.get(`/disciplinary-cases/${id}`),
   create:      (data)         => apiClient.post('/disciplinary-cases', data),
+  raise:       (data)         => apiClient.post('/disciplinary-cases/grievances', data),
   update:      (id, data)     => apiClient.patch(`/disciplinary-cases/${id}`, data),
   startReview: (id)           => apiClient.post(`/disciplinary-cases/${id}/start-review`),
   resolve:     (id)           => apiClient.post(`/disciplinary-cases/${id}/resolve`),

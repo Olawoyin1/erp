@@ -225,7 +225,7 @@ export default function EmployeeList() {
           photoNote = ` The photo could not be uploaded: ${apiError(err, 'try again from the profile')}`;
         }
       }
-      showToast(`Employee ${result.payload.employeeId} registered. Onboarding has started.${photoNote}`, photoNote ? 'info' : 'success');
+      showToast(`Employee ${result.payload.employeeId} registered.${photoNote}`, photoNote ? 'info' : 'success');
       setPage(1);
       refresh();
       return undefined;

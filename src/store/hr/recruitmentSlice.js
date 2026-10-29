@@ -39,7 +39,7 @@ export const fetchCandidates = listThunk('recruitment/fetchCandidates', (p) => r
 export const createCandidateAction = writeThunk('recruitment/createCandidate', (payload) => recruitmentService.createCandidate(payload), 'Failed to add candidate');
 export const advanceCandidateStage = writeThunk('recruitment/advanceCandidate', (id) => recruitmentService.advanceCandidate(id), 'Failed to advance candidate');
 export const rejectCandidateAction = writeThunk('recruitment/rejectCandidate', ({ id, reason }) => recruitmentService.rejectCandidate(id, reason), 'Failed to reject candidate');
-export const convertCandidateAction = writeThunk('recruitment/convertCandidate', ({ id, data }) => recruitmentService.convertCandidate(id, data), 'Failed to convert the candidate');
+export const startOnboardingAction = writeThunk('recruitment/startOnboarding', (id) => recruitmentService.startOnboarding(id), 'Failed to start onboarding');
 
 function patchInList(list, updated) {
   if (!updated) return list;
