@@ -8,7 +8,7 @@ import { tasksService } from '../../services/tasks.service';
 import { apiError, unwrap } from '../../services/apiHelpers';
 import { displayDate, formatFileSize, openDownloadUrl, personName } from '../documents/fileHelpers';
 import { usePermission } from '../../hooks/usePermission';
-import { PRIORITY_LABEL, PRIORITY_STYLE, STATUS_KEYS, STATUS_LABEL, displayStatus } from './taskUtils';
+import { PRIORITY_LABEL, PRIORITY_STYLE, STATUS_KEYS, STATUS_LABEL, displayStatus, useTaskRights } from './taskUtils';
 
 function Info({ label, children }) {
   return (
@@ -21,6 +21,7 @@ function Info({ label, children }) {
 
 function TaskDetailPanel({ taskId, config, onClose, onEdit, onStatusChange, notify }) {
   const canUpdate = usePermission('core.task.update');
+  const rights = useTaskRights();
   const [task, setTask] = useState(null);
   const [attachments, setAttachments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -93,7 +94,7 @@ function TaskDetailPanel({ taskId, config, onClose, onEdit, onStatusChange, noti
           )}
           {task.isOverdue && task.status !== 'done' && <Badge status="Overdue" />}
         </div>
-        {canUpdate && (
+        {canUpdate && rights.canManage(task) && (
           <button
             type="button"
             onClick={() => onEdit(task)}

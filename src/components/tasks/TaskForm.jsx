@@ -72,8 +72,6 @@ function TaskFormPanel({ mode, task, module, config, onClose, onSaved, notify })
     const problems = {};
     if (form.title.trim().length < 3) problems.title = 'Task name must be at least 3 characters';
     if (!form.assigneeId) problems.assigneeId = 'Choose who this task is assigned to';
-    if (fields.project && !form.projectId) problems.projectId = 'Choose a project';
-    if (fields.project && !form.linkedActivityId) problems.linkedActivityId = 'Choose the linked activity';
     if (config.relatedRequired && !form.relatedTo.trim()) problems.relatedTo = 'This field is required';
     if (config.dueRequired && !form.dueDate) problems.dueDate = 'Choose a due date';
     if (form.startDate && form.dueDate && form.startDate > form.dueDate) problems.startDate = 'Start date must be on or before the due date';
@@ -91,8 +89,8 @@ function TaskFormPanel({ mode, task, module, config, onClose, onSaved, notify })
     optional('dueDate', form.dueDate);
     optional('description', form.description.trim());
     if (fields.project) {
-      payload.projectId = form.projectId;
-      payload.linkedActivityId = form.linkedActivityId;
+      optional('projectId', form.projectId);
+      optional('linkedActivityId', form.projectId ? form.linkedActivityId : '');
     }
     if (!isEdit) {
       payload.module = module;
@@ -154,7 +152,7 @@ function TaskFormPanel({ mode, task, module, config, onClose, onSaved, notify })
     value: a._id,
     label: a.wbsCode ? `${a.activityName} (WBS ${a.wbsCode})` : a.activityName,
   }));
-  const projectOptions = projects.map((p) => ({ value: p._id, label: p.projectName }));
+  const projectOptions = [{ value: '', label: 'No project' }, ...projects.map((p) => ({ value: p._id, label: p.projectName }))];
 
   const titleText = isEdit ? 'Edit Task' : config.assignTitle || 'Assign Task';
   const submitText = isEdit ? 'Save Changes' : config.createLabel || 'Assign Task';
@@ -217,26 +215,27 @@ function TaskFormPanel({ mode, task, module, config, onClose, onSaved, notify })
     layout = (
       <>
         {row(
-          <FormField label="PROJECT" required error={errors.projectId}>
+          <FormField label="PROJECT (OPTIONAL)" error={errors.projectId}>
             <Select
               value={form.projectId}
               onChange={(e) => setForm((c) => ({ ...c, projectId: e.target.value, linkedActivityId: '' }))}
               options={projectOptions}
-              placeholder="Select"
+              placeholder="No project"
               searchable
               error={!!errors.projectId}
             />
           </FormField>,
-          <FormField label="LINKED ACTIVITY" required error={errors.linkedActivityId}>
-            <Select
-              value={form.linkedActivityId}
-              onChange={(e) => set('linkedActivityId', e.target.value)}
-              options={activityOptions}
-              placeholder={form.projectId ? 'Select' : 'Choose a project first'}
-              disabled={!form.projectId}
-              error={!!errors.linkedActivityId}
-            />
-          </FormField>,
+          form.projectId ? (
+            <FormField label="LINKED ACTIVITY (OPTIONAL)" error={errors.linkedActivityId}>
+              <Select
+                value={form.linkedActivityId}
+                onChange={(e) => set('linkedActivityId', e.target.value)}
+                options={[{ value: '', label: 'No linked activity' }, ...activityOptions]}
+                placeholder="Select"
+                error={!!errors.linkedActivityId}
+              />
+            </FormField>
+          ) : null,
         )}
         {row(assigneeField, startField)}
         {row(dueField, priorityField)}

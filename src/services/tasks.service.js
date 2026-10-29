@@ -3,7 +3,7 @@ import apiClient from './apiClient';
 export const tasksService = {
   list: (params) => apiClient.get('/tasks', { params }),
   board: (params) => apiClient.get('/tasks/board', { params }),
-  stats: (module) => apiClient.get('/tasks/stats', { params: module ? { module } : {} }),
+  stats: (module, scope) => apiClient.get('/tasks/stats', { params: { ...(module ? { module } : {}), ...(scope ? { scope } : {}) } }),
   assignees: (params) => apiClient.get('/tasks/assignees', { params }),
   get: (id) => apiClient.get(`/tasks/${id}`),
   create: (data) => apiClient.post('/tasks', data),

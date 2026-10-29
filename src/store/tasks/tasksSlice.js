@@ -28,9 +28,9 @@ export const fetchModuleTasks = createAsyncThunk(
   },
 );
 
-export const fetchModuleTaskStats = createAsyncThunk('moduleTasks/stats', async (module, { rejectWithValue }) => {
+export const fetchModuleTaskStats = createAsyncThunk('moduleTasks/stats', async ({ module, scope }, { rejectWithValue }) => {
   try {
-    const res = await tasksService.stats(module);
+    const res = await tasksService.stats(module, scope);
     return { module, stats: res.data.data };
   } catch {
     return rejectWithValue({ module });

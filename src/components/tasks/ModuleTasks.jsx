@@ -19,7 +19,7 @@ import { useModuleTasks, PAGE_SIZE } from './useModuleTasks';
 import TaskForm from './TaskForm';
 import TaskDetail from './TaskDetail';
 import TaskBoard from './TaskBoard';
-import { ALL_PRIORITIES, PRIORITY_LABEL, PRIORITY_STYLE, STATUS_LABEL, displayStatus } from './taskUtils';
+import { ALL_PRIORITIES, PRIORITY_LABEL, PRIORITY_STYLE, STATUS_LABEL, displayStatus, useTaskRights } from './taskUtils';
 
 const TILE_ICONS = {
   total_tasks: { icon: FiFileText, bg: '#EFF6FF', color: '#2563EB' },
@@ -90,13 +90,15 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
   const canCreate = usePermission('core.task.create');
   const canUpdate = usePermission('core.task.update');
   const canDelete = usePermission('core.task.delete');
+  const rights = useTaskRights();
 
   const [toast, setToast] = useState(null);
   const notify = useCallback((message, type = 'success') => setToast({ message, type }), []);
   const hideToast = useCallback(() => setToast(null), []);
 
   const [view, setView] = useState('table');
-  const data = useModuleTasks(module, view);
+  const [scope, setScope] = useState('assigned');
+  const data = useModuleTasks(module, view, scope);
   const [selectedIds, setSelectedIds] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState({ priority: '', status: '' });
@@ -107,6 +109,15 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
   const [exporting, setExporting] = useState(false);
 
   const closeForm = () => setFormState(null);
+
+  const scopeTabs = [['assigned', 'Assigned to me'], ['created', 'Created by me'], ...(rights.viewAll ? [['all', 'All']] : [])];
+  const changeScope = (next) => {
+    if (next === scope) return;
+    setScope(next);
+    setSelectedIds([]);
+    data.setPage(1);
+  };
+  const emptyText = { assigned: 'No tasks are assigned to you.', created: 'You have not created any tasks.', all: config.emptyMessage }[scope] || config.emptyMessage;
 
   const afterWrite = async () => {
     setSelectedIds([]);
@@ -200,11 +211,11 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
   const rowMenuItems = (row) => {
     const items = [];
     if (canUpdate && row.status !== 'done') {
-      items.push({ label: 'Edit Task', icon: <FiEdit2 size={14} />, action: () => setFormState({ mode: 'edit', task: row }) });
+      if (rights.canManage(row)) items.push({ label: 'Edit Task', icon: <FiEdit2 size={14} />, action: () => setFormState({ mode: 'edit', task: row }) });
       if (row.status === 'todo') items.push({ label: 'Start Task', icon: <FiPlay size={14} />, action: () => changeStatus(row, 'in_progress') });
       items.push({ label: config.markDoneLabel || 'Mark as Done', icon: <FiCheck size={14} />, color: '#16A34A', action: () => changeStatus(row, 'done') });
     }
-    if (canDelete) items.push({ label: config.deleteLabel, icon: <FiTrash2 size={14} />, color: '#DC2626', action: () => setDeleting(row) });
+    if (canDelete && rights.canManage(row)) items.push({ label: config.deleteLabel, icon: <FiTrash2 size={14} />, color: '#DC2626', action: () => setDeleting(row) });
     return items;
   };
 
@@ -301,6 +312,23 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
       )}
 
       <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div role="tablist" aria-label="Task ownership" style={{ display: 'flex', gap: 24, borderBottom: '1px solid #E2E8F0' }}>
+          {scopeTabs.map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={scope === key}
+              onClick={() => changeScope(key)}
+              style={{
+                padding: '8px 0', fontSize: '0.875rem', fontWeight: scope === key ? 700 : 500, cursor: 'pointer', background: 'transparent', border: 'none',
+                color: scope === key ? config.accent : '#64748B', borderBottom: scope === key ? `2px solid ${config.accent}` : '2px solid transparent', marginBottom: -1,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={data.search} onChange={(e) => data.setSearch(e.target.value)} placeholder={config.searchPlaceholder} style={{ paddingLeft: 36, width: '100%' }} />
@@ -353,7 +381,7 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
           hasRows ? (
             <TaskBoard board={data.board} loading={data.loading} canMove={canUpdate} onOpen={(task) => setDetailId(task._id)} onMove={moveOnBoard} />
           ) : (
-            <div style={{ textAlign: 'center', padding: 40, color: '#64748B' }}>{config.emptyMessage}</div>
+            <div style={{ textAlign: 'center', padding: 40, color: '#64748B' }}>{emptyText}</div>
           )
         ) : (
           <>
@@ -365,7 +393,7 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
               onSelectRow={(id) => setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))}
               onSelectAll={() => setSelectedIds(selectedIds.length === data.items.length ? [] : data.items.map((t) => t._id))}
               keyField="_id"
-              emptyMessage={config.emptyMessage}
+              emptyMessage={emptyText}
             />
             {data.meta && data.meta.total > PAGE_SIZE && (
               <Pagination currentPage={data.page} totalPages={data.meta.totalPages} onPageChange={data.setPage} />
