@@ -7,6 +7,7 @@ import PasswordTab from './PasswordTab';
 import NotificationTab from './NotificationTab';
 import CompanyTab from './CompanyTab';
 import ApprovalsTab from './ApprovalsTab';
+import WorkHoursTab from './WorkHoursTab';
 import FinanceTab from './FinanceTab';
 import ExchangeRatesTab from './ExchangeRatesTab';
 import StatutoryTab from './StatutoryTab';
@@ -21,6 +22,7 @@ const TABS = [
   { key: 'password', label: 'Change Password', Panel: PasswordTab },
   { key: 'notification', label: 'Notification', Panel: NotificationTab },
   { key: 'company', label: 'Company & Security', Panel: CompanyTab, permission: 'core.settings.view' },
+  { key: 'workhours', label: 'Work Hours', Panel: WorkHoursTab, permission: 'core.settings.view' },
   { key: 'approvals', label: 'Approvals & Compliance', Panel: ApprovalsTab, permission: 'core.settings.view' },
   { key: 'finance', label: 'Finance Configuration', Panel: FinanceTab, anyOf: ['core.settings.view', 'finance.ledger.view'] },
   { key: 'exchange', label: 'Exchange Rates', Panel: ExchangeRatesTab, permission: 'finance.exchangerate.view' },
