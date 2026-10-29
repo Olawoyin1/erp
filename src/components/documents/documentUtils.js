@@ -21,12 +21,16 @@ export const MODULE_LABEL = {
   businessdev: 'Business Development',
 };
 
-export const ACCESS_LABEL = { all_staff: 'All Staff', department: 'Department' };
+export const ACCESS_LABEL = { all_staff: 'All Staff', department: 'Department', assigned: 'Assigned Employees' };
 
 export const ACCESS_OPTIONS = [
   { value: 'all_staff', label: 'All Staff' },
   { value: 'department', label: 'Department' },
 ];
+
+/** HR documents are only ever visible to who they are assigned to (owner's rule); there is no "All Staff" or
+ * "Department" choice for them. */
+export const HR_ACCESS_OPTIONS = [{ value: 'assigned', label: 'Assigned Employees' }];
 
 export const PERMISSION_FOR = {
   edit: 'core.document.update',
