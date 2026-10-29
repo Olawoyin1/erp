@@ -54,7 +54,7 @@ const EXPORT_COLUMNS = [
   { label: 'Status', value: (r) => statusLabel(r.status) },
 ];
 
-function TravelFormModal({ record, lookups, me, onClose, onSaved }) {
+function TravelFormModal({ record, lookups, me, ownOnly, onClose, onSaved }) {
   const editing = Boolean(record);
   const [form, setForm] = useState(() => (record
     ? {
@@ -161,7 +161,11 @@ function TravelFormModal({ record, lookups, me, onClose, onSaved }) {
       <FormBody onSubmit={(e) => e.preventDefault()}>
         <TwoCol>
           <Field label="Traveler" required error={errors.traveler}>
-            <Choice value={form.traveler} onChange={pickTraveler} searchable placeholder="Select an employee" options={toOptions(lookups.employees, (e) => `${e.fullName} (${e.employeeId})`)} error={errors.traveler} />
+            {ownOnly ? (
+              <Input value={me.fullName} disabled />
+            ) : (
+              <Choice value={form.traveler} onChange={pickTraveler} searchable placeholder="Select an employee" options={toOptions(lookups.employees, (e) => `${e.fullName} (${e.employeeId})`)} error={errors.traveler} />
+            )}
           </Field>
           <Field label="Request ID" help={editing ? undefined : 'Assigned automatically.'}>
             <Input value={editing ? record.requestId : 'Assigned on save'} disabled />
@@ -294,6 +298,9 @@ export default function TravelRequestsTab({ lookups, me, showToast }) {
   const { can, isSuperAdmin } = usePermissions();
   const canCreate = can('administration.travelrequest.create');
   const canUpdate = can('administration.travelrequest.update');
+  // The requester can submit their own draft with only the create permission (the desk edits with update).
+  const canSubmit = canCreate || canUpdate;
+  const ownOnly = !canUpdate && Boolean(me?.employeeId);
   const canReject = can('administration.travelrequest.decide');
   const canExport = can('administration.travelrequest.export');
   const canApproveNow = (r) => r.status === 'pending' && Boolean(STEP_PERMISSIONS[r.currentStep]) && (isSuperAdmin || can(STEP_PERMISSIONS[r.currentStep]));
@@ -334,6 +341,8 @@ export default function TravelRequestsTab({ lookups, me, showToast }) {
     const items = [];
     if (row.status === 'draft' && canUpdate) {
       items.push({ label: 'Edit Request', icon: <FiEdit size={14} color="#64748B" />, action: () => setFormFor(row) });
+    }
+    if (row.status === 'draft' && canSubmit) {
       items.push({ label: 'Submit for Approval', icon: <FiSend size={14} color="#2563EB" />, action: () => doAction('submit', [row._id], 'Travel request sent for approval') });
     }
     if (canApproveNow(row)) items.push({ label: 'Approve Request', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => open('approve', row) });
@@ -371,7 +380,7 @@ export default function TravelRequestsTab({ lookups, me, showToast }) {
   const viewActions = (record) => (
     <>
       {record.status === 'draft' && canUpdate && <SecondaryButton icon={<FiEdit size={14} />} onClick={() => setFormFor(record)}>Edit</SecondaryButton>}
-      {record.status === 'draft' && canUpdate && <PrimaryButton icon={<FiSend size={14} />} onClick={() => doAction('submit', [record._id], 'Travel request sent for approval')}>Submit for Approval</PrimaryButton>}
+      {record.status === 'draft' && canSubmit && <PrimaryButton icon={<FiSend size={14} />} onClick={() => doAction('submit', [record._id], 'Travel request sent for approval')}>Submit for Approval</PrimaryButton>}
       {canApproveNow(record) && <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => open('approve', record)}>Approve</PrimaryButton>}
       {record.status === 'pending' && canReject && <SecondaryButton danger icon={<FiX size={14} />} onClick={() => open('reject', record)}>Reject</SecondaryButton>}
     </>
@@ -423,6 +432,7 @@ export default function TravelRequestsTab({ lookups, me, showToast }) {
           record={formFor === 'new' ? null : formFor}
           lookups={lookups}
           me={me}
+          ownOnly={ownOnly}
           onClose={() => setFormFor(null)}
           onSaved={(message) => { setFormFor(null); showToast(message, 'success'); refresh(); }}
         />

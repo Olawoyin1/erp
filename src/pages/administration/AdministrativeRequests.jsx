@@ -75,9 +75,20 @@ const EXPORT_COLUMNS = [
   { label: 'Current Step', value: (r) => STEP_LABELS[r.currentStep] || '' },
 ];
 
-function NewRequestModal({ me, employees, onClose, onSaved }) {
+// The department the request is filed under: the signed-in person's own department; when their account has none,
+// the department that matches the module whose Requests page they are on (e.g. "finance" -> "Finance and Accounts"; `|` separates alternatives).
+function defaultDepartmentId(me, departments, moduleName) {
+  if (me?.departmentId) return me.departmentId;
+  if (!moduleName) return '';
+  const needles = moduleName.toLowerCase().split('|');
+  const match = (departments || []).find((d) => needles.some((n) => String(d.name || '').toLowerCase().includes(n)));
+  return match?._id || '';
+}
+
+function NewRequestModal({ me, employees, departments, moduleName, onClose, onSaved }) {
   const [form, setForm] = useState({
     title: '', category: 'Office Supplies', quantity: '', unit: 'Units', requestedBy: me?.employeeId || '', requiredDate: '', urgency: 'routine', purpose: '',
+    departmentId: defaultDepartmentId(me, departments, moduleName),
   });
   const [files, setFiles] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -105,6 +116,7 @@ function NewRequestModal({ me, employees, onClose, onSaved }) {
       const res = await adminRequestService.create({
         requestType: form.category,
         requestedBy: form.requestedBy,
+        ...(form.departmentId ? { departmentId: form.departmentId } : {}),
         requestTitle: form.title.trim(),
         description: form.purpose.trim(),
         quantity: Number(form.quantity),
@@ -168,6 +180,13 @@ function NewRequestModal({ me, employees, onClose, onSaved }) {
             <DatePicker value={form.requiredDate} onChange={(e) => set('requiredDate', e.target.value)} error={Boolean(errors.requiredDate)} />
           </Field>
         </TwoCol>
+        <Field label="Department" error={errors.departmentId}>
+          {me?.departmentId ? (
+            <Input value={me.departmentName || ''} disabled />
+          ) : (
+            <Choice value={form.departmentId} onChange={(v) => set('departmentId', v)} searchable placeholder="Select a department" options={toOptions(departments, 'name')} error={errors.departmentId} />
+          )}
+        </Field>
         <Field label="Urgency" required error={errors.urgency}>
           <div style={{ maxWidth: 260 }}><Choice value={form.urgency} onChange={(v) => set('urgency', v)} options={URGENCIES} /></div>
         </Field>
@@ -414,7 +433,13 @@ function ViewRequestDrawer({ id, refreshKey, onClose, canApproveNow, ownRequest,
   );
 }
 
-export default function AdministrativeRequests() {
+/**
+ * The one Administrative Requests page. Administration shows it as Administration > Administrative Requests; every other
+ * module shows the same page and data as its own Requests entry and passes `module` (its name) so the department of the
+ * new request is pre-filled. The server decides what the person sees: their own requests, their department's if they
+ * head it, or every department's if they run the desk.
+ */
+export default function AdministrativeRequests({ module: moduleName = '' }) {
   const { can, isSuperAdmin } = usePermissions();
   const canCreate = can('administration.adminrequest.create');
   const canUpdate = can('administration.adminrequest.update');
@@ -571,6 +596,8 @@ export default function AdministrativeRequests() {
         <NewRequestModal
           me={me}
           employees={lookups.employees}
+          departments={lookups.departments}
+          moduleName={moduleName}
           onClose={() => setFormOpen(false)}
           onSaved={(message) => { setFormOpen(false); showToast(message, 'success'); refresh(); }}
         />

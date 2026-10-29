@@ -242,6 +242,17 @@ export default function TrainingCertifications() {
 
   const canCreate = usePermission('hr.training.create');
   const canUpdate = usePermission('hr.training.update');
+  const canViewAll = usePermission('hr.training.view-all');
+  const [certs, setCerts] = useState({ items: [], loading: true, error: '' });
+
+  useEffect(() => {
+    if (canViewAll) return undefined;
+    let cancelled = false;
+    trainingService.myCertifications()
+      .then((res) => { if (!cancelled) setCerts({ items: res.data?.data || [], loading: false, error: '' }); })
+      .catch((err) => { if (!cancelled) setCerts({ items: [], loading: false, error: apiError(err, 'Could not load your certifications') }); });
+    return () => { cancelled = true; };
+  }, [canViewAll]);
 
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -385,8 +396,10 @@ export default function TrainingCertifications() {
       {toast && <Toast message={toast.message} type={toast.type} onClose={hideToast} />}
 
       <div>
-        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>Training &amp; Certifications</h1>
-        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '2px 0 0 0' }}>Track employee training and certification programs</p>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{canViewAll ? 'Training & Certifications' : 'My Training & Certifications'}</h1>
+        <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '2px 0 0 0' }}>
+          {canViewAll ? 'Track employee training and certification programs' : 'The training you are enrolled in, your outcomes and your certificates'}
+        </p>
       </div>
 
       <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
@@ -486,6 +499,44 @@ export default function TrainingCertifications() {
             </div>
           </div>
         </Drawer>
+      )}
+
+
+      {!canViewAll && (
+        <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>My Certifications</h2>
+            <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '2px 0 0 0' }}>Certificates from the training you completed, and any HR has filed for you</p>
+          </div>
+          {certs.loading ? (
+            <div style={{ fontSize: '0.85rem', color: '#94A3B8' }}>Loading…</div>
+          ) : certs.error ? (
+            <div style={{ fontSize: '0.85rem', color: '#991B1B' }}>{certs.error}</div>
+          ) : certs.items.length === 0 ? (
+            <div style={{ fontSize: '0.85rem', color: '#94A3B8' }}>You have no certifications on record yet.</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+              <thead>
+                <tr style={{ textAlign: 'left', color: '#64748B', fontSize: '0.72rem', textTransform: 'uppercase' }}>
+                  <th style={{ padding: '8px 12px' }}>Certificate</th>
+                  <th style={{ padding: '8px 12px' }}>Issued</th>
+                  <th style={{ padding: '8px 12px' }}>Expires</th>
+                  <th style={{ padding: '8px 12px' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {certs.items.map((c) => (
+                  <tr key={c._id} style={{ borderTop: '1px solid #F1F5F9' }}>
+                    <td style={{ padding: '10px 12px', fontWeight: 500, color: '#0F172A' }}>{c.certificateName}</td>
+                    <td style={{ padding: '10px 12px' }}>{formatDate(c.issuedDate)}</td>
+                    <td style={{ padding: '10px 12px' }}>{c.expiryDate ? formatDate(c.expiryDate) : 'No expiry'}</td>
+                    <td style={{ padding: '10px 12px' }}>{titleCase(c.status)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
       )}
 
       {drawer && <ScheduleDrawer key={drawer.item?._id || 'new'} editItem={drawer.item} onClose={() => setDrawer(null)} onSave={handleSave} />}
