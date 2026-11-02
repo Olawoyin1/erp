@@ -18,15 +18,16 @@ import {
  * (several keys, for pages that show more than one resource). The key is the `.view` key of the
  * page's main resource from docs/RBAC-MATRIX.md. An entry with neither is open to every signed-in user.
  *
- * Baseline: the self-service pages (My Payslips, Leave, Attendance, Grievances, Training, Travel & Logistics,
- * Memos, Requests) are gated by keys that every role carries (the baseline "Staff (All Employees)" role and the
- * Manager/Staff role of each module hold them, see docs/api/platform-core.md section 4.0), and the server limits
- * every one of those pages to the person's own data. So a user whose only role is the baseline role sees exactly
- * these pages plus Dashboard, Settings and the Tasks/Documents entries of the modules they can open.
+ * General pages (`general: true`): every signed-in user gets these, whatever their module. HR: Training &
+ * Certifications, Leave Management, Attendance & Timesheets, My Payslips, Grievances & Discipline and HR Documents.
+ * Administration: Travel & Logistics and Memos. They are gated by keys every role carries (see
+ * docs/api/platform-core.md section 4.0), and the server limits each one to the person's own data (HR Documents:
+ * only the documents assigned to them). Nothing else in HR or Administration is general.
  *
- * A `Requests` entry in a module other than Administration is the SAME Administrative Requests page and data as
- * Administration > Administrative Requests (one shared component). It is `shared`, so it only shows in a module the
- * user can already open: nobody gets a whole module in the sidebar just because of Requests.
+ * Everything else is role-based. A `shared` entry (Requests, Tasks, Documents) needs the same platform key as its
+ * twins in other modules, so it also needs a page of its own module that is not a general page: a Finance user gets
+ * the Finance Requests and Tasks entries, never HR's or Administration's. A `Requests` entry is the SAME
+ * Administrative Requests page and data in every module (one shared component).
  *
  * A new page needs one line here (and its <Route> in App.jsx); the sidebar, the "no access" page and the
  * landing redirect then pick it up with no further change.
@@ -52,14 +53,15 @@ export const NAV = [
             path: '/administration/assets',
             anyOf: ['administration.asset.view', 'administration.supplyitem.view'],
           },
-          { label: 'Administrative Requests', path: '/administration/requests', permission: 'administration.adminrequest.view' },
+          { label: 'Administrative Requests', path: '/administration/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Facility Maintenance', path: '/administration/maintenance', permission: 'administration.facilitymaintenance.view' },
           {
             label: 'Travel & Logistics',
             path: '/administration/travels',
             anyOf: ['administration.travelrequest.view', 'administration.movement.view'],
+            general: true,
           },
-          { label: 'Memos', path: '/administration/memos', permission: 'administration.memo.view' },
+          { label: 'Memos', path: '/administration/memos', permission: 'administration.memo.view', general: true },
           { label: 'Waste & Disposal', path: '/administration/waste', permission: 'administration.disposal.view' },
           { label: 'Tasks', path: '/administration/tasks', permission: 'core.task.view', shared: true },
           { label: 'Admin Documents', path: '/administration/documents', permission: 'core.document.view', shared: true },
@@ -88,15 +90,15 @@ export const NAV = [
           { label: 'Recruitment', path: '/hr/recruitment', anyOf: ['hr.jobposting.view', 'hr.candidate.view'] },
           { label: 'Onboarding', path: '/hr/onboarding', permission: 'hr.onboarding.view' },
           { label: 'Deployment', path: '/hr/deployment', permission: 'hr.deployment.view' },
-          { label: 'Training & Certifications', path: '/hr/certifications', permission: 'hr.training.view' },
-          { label: 'Leave Management', path: '/hr/leave', permission: 'hr.leave.view' },
-          { label: 'Attendance & Timesheets', path: '/hr/attendance', permission: 'hr.attendance.view' },
+          { label: 'Training & Certifications', path: '/hr/certifications', permission: 'hr.training.view', general: true },
+          { label: 'Leave Management', path: '/hr/leave', permission: 'hr.leave.view', general: true },
+          { label: 'Attendance & Timesheets', path: '/hr/attendance', permission: 'hr.attendance.view', general: true },
           { label: 'Payroll Inputs', path: '/hr/payroll', permission: 'hr.payroll.view' },
-          { label: 'My Payslips', path: '/hr/my-payslips', selfService: true },
-          { label: 'Grievances & Discipline', path: '/hr/grievances', permission: 'hr.disciplinarycase.view' },
+          { label: 'My Payslips', path: '/hr/my-payslips', selfService: true, general: true },
+          { label: 'Grievances & Discipline', path: '/hr/grievances', permission: 'hr.disciplinarycase.view', general: true },
           { label: 'Requests', path: '/hr/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/hr/tasks', permission: 'core.task.view', shared: true },
-          { label: 'HR Documents', path: '/hr/documents', permission: 'core.document.view', shared: true },
+          { label: 'HR Documents', path: '/hr/documents', permission: 'core.document.view', general: true },
           { label: 'Reports', path: '/hr/reports', permission: 'hr.reports.view' },
         ],
       },
@@ -235,12 +237,13 @@ export function allows(entry, can) {
 }
 
 /**
- * Tasks and documents pages exist in several modules but need the same platform key (`core.task.view`,
- * `core.document.view`). A `shared` page therefore also needs a page of its own module: a user who can only
- * open HR pages does not get a Tasks entry under Finance.
+ * Requests, tasks and documents pages exist in several modules but need the same platform key
+ * (`administration.adminrequest.view`, `core.task.view`, `core.document.view`). A `shared` page therefore also needs
+ * a page of its own module that is neither shared nor general: a user who can only open the general HR pages does
+ * not get HR's Requests or Tasks, and one who can only open Finance pages does not get Technical's.
  */
 function moduleOpen(group, can) {
-  return !!group?.children?.some((child) => !child.shared && !child.selfService && allows(child, can));
+  return !!group?.children?.some((child) => !child.shared && !child.selfService && !child.general && allows(child, can));
 }
 
 /** Can the user open this leaf? `group` is the module entry that contains it (none for a top-level page). */
