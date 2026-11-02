@@ -69,10 +69,8 @@ export const NAV = [
             anyOf: [
               'administration.asset.view',
               'administration.supplyitem.view',
-              'administration.adminrequest.view-all',
               'administration.adminrequest.update',
               'administration.adminrequest.decide',
-              'administration.travelrequest.view-all',
               'administration.travelrequest.update',
               'administration.travelrequest.decide',
               'administration.facilitymaintenance.view',
