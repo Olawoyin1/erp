@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiEdit, FiSend, FiCheck, FiX, FiNavigation } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermissions } from '../../../hooks/usePermission';
@@ -143,12 +143,12 @@ function TravelFormModal({ record, lookups, me, ownOnly, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Request' : 'New Travel Request'}
       subtitle={editing ? undefined : 'Create a travel request and arrange travel logistics for an employee'}
-      maxWidth="720px"
+      width="720px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -241,7 +241,7 @@ function TravelFormModal({ record, lookups, me, ownOnly, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -250,7 +250,7 @@ function ViewTravelModal({ id, refreshKey, actions, canUpload, onClose }) {
   const [tab, setTab] = useState('details');
   const remaining = record && record.status === 'pending' && record.currentStep ? CHAIN.slice(CHAIN.indexOf(record.currentStep)).map((s) => STEP_LABELS[s]) : [];
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="720px">
+    <Drawer isOpen onClose={onClose} title="Travel Request Details" width="720px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading travel request…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -290,7 +290,7 @@ function ViewTravelModal({ id, refreshKey, actions, canUpload, onClose }) {
           {tab === 'history' && <HistoryTimeline key={`${record._id}-${refreshKey}`} load={travelRequestService.history} id={record._id} title="Approval history" pending={remaining} />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

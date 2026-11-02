@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiEdit, FiCheck, FiTrash2, FiCheckCircle, FiFileText, FiPercent } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -102,12 +102,12 @@ function DisposalFormModal({ record, lookups, me, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Log' : 'Log Disposal'}
       subtitle={editing ? undefined : 'Record a waste disposal activity for tracking and compliance'}
-      maxWidth="680px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -163,7 +163,7 @@ function DisposalFormModal({ record, lookups, me, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -171,7 +171,7 @@ function ViewDisposalModal({ id, refreshKey, actions, canUpload, onClose }) {
   const { record, error, loading } = useRecord(disposalService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="720px">
+    <Drawer isOpen onClose={onClose} title="Disposal Details" width="720px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading disposal…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -209,7 +209,7 @@ function ViewDisposalModal({ id, refreshKey, actions, canUpload, onClose }) {
           )}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

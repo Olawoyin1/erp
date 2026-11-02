@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiEdit, FiSend, FiCheck, FiSlash, FiTool } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermissions } from '../../../hooks/usePermission';
@@ -121,12 +121,12 @@ function AssetFormModal({ record, lookups, me, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Asset' : 'Register New Asset'}
       subtitle={editing ? undefined : 'Capture a new fixed asset in the register.'}
-      maxWidth="720px"
+      width="720px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -212,7 +212,7 @@ function AssetFormModal({ record, lookups, me, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -249,12 +249,12 @@ function TransferModal({ asset, lookups, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Transfer Asset"
       subtitle={`${asset.assetTag} · ${asset.assetName}`}
-      maxWidth="640px"
+      width="640px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -288,7 +288,7 @@ function TransferModal({ asset, lookups, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -336,7 +336,7 @@ function ViewAssetModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(assetService, id, refreshKey);
   const [tab, setTab] = useState('specs');
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="760px">
+    <Drawer isOpen onClose={onClose} title="Asset Details" width="760px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading asset…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -376,7 +376,7 @@ function ViewAssetModal({ id, refreshKey, actions, onClose }) {
           {tab === 'custody' && <CustodyTab id={record._id} refreshKey={refreshKey} />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

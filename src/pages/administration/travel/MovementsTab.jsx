@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiEdit, FiCheck, FiX, FiTruck, FiCornerUpLeft } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermissions } from '../../../hooks/usePermission';
@@ -105,12 +105,12 @@ function MovementFormModal({ record, lookups, me, onClose, onSaved }) {
   const locations = toOptions(lookups.locations, 'name');
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Movement Request' : 'Log Movement'}
       subtitle={editing ? undefined : 'Log equipment movement between locations'}
-      maxWidth="680px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -163,7 +163,7 @@ function MovementFormModal({ record, lookups, me, onClose, onSaved }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -171,7 +171,7 @@ function ViewMovementModal({ id, refreshKey, actions, canUpload, onClose }) {
   const { record, error, loading } = useRecord(movementService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="720px">
+    <Drawer isOpen onClose={onClose} title="Movement Details" width="720px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading movement…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -202,7 +202,7 @@ function ViewMovementModal({ id, refreshKey, actions, canUpload, onClose }) {
           {tab === 'history' && <HistoryTimeline key={`${record._id}-${refreshKey}`} load={movementService.history} id={record._id} title="Approval history" />}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { FiPlus, FiEye, FiEdit, FiBox } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
+import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../../components/ui/FormField';
 import { usePermissions } from '../../../hooks/usePermission';
@@ -89,12 +89,12 @@ function ItemFormModal({ record, lookups, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Supply Item' : 'Add Supply Item'}
       subtitle={editing ? undefined : 'Register a new consumable in the supplies register.'}
-      maxWidth="640px"
+      width="640px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -139,7 +139,7 @@ function ItemFormModal({ record, lookups, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -173,12 +173,12 @@ function RestockModal({ item, onClose, onSaved }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Restock Supply Item"
       subtitle={`${item.itemCode} · ${item.itemName}`}
-      maxWidth="560px"
+      width="560px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -204,14 +204,14 @@ function RestockModal({ item, onClose, onSaved }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
 function ViewItemModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(supplyItemService, id, refreshKey);
   return (
-    <Modal isOpen onClose={onClose} title="" maxWidth="640px">
+    <Drawer isOpen onClose={onClose} title="Supply Item Details" width="640px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading item…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -233,7 +233,7 @@ function ViewItemModal({ id, refreshKey, actions, onClose }) {
           {record.description && <Panel title="Description">{record.description}</Panel>}
         </div>
       )}
-    </Modal>
+    </Drawer>
   );
 }
 

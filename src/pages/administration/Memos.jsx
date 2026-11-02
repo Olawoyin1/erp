@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FiPlus, FiFilter, FiRefreshCw, FiArrowDown, FiArrowUp, FiSearch, FiInbox, FiEdit3, FiSend, FiArchive, FiPaperclip, FiCheck, FiDownload, FiPrinter, FiTrash2, FiCornerUpRight, FiRotateCcw, FiFileText } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
+import Drawer from '../../components/ui/Drawer';
 import Pagination from '../../components/ui/Pagination';
 import { Input, Textarea } from '../../components/ui/FormField';
 import Toast, { useToast } from '../../components/ui/Toast';
@@ -95,11 +95,11 @@ function ComposeModal({ draft, lookups, me, onClose, onDone }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Draft' : 'Compose Memo'}
-      maxWidth="680px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -148,7 +148,7 @@ function ComposeModal({ draft, lookups, me, onClose, onDone }) {
         )}
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -176,12 +176,12 @@ function ForwardModal({ memo, lookups, onClose, onDone }) {
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="Forward Memo"
       subtitle={memo.subject}
-      maxWidth="600px"
+      width="600px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -197,7 +197,7 @@ function ForwardModal({ memo, lookups, onClose, onDone }) {
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -366,7 +366,23 @@ function MemoCentre({ folder, perms, lookups, me, counts, reloadCounts, showToas
 
   return (
     <div className="card" style={{ padding: 0, backgroundColor: '#FFFFFF', borderRadius: 12, overflow: 'hidden' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '190px minmax(280px, 380px) minmax(0, 1fr)', minHeight: 560, overflowX: 'auto' }}>
+      {/* Full-width toolbar row */}
+      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid #E2E8F0', flexWrap: 'wrap' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 180 }}>
+          <FiSearch size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+          <Input value={list.searchText} onChange={(e) => list.onSearch(e.target.value)} placeholder="Search memos..." style={{ paddingLeft: 34, width: '100%' }} />
+        </div>
+        <SecondaryButton icon={<FiFilter size={13} />} onClick={() => setFilterOpen(true)} style={{ padding: '6px 10px', flexShrink: 0 }}>
+          Filter{countFilters({ priority: list.filters.priority, dateFrom: list.filters.dateFrom, dateTo: list.filters.dateTo }) ? ` (${countFilters({ priority: list.filters.priority, dateFrom: list.filters.dateFrom, dateTo: list.filters.dateTo })})` : ''}
+        </SecondaryButton>
+        <SecondaryButton icon={sort === 'newest' ? <FiArrowDown size={13} /> : <FiArrowUp size={13} />} onClick={() => list.applyFilters({ ...list.filters, sort: sort === 'newest' ? 'oldest' : 'newest' })} style={{ padding: '6px 10px', flexShrink: 0 }}>
+          {sort === 'newest' ? 'Newest' : 'Oldest'}
+        </SecondaryButton>
+        <SecondaryButton icon={<FiRefreshCw size={13} />} onClick={refreshAll} style={{ padding: '6px 10px', flexShrink: 0 }}>Refresh</SecondaryButton>
+        {perms.send && <PrimaryButton icon={<FiPlus size={14} />} onClick={onCompose} style={{ padding: '6px 14px', flexShrink: 0 }}>New Memo</PrimaryButton>}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '190px minmax(280px, 380px) minmax(0, 1fr)', minHeight: 520, overflowX: 'auto' }}>
         <div style={{ borderRight: '1px solid #E2E8F0', padding: '16px 10px', background: '#F8FAFC' }}>
           <div style={{ fontSize: '0.66rem', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.05em', padding: '0 8px 10px' }}>MEMO & CIRCULAR CENTRE</div>
           {FOLDERS.map((f) => {
@@ -388,18 +404,6 @@ function MemoCentre({ folder, perms, lookups, me, counts, reloadCounts, showToas
         </div>
 
         <div style={{ borderRight: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <div style={{ padding: 12, display: 'flex', flexDirection: 'column', gap: 8, borderBottom: '1px solid #E2E8F0' }}>
-            <div style={{ position: 'relative' }}>
-              <FiSearch size={14} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
-              <Input value={list.searchText} onChange={(e) => list.onSearch(e.target.value)} placeholder="Search memos..." style={{ paddingLeft: 34 }} />
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-              <SecondaryButton icon={<FiFilter size={13} />} onClick={() => setFilterOpen(true)} style={{ padding: '6px 10px' }}>Filter{countFilters({ priority: list.filters.priority, dateFrom: list.filters.dateFrom, dateTo: list.filters.dateTo }) ? ` (${countFilters({ priority: list.filters.priority, dateFrom: list.filters.dateFrom, dateTo: list.filters.dateTo })})` : ''}</SecondaryButton>
-              <SecondaryButton icon={sort === 'newest' ? <FiArrowDown size={13} /> : <FiArrowUp size={13} />} onClick={() => list.applyFilters({ ...list.filters, sort: sort === 'newest' ? 'oldest' : 'newest' })} style={{ padding: '6px 10px' }}>{sort === 'newest' ? 'Newest' : 'Oldest'}</SecondaryButton>
-              <SecondaryButton icon={<FiRefreshCw size={13} />} onClick={refreshAll} style={{ padding: '6px 10px' }}>Refresh</SecondaryButton>
-              {perms.send && <PrimaryButton icon={<FiPlus size={14} />} onClick={onCompose} style={{ padding: '6px 12px', marginLeft: 'auto' }}>New Memo</PrimaryButton>}
-            </div>
-          </div>
           <div style={{ padding: '8px 14px', fontSize: '0.66rem', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
             {FOLDERS.find((f) => f.id === folder).label.toUpperCase()} · {list.meta?.total ?? 0} MEMO{list.meta?.total === 1 ? '' : 'S'}
           </div>

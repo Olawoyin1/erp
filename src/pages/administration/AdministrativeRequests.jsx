@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FiPlus, FiEye, FiCheck, FiX, FiFileText, FiSlash, FiPackage, FiDownload, FiPaperclip } from 'react-icons/fi';
-import Modal from '../../components/ui/Modal';
 import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
@@ -140,12 +139,12 @@ function NewRequestModal({ me, employees, departments, moduleName, onClose, onSa
   };
 
   return (
-    <Modal
+    <Drawer
       isOpen
       onClose={onClose}
       title="New Request"
       subtitle="Submit a request for review and approval"
-      maxWidth="640px"
+      width="560px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -198,7 +197,7 @@ function NewRequestModal({ me, employees, departments, moduleName, onClose, onSa
         </Field>
         <FormError message={error} />
       </FormBody>
-    </Modal>
+    </Drawer>
   );
 }
 
