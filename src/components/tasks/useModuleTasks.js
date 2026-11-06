@@ -16,8 +16,10 @@ const EMPTY = {
 /**
  * Server-driven task data for one module (list, kanban board, stat tiles) held in the `moduleTasks`
  * slice, plus the page's search / filter / sort / pagination controls. Every control change resets to page 1.
+ * No `scope`: the server returns what the caller may see (staff: the tasks assigned to them; a Head of Department:
+ * the tasks they created).
  */
-export function useModuleTasks(module, view, scope = 'assigned') {
+export function useModuleTasks(module, view) {
   const dispatch = useDispatch();
   const entry = useSelector(selectModuleTasks(module)) || EMPTY;
 
@@ -48,12 +50,12 @@ export function useModuleTasks(module, view, scope = 'assigned') {
   };
 
   const buildParams = useCallback(() => {
-    const params = { scope };
+    const params = {};
     if (query) params.q = query;
     if (filters.priority) params.priority = filters.priority;
     if (filters.status === 'overdue') params.overdue = true;
     return params;
-  }, [query, filters, scope]);
+  }, [query, filters]);
 
   const listArgs = useMemo(() => {
     if (view === 'board') return { module, view, params: buildParams() };
@@ -67,14 +69,14 @@ export function useModuleTasks(module, view, scope = 'assigned') {
   }, [dispatch, listArgs]);
 
   useEffect(() => {
-    dispatch(fetchModuleTaskStats({ module, scope }));
-  }, [dispatch, module, scope]);
+    dispatch(fetchModuleTaskStats({ module }));
+  }, [dispatch, module]);
 
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const reload = useCallback(
-    () => Promise.all([dispatch(fetchModuleTasks(listArgs)), dispatch(fetchModuleTaskStats({ module, scope }))]),
-    [dispatch, listArgs, module, scope],
+    () => Promise.all([dispatch(fetchModuleTasks(listArgs)), dispatch(fetchModuleTaskStats({ module }))]),
+    [dispatch, listArgs, module],
   );
 
   const updateBoard = useCallback((board) => dispatch(setBoard({ module, board })), [dispatch, module]);
