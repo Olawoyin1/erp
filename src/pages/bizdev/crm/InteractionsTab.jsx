@@ -223,16 +223,16 @@ export default function InteractionsTab({ notify, initialClientId = '' }) {
   ];
 
   const columns = [
-    { key: 'date', label: 'DATE', render: (i) => formatDate(i.date) },
-    { key: 'client', label: 'CLIENT NAME', render: (i) => <TwoLine primary={i.clientName} secondary={i.primaryContact} /> },
-    { key: 'type', label: 'TYPE', render: (i) => <InteractionBadge type={i.type} /> },
-    { key: 'summary', label: 'SUMMARY', render: (i) => <span style={{ display: 'inline-block', maxWidth: 280 }}>{i.summary}</span> },
-    { key: 'officer', label: 'BD OFFICER', render: (i) => i.bdOfficerName || '—' },
-    { key: 'followUp', label: 'FOLLOW-UP', render: (i) => <Pill tone={i.followUpRequired ? (i.followUpLogged ? 'green' : 'amber') : 'blue'}>{i.followUpRequired ? 'Yes' : 'No'}</Pill> },
-    { key: 'followUpDate', label: 'FOLLOW-UP DATE', render: (i) => (i.followUpDate ? formatDate(i.followUpDate) : '—') },
+    { key: 'date', label: 'DATE', render: (v) => formatDate(v) },
+    { key: 'clientName', label: 'CLIENT NAME', render: (v, i) => <TwoLine primary={i.clientName} secondary={i.primaryContact} /> },
+    { key: 'type', label: 'TYPE', render: (v) => <InteractionBadge type={v} /> },
+    { key: 'summary', label: 'SUMMARY', render: (v) => <span style={{ display: 'inline-block', maxWidth: 280 }}>{v}</span> },
+    { key: 'bdOfficerName', label: 'BD OFFICER', render: (v) => v || '—' },
+    { key: 'followUpRequired', label: 'FOLLOW-UP', render: (v, i) => <Pill tone={v ? (i.followUpLogged ? 'green' : 'amber') : 'blue'}>{v ? 'Yes' : 'No'}</Pill> },
+    { key: 'followUpDate', label: 'FOLLOW-UP DATE', render: (v) => (v ? formatDate(v) : '—') },
     {
-      key: 'actions', label: 'ACTIONS', align: 'right',
-      render: (i) => (
+      key: '_id', label: 'ACTIONS', align: 'right',
+      render: (v, i) => (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }} onClick={(e) => e.stopPropagation()}>
           <button type="button" className="icon-btn" title="View interaction" onClick={() => setViewId(i._id)}><FiEye size={15} /></button>
           {(canUpdate || (canCreate && i.followUpRequired && !i.followUpLogged)) && (

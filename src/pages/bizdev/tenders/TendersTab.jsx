@@ -312,17 +312,17 @@ export default function TendersTab({ notify, openId = '' }) {
   };
 
   const columns = [
-    { key: 'tenderId', label: 'TENDER NO', render: (t) => <TwoLine primary={t.tenderId} secondary={t.clientTenderRef} /> },
-    { key: 'tenderName', label: 'TENDER NAME', render: (t) => <span style={{ display: 'inline-block', maxWidth: 240 }}>{t.tenderName}</span> },
-    { key: 'client', label: 'CLIENT', render: (t) => t.clientName || '—' },
-    { key: 'stage', label: <SortLabel label="STAGE" field="stage" filters={list.filters} onChange={sortBy} />, render: (t) => <StageBadge kind="tender" stage={t.stage} /> },
-    { key: 'value', label: <SortLabel label="VALUE (₦)" field="estimatedValue" filters={list.filters} onChange={sortBy} />, render: (t) => <span style={{ fontWeight: 700, color: '#1D4ED8' }}>{compactMoney(t.estimatedValue)}</span> },
-    { key: 'deadline', label: <SortLabel label="DEADLINE" field="submissionDeadline" filters={list.filters} onChange={sortBy} />, render: (t) => (t.submissionDeadline ? formatDate(t.submissionDeadline) : '—') },
-    { key: 'priority', label: 'PRIORITY', render: (t) => <PriorityBadge priority={t.priority} /> },
-    { key: 'officer', label: 'ASSIGNED', render: (t) => t.bdOfficerName || '—' },
+    { key: 'tenderId', label: 'TENDER NO', render: (v, t) => <TwoLine primary={t.tenderId} secondary={t.clientTenderRef} /> },
+    { key: 'tenderName', label: 'TENDER NAME', render: (v) => <span style={{ display: 'inline-block', maxWidth: 240 }}>{v}</span> },
+    { key: 'clientName', label: 'CLIENT', render: (v) => v || '—' },
+    { key: 'stage', label: <SortLabel label="STAGE" field="stage" filters={list.filters} onChange={sortBy} />, render: (v) => <StageBadge kind="tender" stage={v} /> },
+    { key: 'estimatedValue', label: <SortLabel label="VALUE (₦)" field="estimatedValue" filters={list.filters} onChange={sortBy} />, render: (v) => <span style={{ fontWeight: 700, color: '#1D4ED8' }}>{compactMoney(v)}</span> },
+    { key: 'submissionDeadline', label: <SortLabel label="DEADLINE" field="submissionDeadline" filters={list.filters} onChange={sortBy} />, render: (v) => (v ? formatDate(v) : '—') },
+    { key: 'priority', label: 'PRIORITY', render: (v) => <PriorityBadge priority={v} /> },
+    { key: 'bdOfficerName', label: 'ASSIGNED', render: (v) => v || '—' },
     {
-      key: 'actions', label: 'ACTIONS', align: 'right',
-      render: (t) => {
+      key: '_id', label: 'ACTIONS', align: 'right',
+      render: (v, t) => {
         const items = menuFor(t);
         return (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }} onClick={(e) => e.stopPropagation()}>

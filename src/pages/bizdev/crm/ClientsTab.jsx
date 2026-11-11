@@ -263,17 +263,17 @@ export default function ClientsTab({ notify, onNewOpportunity }) {
   ];
 
   const columns = [
-    { key: 'clientName', label: 'CLIENT NAME', render: (c) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{c.clientName}</span> },
-    { key: 'sector', label: 'SECTOR', render: (c) => c.sector || '—' },
-    { key: 'primaryContact', label: 'PRIMARY CONTACT', render: (c) => c.primaryContact },
-    { key: 'email', label: 'EMAIL', render: (c) => c.email },
-    { key: 'last', label: 'LAST INTERACTION', render: (c) => (c.lastInteractionAt ? formatDate(c.lastInteractionAt) : '—') },
-    { key: 'activeTenders', label: 'ACTIVE TENDERS', render: (c) => c.activeTenders },
-    { key: 'activeProjects', label: 'ACTIVE PROJECTS', render: (c) => c.activeProjects },
-    { key: 'relationship', label: 'RELATIONSHIP', render: (c) => <RelationshipBadge value={c.relationship} /> },
+    { key: 'clientName', label: 'CLIENT NAME', render: (v, c) => <span style={{ fontWeight: 600, color: '#0F172A' }}>{c.clientName}</span> },
+    { key: 'sector', label: 'SECTOR', render: (v, c) => c.sector || '—' },
+    { key: 'primaryContact', label: 'PRIMARY CONTACT', render: (v, c) => c.primaryContact },
+    { key: 'email', label: 'EMAIL', render: (v, c) => c.email },
+    { key: 'lastInteractionAt', label: 'LAST INTERACTION', render: (v) => (v ? formatDate(v) : '—') },
+    { key: 'activeTenders', label: 'ACTIVE TENDERS', render: (v) => v },
+    { key: 'activeProjects', label: 'ACTIVE PROJECTS', render: (v) => v },
+    { key: 'relationship', label: 'RELATIONSHIP', render: (v) => <RelationshipBadge value={v} /> },
     {
       key: 'actions', label: 'ACTIONS', align: 'right',
-      render: (c) => (
+      render: (v, c) => (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }} onClick={(e) => e.stopPropagation()}>
           <button type="button" className="icon-btn" title="View client" onClick={() => setViewId(c._id)}><FiEye size={15} /></button>
           {c.status === 'active' && (canUpdate || canArchive) && (

@@ -276,17 +276,17 @@ export default function RfqsTab({ notify }) {
   };
 
   const columns = [
-    { key: 'rfqId', label: 'RFQ ID', render: (r) => <TwoLine primary={r.rfqId} secondary={r.clientRfqRef} /> },
-    { key: 'client', label: 'CLIENT', render: (r) => r.clientName || '—' },
-    { key: 'title', label: 'RFQ TITLE', render: (r) => <span style={{ display: 'inline-block', maxWidth: 260 }}>{r.rfqTitle}</span> },
-    { key: 'deadline', label: <SortLabel label="SUBMISSION DATE" field="deadline" filters={list.filters} onChange={sortBy} />, render: (r) => (r.deadline ? formatDate(r.deadline) : '—') },
-    { key: 'officer', label: 'ASSIGNED OFFICER', render: (r) => r.assignedOfficerName || '—' },
-    { key: 'priority', label: 'PRIORITY', render: (r) => <PriorityBadge priority={r.priority} /> },
-    { key: 'value', label: <SortLabel label="VALUE" field="estimatedValue" filters={list.filters} onChange={sortBy} />, render: (r) => <span style={{ fontWeight: 700, color: '#1D4ED8' }}>{compactMoney(r.estimatedValue)}</span> },
-    { key: 'stage', label: <SortLabel label="STAGE" field="stage" filters={list.filters} onChange={sortBy} />, render: (r) => <StageBadge kind="rfq" stage={r.stage} /> },
+    { key: 'rfqId', label: 'RFQ ID', render: (v, r) => <TwoLine primary={r.rfqId} secondary={r.clientRfqRef} /> },
+    { key: 'clientName', label: 'CLIENT', render: (v) => v || '—' },
+    { key: 'rfqTitle', label: 'RFQ TITLE', render: (v) => <span style={{ display: 'inline-block', maxWidth: 260 }}>{v}</span> },
+    { key: 'deadline', label: <SortLabel label="SUBMISSION DATE" field="deadline" filters={list.filters} onChange={sortBy} />, render: (v) => (v ? formatDate(v) : '—') },
+    { key: 'assignedOfficerName', label: 'ASSIGNED OFFICER', render: (v) => v || '—' },
+    { key: 'priority', label: 'PRIORITY', render: (v) => <PriorityBadge priority={v} /> },
+    { key: 'estimatedValue', label: <SortLabel label="VALUE" field="estimatedValue" filters={list.filters} onChange={sortBy} />, render: (v) => <span style={{ fontWeight: 700, color: '#1D4ED8' }}>{compactMoney(v)}</span> },
+    { key: 'stage', label: <SortLabel label="STAGE" field="stage" filters={list.filters} onChange={sortBy} />, render: (v) => <StageBadge kind="rfq" stage={v} /> },
     {
-      key: 'actions', label: 'ACTIONS', align: 'right',
-      render: (r) => {
+      key: '_id', label: 'ACTIONS', align: 'right',
+      render: (v, r) => {
         const items = menuFor(r);
         return (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }} onClick={(e) => e.stopPropagation()}>

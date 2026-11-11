@@ -413,16 +413,16 @@ export default function OpportunitiesTab({ notify, initialNewForClient = '', onV
   };
 
   const columns = [
-    { key: 'title', label: 'OPPORTUNITY', render: (o) => <TwoLine primary={o.title} secondary={o.opportunityId} /> },
-    { key: 'client', label: 'CLIENT', render: (o) => o.clientName || '—' },
-    { key: 'stage', label: 'STAGE', render: (o) => <StageBadge kind="opportunity" stage={o.stage} /> },
-    { key: 'value', label: 'ESTIMATED VALUE', render: (o) => <span style={{ fontWeight: 700, color: '#1D4ED8' }}>{compactMoney(o.estimatedValue)}</span> },
-    { key: 'probability', label: 'PROBABILITY', render: (o) => <ProbabilityBar value={o.probability} /> },
-    { key: 'close', label: 'EXPECTED CLOSE', render: (o) => formatDate(o.expectedCloseDate) },
-    { key: 'officer', label: 'BD OFFICER', render: (o) => o.bdOfficerName || '—' },
+    { key: 'title', label: 'OPPORTUNITY', render: (v, o) => <TwoLine primary={o.title} secondary={o.opportunityId} /> },
+    { key: 'clientName', label: 'CLIENT', render: (v) => v || '—' },
+    { key: 'stage', label: 'STAGE', render: (v) => <StageBadge kind="opportunity" stage={v} /> },
+    { key: 'estimatedValue', label: 'ESTIMATED VALUE', render: (v) => <span style={{ fontWeight: 700, color: '#1D4ED8' }}>{compactMoney(v)}</span> },
+    { key: 'probability', label: 'PROBABILITY', render: (v) => <ProbabilityBar value={v} /> },
+    { key: 'expectedCloseDate', label: 'EXPECTED CLOSE', render: (v) => formatDate(v) },
+    { key: 'bdOfficerName', label: 'BD OFFICER', render: (v) => v || '—' },
     {
-      key: 'actions', label: 'ACTIONS', align: 'right',
-      render: (o) => {
+      key: '_id', label: 'ACTIONS', align: 'right',
+      render: (v, o) => {
         const items = menuFor(o);
         return (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }} onClick={(e) => e.stopPropagation()}>
