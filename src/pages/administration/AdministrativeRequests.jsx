@@ -32,13 +32,17 @@ const URGENCIES = [
 const URGENCY_TONE = { routine: 'slate', urgent: 'amber', critical: 'red' };
 
 const STEP_LABELS = {
+  hod_review: 'Head of Department Approval',
   admin_review: 'Admin Review',
   procurement_review: 'Procurement Review',
   finance_approval: 'Finance Approval',
   final_approval: 'Final Approval',
 };
-const CHAIN = Object.keys(STEP_LABELS);
+/** Requests raised before the two-stage rule have no `approvalChain` and finish these four steps. */
+const LEGACY_CHAIN = ['admin_review', 'procurement_review', 'finance_approval', 'final_approval'];
+const chainOf = (record) => (record?.approvalChain?.length ? record.approvalChain : LEGACY_CHAIN);
 const STEP_PERMISSIONS = {
+  hod_review: 'administration.adminrequest.decide-hod',
   admin_review: 'administration.adminrequest.decide',
   procurement_review: 'administration.adminrequest.decide-procurement',
   finance_approval: 'administration.adminrequest.decide-finance',
@@ -259,7 +263,7 @@ function ViewRequestDrawer({ id, refreshKey, onClose, canApproveNow, ownRequest,
   };
 
   const remaining = record && record.status === 'pending' && record.currentStep
-    ? CHAIN.slice(CHAIN.indexOf(record.currentStep)).map((s) => STEP_LABELS[s])
+    ? chainOf(record).slice(chainOf(record).indexOf(record.currentStep)).map((s) => STEP_LABELS[s])
     : [];
 
   const canAct = record && canApproveNow(record) && !ownRequest(record);
@@ -492,7 +496,7 @@ export default function AdministrativeRequests({ module: moduleName = '' }) {
     if (canApproveNow(row) && !ownRequest(row)) {
       items.push({ label: 'Approve Request', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => open('approve', row) });
     }
-    if (row.status === 'pending' && canDecide && !ownRequest(row)) {
+    if (canApproveNow(row) && !ownRequest(row)) {
       items.push({ label: 'Reject Request', icon: <FiX size={14} color="#DC2626" />, color: '#DC2626', action: () => open('reject', row) });
     }
     if (row.status === 'approved' && canDecide) {
@@ -535,7 +539,7 @@ export default function AdministrativeRequests({ module: moduleName = '' }) {
       {canApproveNow(record) && !ownRequest(record) && (
         <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => open('approve', record)}>Approve</PrimaryButton>
       )}
-      {record.status === 'pending' && canDecide && !ownRequest(record) && (
+      {canApproveNow(record) && !ownRequest(record) && (
         <SecondaryButton danger icon={<FiX size={14} />} onClick={() => open('reject', record)}>Reject</SecondaryButton>
       )}
       {record.status === 'approved' && canDecide && (

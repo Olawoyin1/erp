@@ -97,8 +97,7 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
   const hideToast = useCallback(() => setToast(null), []);
 
   const [view, setView] = useState('table');
-  const [scope, setScope] = useState('assigned');
-  const data = useModuleTasks(module, view, scope);
+  const data = useModuleTasks(module, view);
   const [selectedIds, setSelectedIds] = useState([]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [draftFilters, setDraftFilters] = useState({ priority: '', status: '' });
@@ -110,14 +109,7 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
 
   const closeForm = () => setFormState(null);
 
-  const scopeTabs = [['assigned', 'Assigned to me'], ['created', 'Created by me'], ...(rights.viewAll ? [['all', 'All']] : [])];
-  const changeScope = (next) => {
-    if (next === scope) return;
-    setScope(next);
-    setSelectedIds([]);
-    data.setPage(1);
-  };
-  const emptyText = { assigned: 'No tasks are assigned to you.', created: 'You have not created any tasks.', all: config.emptyMessage }[scope] || config.emptyMessage;
+  const emptyText = canCreate ? config.emptyMessage : 'No tasks are assigned to you.';
 
   const afterWrite = async () => {
     setSelectedIds([]);
@@ -312,23 +304,6 @@ export default function ModuleTasks({ module, title, subtitle, config: pageConfi
       )}
 
       <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div role="tablist" aria-label="Task ownership" style={{ display: 'flex', gap: 24, borderBottom: '1px solid #E2E8F0' }}>
-          {scopeTabs.map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={scope === key}
-              onClick={() => changeScope(key)}
-              style={{
-                padding: '8px 0', fontSize: '0.875rem', fontWeight: scope === key ? 700 : 500, cursor: 'pointer', background: 'transparent', border: 'none',
-                color: scope === key ? config.accent : '#64748B', borderBottom: scope === key ? `2px solid ${config.accent}` : '2px solid transparent', marginBottom: -1,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={data.search} onChange={(e) => data.setSearch(e.target.value)} placeholder={config.searchPlaceholder} style={{ paddingLeft: 36, width: '100%' }} />
