@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { apiError } from '../../../services/apiHelpers';
 import { procurementLookupService } from '../../../services/procurement.service';
@@ -19,7 +19,8 @@ export function useProcList(slice, { initialFilters = {}, fixed, enabled = true,
   const [searchText, setSearchText] = useState('');
   const search = useDebounced(searchText.trim(), 400);
   const [filters, setFilters] = useState(initialFilters);
-  const fixedKey = JSON.stringify(fixed || {});
+  const fixedRef = useRef(JSON.stringify(fixed || {}));
+  const fixedKey = fixedRef.current;
 
   const params = useMemo(() => {
     const p = { page, limit: PAGE_SIZE, ...JSON.parse(fixedKey) };
@@ -63,7 +64,7 @@ export function useProcList(slice, { initialFilters = {}, fixed, enabled = true,
   return {
     items: state.items,
     meta: state.meta,
-    loading: state.loading,
+    loading: state.loading || (!state.fetched && enabled),
     error: state.error,
     stats: state.stats,
     statsLoading: state.statsLoading,

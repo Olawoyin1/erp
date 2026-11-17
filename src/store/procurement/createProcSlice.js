@@ -56,7 +56,8 @@ export function createProcSlice(name, service) {
       items: [],
       meta: null,
       stats: [],
-      loading: true,
+      loading: false,
+      fetched: false,
       error: '',
       statsLoading: false,
       statsError: '',
@@ -73,12 +74,14 @@ export function createProcSlice(name, service) {
         .addCase(fetchList.fulfilled, (state, action) => {
           if (state.requestId !== action.meta.requestId) return;
           state.loading = false;
+          state.fetched = true;
           state.items = action.payload.data;
           state.meta = action.payload.meta;
         })
         .addCase(fetchList.rejected, (state, action) => {
           if (state.requestId !== action.meta.requestId) return;
           state.loading = false;
+          state.fetched = true;
           state.error = action.payload?.message || 'Failed to load records';
         })
         .addCase(fetchStats.pending, (state) => {

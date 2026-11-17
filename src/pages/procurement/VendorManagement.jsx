@@ -327,6 +327,7 @@ export default function VendorManagement() {
   const myEmployeeId = (user?.employeeId && typeof user.employeeId === 'object' ? user.employeeId._id : user?.employeeId) || '';
 
   const [activeTab, setActiveTab] = useState(canViewPreq ? 'prequalification' : 'avl');
+  const onPreqTab = activeTab === 'prequalification';
   const preq = useProcList(prequalificationsSlice, { initialFilters: { status: '', vendorCategory: '' }, enabled: canViewPreq });
   const avl = useProcList(vendorsSlice, { initialFilters: { status: '', vendorCategory: '' }, enabled: canViewVendor });
   const runPreq = useRunAction(prequalificationsSlice);
@@ -338,7 +339,7 @@ export default function VendorManagement() {
   const preqExport = useExport(vendorPrequalificationService, preq, preqSelection, PREQ_EXPORT, 'vendor-prequalifications.csv');
   const avlExport = useExport(vendorService, avl, avlSelection, AVL_EXPORT, 'approved-vendor-list.csv');
 
-  const onPreq = activeTab === 'prequalification';
+  const onPreq = onPreqTab;
   const list = onPreq ? preq : avl;
   const exporter = onPreq ? preqExport : avlExport;
   const selection = onPreq ? preqSelection : avlSelection;
