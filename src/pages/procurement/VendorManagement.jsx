@@ -327,7 +327,7 @@ export default function VendorManagement() {
   const myEmployeeId = (user?.employeeId && typeof user.employeeId === 'object' ? user.employeeId._id : user?.employeeId) || '';
 
   const [activeTab, setActiveTab] = useState(canViewPreq ? 'prequalification' : 'avl');
-  const onPreqTab = activeTab === 'prequalification';
+  const onPreq = activeTab === 'prequalification';
   const preq = useProcList(prequalificationsSlice, { initialFilters: { status: '', vendorCategory: '' }, enabled: canViewPreq });
   const avl = useProcList(vendorsSlice, { initialFilters: { status: '', vendorCategory: '' }, enabled: canViewVendor });
   const runPreq = useRunAction(prequalificationsSlice);
@@ -338,11 +338,6 @@ export default function VendorManagement() {
   const { lookups } = useLookups(['employees']);
   const preqExport = useExport(vendorPrequalificationService, preq, preqSelection, PREQ_EXPORT, 'vendor-prequalifications.csv');
   const avlExport = useExport(vendorService, avl, avlSelection, AVL_EXPORT, 'approved-vendor-list.csv');
-
-  const onPreq = onPreqTab;
-  const list = onPreq ? preq : avl;
-  const exporter = onPreq ? preqExport : avlExport;
-  const selection = onPreq ? preqSelection : avlSelection;
 
   const [formFor, setFormFor] = useState(null);
   const [viewPreqId, setViewPreqId] = useState(null);
@@ -449,6 +444,7 @@ export default function VendorManagement() {
   ], [canUpdateVendor]);
 
   const onExport = async () => {
+    const exporter = onPreq ? preqExport : avlExport;
     const message = await exporter.run();
     if (message) showToast(message, 'error');
     else showToast(onPreq ? 'Prequalifications exported' : 'Vendor list exported', 'success');
@@ -461,15 +457,14 @@ export default function VendorManagement() {
     { label: 'SUSPENDED VENDORS', value: statValue(avl.stats, 'suspended_vendors'), sub: 'Temporarily restricted from procurement', subColor: '#D97706', icon: <FiShield size={18} />, tone: 'amber' },
   ];
 
-  const filterFields = onPreq
-    ? [
-        { key: 'status', label: 'Status', options: PREQ_STATUS },
-        { key: 'vendorCategory', label: 'Vendor category', options: CATEGORY_PRESETS.map((c) => ({ value: c, label: c })) },
-      ]
-    : [
-        { key: 'status', label: 'Status', options: AVL_STATUS },
-        { key: 'vendorCategory', label: 'Vendor category', options: CATEGORY_PRESETS.map((c) => ({ value: c, label: c })) },
-      ];
+  const preqFilterFields = [
+    { key: 'status', label: 'Status', options: PREQ_STATUS },
+    { key: 'vendorCategory', label: 'Vendor category', options: CATEGORY_PRESETS.map((c) => ({ value: c, label: c })) },
+  ];
+  const avlFilterFields = [
+    { key: 'status', label: 'Status', options: AVL_STATUS },
+    { key: 'vendorCategory', label: 'Vendor category', options: CATEGORY_PRESETS.map((c) => ({ value: c, label: c })) },
+  ];
 
   const tabs = [
     ...(canViewPreq ? [{ id: 'prequalification', label: 'Vendor Prequalification' }] : []),
@@ -490,37 +485,59 @@ export default function VendorManagement() {
 
       <TabBar tabs={tabs} active={activeTab} onChange={changeTab} />
 
-      <ListCard
-        key={activeTab}
-        list={list}
-        columns={onPreq ? preqColumns : avlColumns}
-        emptyText={onPreq ? 'No vendor prequalifications found.' : 'No vendors found in the AVL.'}
-        selection={selection}
-        toolbar={(
-          <ListToolbar
-            search={list.searchText}
-            onSearch={list.onSearch}
-            placeholder={onPreq ? 'Search by Preq. ID, vendor, RC number ...' : 'Search by Vendor ID, name ...'}
-            onFilter={() => setFilterOpen(true)}
-            filterCount={countFilters(list.filters)}
-            onExport={onExport}
-            exporting={exporter.exporting}
-            selectedCount={exporter.selectedCount}
-          >
-            {onPreq && canCreate && <PrimaryButton icon={<FiPlus size={16} />} onClick={() => setFormFor('new')}>New Prequalification</PrimaryButton>}
-          </ListToolbar>
-        )}
-      />
+      {activeTab === 'prequalification' && canViewPreq && (
+        <ListCard
+          list={preq}
+          columns={preqColumns}
+          emptyText="No vendor prequalifications found."
+          selection={preqSelection}
+          toolbar={(
+            <ListToolbar
+              search={preq.searchText}
+              onSearch={preq.onSearch}
+              placeholder="Search by Preq. ID, vendor, RC number ..."
+              onFilter={() => setFilterOpen(true)}
+              filterCount={countFilters(preq.filters)}
+              onExport={onExport}
+              exporting={preqExport.exporting}
+              selectedCount={preqExport.selectedCount}
+            >
+              {canCreate && <PrimaryButton icon={<FiPlus size={16} />} onClick={() => setFormFor('new')}>New Prequalification</PrimaryButton>}
+            </ListToolbar>
+          )}
+        />
+      )}
+
+      {activeTab === 'avl' && canViewVendor && (
+        <ListCard
+          list={avl}
+          columns={avlColumns}
+          emptyText="No vendors found in the AVL."
+          selection={avlSelection}
+          toolbar={(
+            <ListToolbar
+              search={avl.searchText}
+              onSearch={avl.onSearch}
+              placeholder="Search by Vendor ID, name ..."
+              onFilter={() => setFilterOpen(true)}
+              filterCount={countFilters(avl.filters)}
+              onExport={onExport}
+              exporting={avlExport.exporting}
+              selectedCount={avlExport.selectedCount}
+            />
+          )}
+        />
+      )}
 
       <FilterDrawer
         key={activeTab}
         isOpen={filterOpen}
         onClose={() => setFilterOpen(false)}
-        title={onPreq ? 'Filter Prequalifications' : 'Filter Vendors'}
+        title={activeTab === 'prequalification' ? 'Filter Prequalifications' : 'Filter Vendors'}
         subtitle="Narrow the list."
-        fields={filterFields}
-        values={list.filters}
-        onApply={list.applyFilters}
+        fields={activeTab === 'prequalification' ? preqFilterFields : avlFilterFields}
+        values={activeTab === 'prequalification' ? preq.filters : avl.filters}
+        onApply={activeTab === 'prequalification' ? preq.applyFilters : avl.applyFilters}
       />
 
       {formFor && (
