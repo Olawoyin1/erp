@@ -443,7 +443,7 @@ function PayablesTab({ perms, myId, onChanged, showToast, refreshKey }) {
 /* ───────────────────────────── Receivables tab ───────────────────────────── */
 
 function ReceivablesTab({ perms, onChanged, showToast, refreshKey }) {
-  const list = useFinanceList(invoicesSlice, { initialFilters: { status: '' }, withStats: false });
+  const list = useFinanceList(invoicesSlice, { initialFilters: { status: '' }, fixed: { receivableOnly: true }, withStats: false });
   const run = useRunAction(invoicesSlice);
   const [filterOpen, setFilterOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -491,7 +491,7 @@ function ReceivablesTab({ perms, onChanged, showToast, refreshKey }) {
     try {
       const count = await exportRowsCsv({
         filename: 'receivables.csv',
-        fetchPage: (n) => invoiceService.list({ ...list.params, page: n, limit: 100 }),
+        fetchPage: (n) => invoiceService.list({ ...list.params, receivableOnly: true, page: n, limit: 100 }),
         columns: [
           { label: 'Receivable ID', value: (r) => r.invoiceId },
           { label: 'Client', value: (r) => populatedName(r.client) },

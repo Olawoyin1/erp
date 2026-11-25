@@ -18,6 +18,7 @@ export const populatedName = (v) => {
   return (
     v.fullName ||
     v.name ||
+    v.vendorName ||
     v.clientName ||
     v.assetName ||
     v.itemName ||
