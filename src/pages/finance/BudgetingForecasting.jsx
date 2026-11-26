@@ -161,7 +161,7 @@ function BudgetDrawer({ budgetId, perms, refreshKey, onClose, onAction }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={b ? b.budgetId : 'Budget'} subtitle={b?.budgetType} width="560px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
+    <Drawer isOpen onClose={onClose} title={b ? b.budgetId : 'Budget'} subtitle={b?.budgetType} width="680px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
       <DataState loading={loading} error={error} empty={!loading && !error && !b}>
         {b && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

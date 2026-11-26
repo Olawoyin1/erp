@@ -254,7 +254,7 @@ export function FormBody({ children, onSubmit }) {
 export function FormError({ message }) {
   if (!message) return null;
   return (
-    <div role="alert" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B', padding: '10px 12px', borderRadius: 6, fontSize: '0.82rem' }}>
+    <div role="alert" style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#991B1B', padding: '10px 12px', borderRadius: 6, fontSize: '0.875rem' }}>
       {message}
     </div>
   );
@@ -262,7 +262,7 @@ export function FormError({ message }) {
 
 export function Note({ children, tone = 'blue' }) {
   const t = TONES[tone] || TONES.blue;
-  return <div style={{ background: t.bg, color: t.fg, padding: '10px 12px', borderRadius: 6, fontSize: '0.8rem', lineHeight: 1.5 }}>{children}</div>;
+  return <div style={{ background: t.bg, color: t.fg, padding: '10px 12px', borderRadius: 6, fontSize: '0.875rem', lineHeight: 1.5 }}>{children}</div>;
 }
 
 /** Label/value pairs in two columns, as in the View modals of the designs. */
@@ -271,8 +271,8 @@ export function DetailGrid({ items }) {
     <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px 24px' }}>
       {items.filter(Boolean).map(([label, value]) => (
         <div key={label} style={{ minWidth: 0 }}>
-          <div style={{ fontSize: '0.72rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>{label}</div>
-          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0F172A', marginTop: 4, wordBreak: 'break-word' }}>{value === '' || value == null ? '—' : value}</div>
+          <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase' }}>{label}</div>
+          <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#0F172A', marginTop: 4, wordBreak: 'break-word' }}>{value === '' || value == null ? '—' : value}</div>
         </div>
       ))}
     </div>
@@ -283,8 +283,8 @@ export function Panel({ title, children, tone }) {
   const t = tone ? TONES[tone] : null;
   return (
     <div style={{ background: t ? t.bg : '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 10, padding: 16 }}>
-      {title && <div style={{ fontSize: '0.72rem', color: t ? t.fg : '#94A3B8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>{title}</div>}
-      <div style={{ fontSize: '0.84rem', color: t ? t.fg : '#334155', lineHeight: 1.5 }}>{children}</div>
+      {title && <div style={{ fontSize: '0.75rem', color: t ? t.fg : '#94A3B8', fontWeight: 700, textTransform: 'uppercase', marginBottom: 6 }}>{title}</div>}
+      <div style={{ fontSize: '0.875rem', color: t ? t.fg : '#334155', lineHeight: 1.5 }}>{children}</div>
     </div>
   );
 }
@@ -297,7 +297,7 @@ export function ViewHeader({ icon, title, subtitle, children }) {
         {icon && <div style={{ width: 44, height: 44, borderRadius: 10, background: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#1D4ED8' }}>{icon}</div>}
         <div>
           <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{title}</h3>
-          {subtitle && <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: 2 }}>{subtitle}</div>}
+          {subtitle && <div style={{ fontSize: '0.875rem', color: '#64748B', marginTop: 2 }}>{subtitle}</div>}
         </div>
       </div>
       {children && <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>{children}</div>}
@@ -307,7 +307,7 @@ export function ViewHeader({ icon, title, subtitle, children }) {
 
 export function StatusLine({ status, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.813rem', color: '#64748B', flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.875rem', color: '#64748B', flexWrap: 'wrap' }}>
       <span>Status:</span>
       {status}
       {children}
@@ -316,10 +316,10 @@ export function StatusLine({ status, children }) {
 }
 
 export function SimpleTable({ columns, rows, empty = 'Nothing to show.', footer }) {
-  if (!rows.length) return <div style={{ padding: '18px 0', textAlign: 'center', color: '#94A3B8', fontSize: '0.84rem' }}>{empty}</div>;
+  if (!rows.length) return <div style={{ padding: '18px 0', textAlign: 'center', color: '#94A3B8', fontSize: '0.875rem' }}>{empty}</div>;
   return (
     <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.813rem' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
         <thead>
           <tr style={{ background: '#F8FAFC', color: '#475569', textAlign: 'left' }}>
             {columns.map((c) => <th key={c.key} style={{ padding: '12px 16px', fontWeight: 600, textAlign: c.align || 'left', whiteSpace: 'nowrap' }}>{c.label}</th>)}
@@ -367,7 +367,7 @@ export function ReasonModal({
       )}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {message && <div style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.5 }}>{message}</div>}
+        {message && <div style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.5 }}>{message}</div>}
         {detail}
         <FormField label={label} required={required}>
           <Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder={placeholder} />
@@ -395,7 +395,7 @@ export function ConfirmModal({ title, message, detail, confirmLabel = 'Confirm',
       )}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {message && <div style={{ fontSize: '0.86rem', color: '#475569', lineHeight: 1.5 }}>{message}</div>}
+        {message && <div style={{ fontSize: '0.875rem', color: '#475569', lineHeight: 1.5 }}>{message}</div>}
         {detail}
         <FormError message={error} />
       </div>
@@ -406,7 +406,7 @@ export function ConfirmModal({ title, message, detail, confirmLabel = 'Confirm',
 /** Two-line summary box inside a confirm dialog ("RFQ ID: ..., RFQ Title: ..."). */
 export function RecordSummary({ rows }) {
   return (
-    <div style={{ background: '#F8FAFC', padding: '10px 14px', borderRadius: 8, fontSize: '0.8rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <div style={{ background: '#F8FAFC', padding: '10px 14px', borderRadius: 8, fontSize: '0.875rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: 2 }}>
       {rows.map(([label, value]) => <div key={label}><strong>{label}:</strong> {value}</div>)}
     </div>
   );
@@ -446,7 +446,7 @@ export function FilterDrawer({ isOpen, onClose, title, subtitle, fields, values,
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, border: '1px solid #E2E8F0', padding: '10px 12px', borderRadius: 6, backgroundColor: '#F8FAFC', maxHeight: 220, overflowY: 'auto' }}>
                 {[{ value: '', label: field.allLabel || 'All' }, ...field.options].map((opt) => (
-                  <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.813rem', color: '#1E293B', cursor: 'pointer' }}>
+                  <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.875rem', color: '#1E293B', cursor: 'pointer' }}>
                     <input type="radio" name={field.key} checked={(draft[field.key] || '') === opt.value} onChange={() => setDraft({ ...draft, [field.key]: opt.value })} style={{ accentColor: '#1E3A8A' }} />
                     {opt.label}
                   </label>

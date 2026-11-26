@@ -207,7 +207,7 @@ function PayableDrawer({ payableId, perms, myId, refreshKey, onClose, onAction }
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={p ? populatedName(p.vendor) : 'Payable'} subtitle={p?.payableId} width="580px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
+    <Drawer isOpen onClose={onClose} title={p ? populatedName(p.vendor) : 'Payable'} subtitle={p?.payableId} width="700px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
       <DataState loading={loading} error={error} empty={!loading && !error && !p}>
         {p && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

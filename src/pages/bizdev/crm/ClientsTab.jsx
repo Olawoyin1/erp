@@ -127,7 +127,7 @@ function ClientDrawer({ clientId, refreshKey, canEdit, canArchive, canOpportunit
   const { record: client, error, loading } = useRecord(clientService, clientId, refreshKey);
   const canAddNote = usePermission('businessdev.client.update');
   return (
-    <Drawer isOpen onClose={onClose} title={client?.clientName || 'Client'} subtitle={client ? `${client.sector || '—'} • ${client.bdOfficerName || '—'}` : ''} width="600px">
+    <Drawer isOpen onClose={onClose} title={client?.clientName || 'Client'} subtitle={client ? `${client.sector || '—'} • ${client.bdOfficerName || '—'}` : ''} width="720px">
       <DataState loading={loading} error={error} empty={!client}>
         {client && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -223,7 +223,7 @@ export default function ClientsTab({ notify, onNewOpportunity }) {
   const [busy, setBusy] = useState(false);
   const [nonce, setNonce] = useState(0);
 
-  const saved = (message) => { setNonce((n) => n + 1); setForm(null); notify(message); list.reload(); selection.clear(); };
+  const saved = (message) => { setNonce((n) => n + 1); const editedId = form?.client?._id || null; setForm(null); if (editedId) setViewId(editedId); notify(message); list.reload(); selection.clear(); };
 
   const archive = async (reason) => {
     setBusy(true);
@@ -333,7 +333,7 @@ export default function ClientsTab({ notify, onNewOpportunity }) {
           canArchive={canArchive}
           canOpportunity={canOpportunity}
           onClose={() => setViewId(null)}
-          onEdit={(c) => setForm({ client: c })}
+          onEdit={(c) => { setViewId(null); setForm({ client: c }); }}
           onArchive={(c) => { setArchiveError(''); setArchiveTarget(c); }}
           onRestore={restore}
           onOpportunity={(c) => onNewOpportunity(c._id)}

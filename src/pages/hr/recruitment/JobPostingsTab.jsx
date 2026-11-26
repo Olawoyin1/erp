@@ -63,7 +63,7 @@ function ViewJobDrawer({ job, onClose, onEdit, onPause, onResume, onCloseJob, ca
   ) : null;
 
   return (
-    <Drawer isOpen onClose={onClose} title="Job Details" subtitle={job.jobId} footer={footer} width="480px">
+    <Drawer isOpen onClose={onClose} title="Job Details" subtitle={job.jobId} footer={footer} width="640px">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>Status:</span>
         <StatusPill status={job.status} styles={JOB_STATUS_STYLES} />

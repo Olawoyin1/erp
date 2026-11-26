@@ -110,7 +110,7 @@ function ViewDeploymentDrawer({ deployment, onClose, onEdit, onStatusChange, onD
   const dept = deployment.employeeId?.departmentId;
 
   return (
-    <Drawer isOpen onClose={onClose} title={fullName(deployment.employeeId)} subtitle={`${deployment.deploymentId} · ${siteName(deployment.siteId)}`} width="500px">
+    <Drawer isOpen onClose={onClose} title={fullName(deployment.employeeId)} subtitle={`${deployment.deploymentId} · ${siteName(deployment.siteId)}`} width="660px">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>Status:</span>

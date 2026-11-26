@@ -227,7 +227,7 @@ function OpportunityDrawer({ opportunityId, refreshKey, perms, onClose, onAdvanc
   const { record: o, error, loading } = useRecord(opportunityService, opportunityId, refreshKey);
   const next = o ? nextStage(o.stage) : null;
   return (
-    <Drawer isOpen onClose={onClose} title={o?.clientName || 'Opportunity'} subtitle={o ? `${o.clientSector || '—'} • ${o.bdOfficerName || '—'}` : ''} width="600px">
+    <Drawer isOpen onClose={onClose} title={o?.clientName || 'Opportunity'} subtitle={o ? `${o.clientSector || '—'} • ${o.bdOfficerName || '—'}` : ''} width="720px">
       <DataState loading={loading} error={error} empty={!o}>
         {o && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -355,7 +355,7 @@ export default function OpportunitiesTab({ notify, initialNewForClient = '', onV
   const [nonce, setNonce] = useState(0);
 
   const refresh = () => { setNonce((n) => n + 1); list.reload(); selection.clear(); };
-  const saved = (message) => { setForm(null); notify(message); refresh(); };
+  const saved = (message) => { const editedId = form?.opportunity?._id || null; setForm(null); if (editedId) setViewId(editedId); notify(message); refresh(); };
 
   const advance = async (o) => {
     const result = await run('advance', o._id);
@@ -405,7 +405,7 @@ export default function OpportunitiesTab({ notify, initialNewForClient = '', onV
     }
     if (!isOpen(o)) return [];
     return [
-      ...(perms.update ? [{ label: 'Edit Opportunity', icon: <FiEdit size={13} />, action: () => setForm({ opportunity: o }) }] : []),
+      ...(perms.update ? [{ label: 'Edit Opportunity', icon: <FiEdit size={13} />, action: () => { setViewId(null); setForm({ opportunity: o }); } }] : []),
       ...(perms.update && next ? [{ label: `Mark as ${next.label}`, icon: <FiCheck size={13} />, action: () => advance(o) }] : []),
       ...(perms.decide && o.stage === 'qualified' ? [{ label: 'Create Tender', icon: <FiPlus size={13} />, action: () => setTenderFor(o) }] : []),
       ...(perms.decide ? [{ label: 'Mark as Lost', icon: <FiX size={13} />, color: '#DC2626', action: () => { setLostError(''); setLostFor(o); } }] : []),
@@ -502,7 +502,7 @@ export default function OpportunitiesTab({ notify, initialNewForClient = '', onV
           perms={perms}
           onClose={() => setViewId(null)}
           onAdvance={advance}
-          onEdit={(o) => setForm({ opportunity: o })}
+          onEdit={(o) => { setViewId(null); setForm({ opportunity: o }); }}
           onTenderModal={setTenderFor}
           onLost={(o) => { setLostError(''); setLostFor(o); }}
           onViewTender={(id) => navigate(`/bizdev/tenders?open=${id}`)}

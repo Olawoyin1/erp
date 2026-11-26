@@ -12,10 +12,10 @@ export function FormField({ label, required, error, helpText, children, style })
       {label && (
         <label
           style={{
-            fontSize: '0.688rem',
+            fontSize: '0.75rem',
             fontWeight: 700,
             textTransform: 'uppercase',
-            letterSpacing: '0.6px',
+            letterSpacing: '0.5px',
             color: error ? '#DC2626' : '#475569',
             fontFamily: 'var(--font)',
           }}
@@ -36,7 +36,7 @@ export function Input({ error, style, ...props }) {
       style={{
         width: '100%',
         padding: '10px 14px',
-        fontSize: '0.85rem',
+        fontSize: '0.9rem',
         fontFamily: 'var(--font)',
         borderRadius: '6px',
         border: error ? '1px solid #DC2626' : '1px solid #E2E8F0',
@@ -78,7 +78,7 @@ export function Textarea({ error, style, rows = 4, ...props }) {
       style={{
         width: '100%',
         padding: '10px 14px',
-        fontSize: '0.85rem',
+        fontSize: '0.9rem',
         fontFamily: 'var(--font)',
         borderRadius: '6px',
         border: error ? '1px solid #DC2626' : '1px solid #E2E8F0',

@@ -472,7 +472,7 @@ export default function BankReconciliation() {
         ]}
         values={list.filters} onApply={list.applyFilters}
       />
-      {viewId && <RecordDrawer api={bankReconciliationService} id={viewId} refreshKey={localKey} onClose={() => setViewId(null)} describe={describe} detailsLabel="Statement Details" width="520px" />}
+      {viewId && <RecordDrawer api={bankReconciliationService} id={viewId} refreshKey={localKey} onClose={() => setViewId(null)} describe={describe} detailsLabel="Statement Details" width="680px" />}
       {formFor && <StatementFormModal record={formFor === 'new' ? null : formFor} onClose={() => setFormFor(null)} onSaved={afterSave} />}
       {matchFor && (
         <MatchModal

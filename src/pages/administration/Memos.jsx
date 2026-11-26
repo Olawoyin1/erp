@@ -211,19 +211,19 @@ function MemoRow({ memo, folder, active, onSelect }) {
       onClick={() => onSelect(memo)}
       style={{ display: 'block', width: '100%', textAlign: 'left', padding: '12px 14px', border: 'none', borderBottom: '1px solid #F1F5F9', borderLeft: active ? '3px solid #1E3A8A' : '3px solid transparent', background: active ? '#EFF6FF' : '#FFFFFF', cursor: 'pointer', fontFamily: 'var(--font)' }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: '0.8rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontSize: '0.875rem' }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: unread ? 700 : 600, color: '#0F172A', minWidth: 0 }}>
           {unread && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2563EB', flexShrink: 0 }} />}
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{who}</span>
         </span>
         <span style={{ color: '#64748B', flexShrink: 0 }}>{shortDate(date)}</span>
       </div>
-      <div style={{ fontSize: '0.84rem', color: '#334155', fontWeight: unread ? 700 : 500, margin: '4px 0 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memo.subject}</div>
+      <div style={{ fontSize: '0.925rem', color: '#334155', fontWeight: unread ? 700 : 500, margin: '4px 0 6px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{memo.subject}</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         {memo.departmentName && <Tag>{memo.departmentName}</Tag>}
         {PRIORITY_TONE[memo.priority] && <Tag tone={PRIORITY_TONE[memo.priority]}>{statusLabel(memo.priority)}</Tag>}
-        {memo.attachmentCount > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.72rem', color: '#64748B' }}><FiPaperclip size={11} />{memo.attachmentCount}</span>}
-        <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: '#94A3B8' }}>{memo.memoReference}</span>
+        {memo.attachmentCount > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: '0.78rem', color: '#64748B' }}><FiPaperclip size={11} />{memo.attachmentCount}</span>}
+        <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#94A3B8' }}>{memo.memoReference}</span>
       </div>
     </button>
   );
@@ -256,27 +256,27 @@ function ReadingPane({ state, folder, perms, busy, onAction }) {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>From</div>
+            <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>From</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
               <span style={{ width: 28, height: 28, borderRadius: '50%', background: '#DBEAFE', color: '#1E40AF', fontSize: '0.7rem', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{initials(m.sender?.name)}</span>
-              <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#0F172A' }}>{m.sender?.name}<div style={{ fontWeight: 400, fontSize: '0.74rem', color: '#64748B' }}>{m.sender?.position}</div></div>
+              <div style={{ fontSize: '0.925rem', fontWeight: 600, color: '#0F172A' }}>{m.sender?.name}<div style={{ fontWeight: 400, fontSize: '0.8rem', color: '#64748B' }}>{m.sender?.position}</div></div>
             </div>
           </div>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>To</div>
+            <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>To</div>
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>{(m.to || []).map((t) => <Tag key={`${t.type}${t.refId || ''}`}>{t.label}</Tag>)}</div>
-            {m.cc?.length > 0 && <div style={{ fontSize: '0.74rem', color: '#64748B', marginTop: 6 }}>CC: {labels(m.cc)}</div>}
+            {m.cc?.length > 0 && <div style={{ fontSize: '0.8rem', color: '#64748B', marginTop: 6 }}>CC: {labels(m.cc)}</div>}
           </div>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>Date & time</div>
-            <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#0F172A', marginTop: 4 }}>{formatDateTime(m.sentAt || m.createdAt)}</div>
+            <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>Date & time</div>
+            <div style={{ fontSize: '0.925rem', fontWeight: 600, color: '#0F172A', marginTop: 4 }}>{formatDateTime(m.sentAt || m.createdAt)}</div>
           </div>
           <div>
-            <div style={{ fontSize: '0.7rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>Department</div>
-            <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#0F172A', marginTop: 4 }}>{m.departmentName || '—'}</div>
+            <div style={{ fontSize: '0.75rem', color: '#94A3B8', fontWeight: 700, textTransform: 'uppercase' }}>Department</div>
+            <div style={{ fontSize: '0.925rem', fontWeight: 600, color: '#0F172A', marginTop: 4 }}>{m.departmentName || '—'}</div>
           </div>
         </div>
-        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 14, fontSize: '0.875rem', color: '#1E293B', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</div>
+        <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 14, fontSize: '1rem', color: '#1E293B', lineHeight: 1.7, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{m.body}</div>
         <DocumentList key={`${m._id}-${state.nonce}`} api={memoService} id={m._id} canUpload={isDraft && m.isSender && perms.send} title={`Attachments (${m.attachmentCount ?? 0})`} />
       </div>
       <div style={{ borderTop: '1px solid #E2E8F0', padding: '12px 24px', display: 'flex', gap: 8, flexWrap: 'wrap', background: '#FFFFFF' }}>
@@ -297,6 +297,9 @@ function ReadingPane({ state, folder, perms, busy, onAction }) {
 }
 
 function MemoCentre({ folder, perms, lookups, me, counts, reloadCounts, showToast, onCompose, onFolder }) {
+  // Only users who can send memos should see the Drafts folder
+  const visibleFolders = FOLDERS.filter((f) => f.id !== 'drafts' || perms.send);
+
   const list = useProcList(admMemosSlice, { fixed: { folder }, initialFilters: { priority: '', dateFrom: '', dateTo: '', sort: 'newest' }, withStats: false });
   const [state, setState] = useState({ id: null, record: null, loading: false, error: '', nonce: 0 });
   const [filterOpen, setFilterOpen] = useState(false);
@@ -385,7 +388,7 @@ function MemoCentre({ folder, perms, lookups, me, counts, reloadCounts, showToas
       <div style={{ display: 'grid', gridTemplateColumns: '190px minmax(280px, 380px) minmax(0, 1fr)', minHeight: 520, overflowX: 'auto' }}>
         <div style={{ borderRight: '1px solid #E2E8F0', padding: '16px 10px', background: '#F8FAFC' }}>
           <div style={{ fontSize: '0.66rem', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.05em', padding: '0 8px 10px' }}>MEMO & CIRCULAR CENTRE</div>
-          {FOLDERS.map((f) => {
+          {visibleFolders.map((f) => {
             const Icon = f.icon;
             const count = folderCount[f.id];
             return (
@@ -405,7 +408,7 @@ function MemoCentre({ folder, perms, lookups, me, counts, reloadCounts, showToas
 
         <div style={{ borderRight: '1px solid #E2E8F0', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
           <div style={{ padding: '8px 14px', fontSize: '0.66rem', fontWeight: 700, color: '#94A3B8', letterSpacing: '0.05em', background: '#F8FAFC', borderBottom: '1px solid #F1F5F9' }}>
-            {FOLDERS.find((f) => f.id === folder).label.toUpperCase()} · {list.meta?.total ?? 0} MEMO{list.meta?.total === 1 ? '' : 'S'}
+            {visibleFolders.find((f) => f.id === folder)?.label.toUpperCase() ?? folder.toUpperCase()} · {list.meta?.total ?? 0} MEMO{list.meta?.total === 1 ? '' : 'S'}
           </div>
           <div style={{ flex: 1, overflowY: 'auto', maxHeight: 520 }}>
             <DataState loading={list.loading} error={list.error} empty={!list.items.length} emptyText={`No memos in ${folder}.`} onRetry={list.reload}>
@@ -481,6 +484,11 @@ export default function Memos() {
   const [counts, setCounts] = useState({ inbox: 0, unread: 0, drafts: 0, sent: 0, archived: 0 });
   const [tick, setTick] = useState(0);
   const reloadCounts = useCallback(() => setTick((t) => t + 1), []);
+
+  // If user loses send permission while on drafts, fall back to inbox
+  useEffect(() => {
+    if (folder === 'drafts' && !perms.send) setFolder('inbox');
+  }, [folder, perms.send]);
 
   useEffect(() => {
     let cancelled = false;

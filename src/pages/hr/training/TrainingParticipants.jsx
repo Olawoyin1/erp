@@ -152,7 +152,7 @@ function OutcomeDrawer({ training, participant, canEvaluate, onClose, onReEvalua
   };
   const settled = participant.outcomeStatus === 'value_created' || participant.outcomeStatus === 'value_not_yet_observed';
   return (
-    <Drawer isOpen onClose={onClose} title={emp.fullName || 'Participant'} subtitle={`${training.title} • ${emp.employeeId || ''}`} width="520px">
+    <Drawer isOpen onClose={onClose} title={emp.fullName || 'Participant'} subtitle={`${training.title} • ${emp.employeeId || ''}`} width="680px">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: 8, marginBottom: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#64748B' }}>Status: <OutcomePill value={participant.outcomeStatus} /></div>
         {canEvaluate && settled && (
@@ -218,7 +218,7 @@ function AddParticipantsDrawer({ training, enrolledIds, onClose, onSaved }) {
     }
   };
   return (
-    <Drawer isOpen onClose={onClose} title="Add Participants" subtitle={training.title} width="520px"
+    <Drawer isOpen onClose={onClose} title="Add Participants" subtitle={training.title} width="680px"
       footer={
         <>
           <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1, padding: '9px 16px' }}>Cancel</button>

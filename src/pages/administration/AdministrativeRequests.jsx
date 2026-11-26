@@ -283,7 +283,7 @@ function ViewRequestDrawer({ id, refreshKey, onClose, canApproveNow, ownRequest,
   ] : [];
 
   return (
-    <Drawer isOpen onClose={onClose} title="View Request" width="520px">
+    <Drawer isOpen onClose={onClose} title="View Request" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B', fontSize: '0.875rem' }}>Loading request…</div>}
       {error && <div style={{ padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.82rem', margin: '0 0 16px' }}>{error}</div>}
 

@@ -156,7 +156,7 @@ function AccountDrawer({ accountId, canUpdate, refreshKey, onClose, onEdit, onTo
   const [tab, setTab] = useState('info');
   const { record: acc, loading, error } = useRecord(accountService, accountId, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title={acc ? acc.accountName : 'Account'} subtitle={acc ? `${CATEGORY_LABEL[acc.category]} · ${acc.accountCode}` : undefined} width="560px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
+    <Drawer isOpen onClose={onClose} title={acc ? acc.accountName : 'Account'} subtitle={acc ? `${CATEGORY_LABEL[acc.category]} · ${acc.accountCode}` : undefined} width="680px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
       <DataState loading={loading} error={error} empty={!loading && !error && !acc}>
         {acc && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

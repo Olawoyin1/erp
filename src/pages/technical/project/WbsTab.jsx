@@ -182,7 +182,7 @@ function ViewActivityDrawer({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(wbsService, id, refreshKey);
   const parent = record?.parentActivityId && typeof record.parentActivityId === 'object' ? record.parentActivityId : null;
   return (
-    <Drawer isOpen onClose={onClose} title="" width="540px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading activity…</div>}
       {error && <FormError message={error} />}
       {record && (

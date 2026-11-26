@@ -77,7 +77,7 @@ export default function Drawer({
           <div>
             <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{title}</h2>
             {subtitle && (
-              <p style={{ fontSize: '0.813rem', color: '#64748B', margin: '4px 0 0 0' }}>{subtitle}</p>
+              <p style={{ fontSize: '0.875rem', color: '#64748B', margin: '4px 0 0 0' }}>{subtitle}</p>
             )}
           </div>
           <button

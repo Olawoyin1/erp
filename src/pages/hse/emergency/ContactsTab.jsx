@@ -136,7 +136,7 @@ function ContactFormModal({ record, lookups, onClose, onSaved }) {
 function ViewContactDrawer({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(emergencyContactService, id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="Emergency Contact" width="480px">
+    <Drawer isOpen onClose={onClose} title="Emergency Contact" width="640px">
       {loading && <div style={{ color: '#64748B' }}>Loading contact…</div>}
       {error && <FormError message={error} />}
       {record && (

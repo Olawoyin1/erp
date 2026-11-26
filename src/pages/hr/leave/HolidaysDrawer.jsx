@@ -79,7 +79,7 @@ export default function HolidaysDrawer({ onClose, showToast }) {
   const shownDate = (h) => (h.recurring ? longDate(new Date(Date.UTC(year, new Date(h.date).getUTCMonth(), new Date(h.date).getUTCDate()))) : longDate(h.date));
 
   return (
-    <Drawer isOpen onClose={onClose} title="Public Holidays" subtitle="Weekends and these days are not counted as leave days" width="480px">
+    <Drawer isOpen onClose={onClose} title="Public Holidays" subtitle="Weekends and these days are not counted as leave days" width="620px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>

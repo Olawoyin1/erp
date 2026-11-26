@@ -126,7 +126,7 @@ function ViewInspectionDrawer({ id, refreshKey, canUpdate, onEdit, onClose }) {
   const { record, error, loading } = useRecord(siteInspectionService, id, refreshKey);
   const trail = useFetched(() => siteInspectionService.history(id), id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="" width="600px">
+    <Drawer isOpen onClose={onClose} title="" width="720px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading inspection…</div>}
       {error && <FormError message={error} />}
       {record && (

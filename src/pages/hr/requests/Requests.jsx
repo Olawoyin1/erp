@@ -174,7 +174,7 @@ function CreateRequestDrawer({ isOpen, onClose, ownEmployee, canPickEmployee, on
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="New Request"
-      subtitle="Submit a request for review and approval" width="500px"
+      subtitle="Submit a request for review and approval" width="660px"
       footer={
         <>
           <button onClick={onClose} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Cancel</button>
@@ -316,7 +316,7 @@ function ViewRequestDrawer({ isOpen, record, onClose, access, onApprove, onRejec
   ];
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="View Request" width="500px">
+    <Drawer isOpen={isOpen} onClose={onClose} title="View Request" width="660px">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, gap: 12 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#0F172A' }}>{record.requestTitle || record.requestType}</h3>

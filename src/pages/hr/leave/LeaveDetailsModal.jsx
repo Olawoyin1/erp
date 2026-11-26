@@ -101,7 +101,7 @@ export default function LeaveDetailsDrawer({ leave, canDecide, ownRequest, onClo
   ) : null;
 
   return (
-    <Drawer isOpen onClose={onClose} title="Leave Request Details" subtitle={`${fullName(leave.employeeId)} • ${leave.leaveId}`} width="500px" footer={footer}>
+    <Drawer isOpen onClose={onClose} title="Leave Request Details" subtitle={`${fullName(leave.employeeId)} • ${leave.leaveId}`} width="660px" footer={footer}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
         {/* Status badge */}

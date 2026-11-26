@@ -177,7 +177,7 @@ function OnboardingDrawer({ record, onClose, onAdvance, onConvert, onVerifyDoc, 
   };
 
   return (
-    <Drawer isOpen onClose={onClose} width="520px">
+    <Drawer isOpen onClose={onClose} width="680px">
       <div style={{ display: 'flex', alignItems: 'center', gap: 16, paddingBottom: 20, borderBottom: '1px solid #E2E8F0', marginBottom: 20 }}>
         <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#EFF6FF', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#2563EB', flexShrink: 0 }}>
           <FiUser size={20} />

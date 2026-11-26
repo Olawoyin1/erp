@@ -13,7 +13,7 @@ import { useRecord } from './useRecord';
  *     panels: [{ title, text }], canEditDocs, pdfName, extraTabs: [{ id, label, render }] }
  * `pdfName` shows an Export button when the api has `pdf(id)`.
  */
-export default function RecordDrawer({ api, id, refreshKey = 0, onClose, describe, detailsLabel = 'Details', historyLabel = 'History', width = '560px' }) {
+export default function RecordDrawer({ api, id, refreshKey = 0, onClose, describe, detailsLabel = 'Details', historyLabel = 'History', width = '680px' }) {
   const { record, loading, error } = useRecord(api, id, refreshKey);
   const [tab, setTab] = useState('details');
   const [exporting, setExporting] = useState(false);

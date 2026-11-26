@@ -189,7 +189,7 @@ function ViewRequestDrawer({ id, refreshKey, showProject, actions, canUpdate, on
   const trail = useFetched(() => resourceRequestService.history(id), id, refreshKey);
   const editable = record && ['technical_reviewing', 'store_reviewing'].includes(record.status);
   return (
-    <Drawer isOpen onClose={onClose} title="" width="600px">
+    <Drawer isOpen onClose={onClose} title="" width="720px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading request…</div>}
       {error && <FormError message={error} />}
       {record && (

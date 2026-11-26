@@ -351,7 +351,7 @@ export default function TaxManagement() {
         ]}
         values={list.filters} onApply={list.applyFilters}
       />
-      {viewId && <RecordDrawer api={taxRecordService} id={viewId} refreshKey={localKey} onClose={() => setViewId(null)} describe={describe} detailsLabel="Tax Details" width="520px" />}
+      {viewId && <RecordDrawer api={taxRecordService} id={viewId} refreshKey={localKey} onClose={() => setViewId(null)} describe={describe} detailsLabel="Tax Details" width="680px" />}
       {formFor && <TaxFormModal record={formFor === 'new' ? null : formFor} canSubmit={canUpdate} onClose={() => setFormFor(null)} onSaved={afterSave} />}
       {payFor && <PaymentModal record={payFor} canAttach={canUpdate || canDecide} onClose={() => setPayFor(null)} onSaved={afterSave} />}
 

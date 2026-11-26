@@ -156,7 +156,7 @@ function InteractionDrawer({ interactionId, refreshKey, canEdit, canFollowUp, ca
   const [tab, setTab] = useState('details');
   const { record: i, error, loading } = useRecord(interactionService, interactionId, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title={i?.clientName || 'Interaction'} subtitle={i ? `${i.clientSector || '—'} • ${i.bdOfficerName || '—'}` : ''} width="600px">
+    <Drawer isOpen onClose={onClose} title={i?.clientName || 'Interaction'} subtitle={i ? `${i.clientSector || '—'} • ${i.bdOfficerName || '—'}` : ''} width="720px">
       <DataState loading={loading} error={error} empty={!i}>
         {i && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

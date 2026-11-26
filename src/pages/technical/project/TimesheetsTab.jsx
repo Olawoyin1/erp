@@ -149,7 +149,7 @@ function ViewTimesheetDrawer({ id, refreshKey, actions, canUpdate, onClose }) {
   const { record, error, loading } = useRecord(timesheetService, id, refreshKey);
   const trail = useFetched(() => timesheetService.history(id), id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="" width="580px">
+    <Drawer isOpen onClose={onClose} title="" width="700px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading timesheet…</div>}
       {error && <FormError message={error} />}
       {record && (

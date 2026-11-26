@@ -202,7 +202,7 @@ function ViewCandidateDrawer({ candidateId, listRow, onClose, perms, onAdvance, 
   ) : null;
 
   return (
-    <Drawer isOpen onClose={onClose} title={candidate.fullName} subtitle={candidate.candidateId} footer={footer} width="500px">
+    <Drawer isOpen onClose={onClose} title={candidate.fullName} subtitle={candidate.candidateId} footer={footer} width="660px">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>Stage:</span>
         <StatusPill status={stage} styles={STAGE_STYLES} />

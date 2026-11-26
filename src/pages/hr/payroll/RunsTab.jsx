@@ -61,7 +61,7 @@ function GenerateModal({ onClose, onGenerated, showToast }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title="Generate Payroll" maxWidth="520px">
+    <Modal isOpen onClose={onClose} title="Generate Payroll" maxwidth="680px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <FormBanner message={formError} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
@@ -132,7 +132,7 @@ function RunDrawer({ id, onClose, access, onApprove, onReject, busy }) {
   const employer = run ? [['Employer pension', totals.employerPension], ['Employer NSITF', totals.employerNsitf], ['Employer ITF', totals.employerItf]] : [];
   const decision = run ? access.decision(run) : null;
   return (
-    <Drawer isOpen onClose={onClose} title={run?.name || 'Payroll run'} subtitle={run ? `${run.runId} • ${periodLabel(run.periodMonth, run.year)}` : ''} width="520px">
+    <Drawer isOpen onClose={onClose} title={run?.name || 'Payroll run'} subtitle={run ? `${run.runId} • ${periodLabel(run.periodMonth, run.year)}` : ''} width="680px">
       {state.error ? <LoadError message={state.error} onRetry={onClose} /> : !run ? <div style={{ padding: 24, color: '#94A3B8' }}>Loading…</div> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: 8 }}>

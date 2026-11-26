@@ -30,7 +30,7 @@ export default function InvoiceDrawer({ invoiceId, perms, onClose, onAction, ref
   const paid = inv ? inv.payments.reduce((sum, p) => sum + p.amount, 0) : 0;
 
   return (
-    <Drawer isOpen onClose={onClose} title={inv ? populatedName(inv.client) : title} subtitle={inv?.invoiceId} width="560px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
+    <Drawer isOpen onClose={onClose} title={inv ? populatedName(inv.client) : title} subtitle={inv?.invoiceId} width="680px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
       <DataState loading={loading} error={error} empty={!loading && !error && !inv}>
         {inv && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
