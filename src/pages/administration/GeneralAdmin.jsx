@@ -224,7 +224,7 @@ export default function GeneralAdmin() {
       </div>
 
       {/* New Notice Drawer */}
-      <Drawer isOpen={noticeModal} onClose={() => setNoticeModal(false)} title="Create Notice / Circular" subtitle="Draft and publish a company-wide notice or circular" width="560px"
+      <Drawer isOpen={noticeModal} onClose={() => setNoticeModal(false)} title="Create Notice / Circular" subtitle="Draft and publish a company-wide notice or circular" width="680px"
         footer={
           <>
             <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setNoticeModal(false)}>Cancel</button>
@@ -258,7 +258,7 @@ export default function GeneralAdmin() {
       </Drawer>
 
       {/* Schedule Meeting Drawer */}
-      <Drawer isOpen={meetingModal} onClose={() => setMeetingModal(false)} title="Schedule New Meeting" subtitle="Plan and organise a meeting with attendees" width="560px"
+      <Drawer isOpen={meetingModal} onClose={() => setMeetingModal(false)} title="Schedule New Meeting" subtitle="Plan and organise a meeting with attendees" width="680px"
         footer={
           <>
             <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setMeetingModal(false)}>Cancel</button>

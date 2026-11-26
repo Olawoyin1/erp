@@ -320,7 +320,7 @@ export default function VisitorLogs() {
       </div>
 
       {/* Register Visitor Drawer */}
-      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Visitor" subtitle="Log a new visitor and assign an access badge" width="560px"
+      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Visitor" subtitle="Log a new visitor and assign an access badge" width="680px"
         footer={
           <>
             <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>

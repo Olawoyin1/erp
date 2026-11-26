@@ -219,7 +219,7 @@ function CaseDrawer({ onClose, editItem, onSaved }) {
   const typeOptions = form.caseType && !CASE_TYPES.includes(form.caseType) ? [form.caseType, ...CASE_TYPES] : CASE_TYPES;
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? 'Edit Disciplinary Case' : 'Log Disciplinary Case'} width="520px"
+    <Drawer isOpen onClose={onClose} title={editing ? 'Edit Disciplinary Case' : 'Log Disciplinary Case'} width="680px"
       footer={
         <>
           <button onClick={onClose} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Cancel</button>
@@ -328,7 +328,7 @@ function RaiseGrievanceDrawer({ onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title="Raise a Grievance" subtitle="Tell HR about a concern. Only you and HR can see it." width="480px"
+    <Drawer isOpen onClose={onClose} title="Raise a Grievance" subtitle="Tell HR about a concern. Only you and HR can see it." width="680px"
       footer={
         <>
           <button onClick={onClose} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Cancel</button>
@@ -563,7 +563,7 @@ function ViewCaseDrawer({ caseId, onClose, perms, onAction, refreshToken }) {
 function FilterDrawer({ onClose, value, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen onClose={onClose} title="Filter cases" width="380px"
+    <Drawer isOpen onClose={onClose} title="Filter cases" width="680px"
       footer={
         <>
           <button onClick={() => { onApply({ status: '', category: '', severity: '' }); onClose(); }}

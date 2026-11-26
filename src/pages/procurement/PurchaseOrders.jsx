@@ -188,7 +188,7 @@ function OrderFormModal({ order, presetRfqId, lookups, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Purchase Order' : 'Create Purchase Order'}
       subtitle={editing ? order.poNo : 'Create a purchase order for goods or services.'}
-      width="780px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -370,7 +370,7 @@ function TrackingTab({ order }) {
 function ViewOrderModal({ id, refreshKey, tab, onTab, canUpdate, canDecide, onAction, onEdit, onClose }) {
   const { record, error, loading } = useRecord(purchaseOrderService, id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="Purchase Order" subtitle="Order details, items, tracking and documents" width="800px">
+    <Drawer isOpen onClose={onClose} title="Purchase Order" subtitle="Order details, items, tracking and documents" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading purchase order…</div>}
       {error && <FormError message={error} />}
       {record && (

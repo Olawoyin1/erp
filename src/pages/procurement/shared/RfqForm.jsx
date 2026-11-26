@@ -147,7 +147,7 @@ export default function RfqFormModal({ rfq, requisition, lookups, canIssue, onCl
       onClose={onClose}
       title={editing ? 'Edit RFQ / RFP' : 'Create RFQ / RFP'}
       subtitle={editing ? 'Only a draft can be edited.' : 'Create a sourcing request for approved procurement requirements.'}
-      width="720px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

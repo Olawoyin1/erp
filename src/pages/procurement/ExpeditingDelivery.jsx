@@ -94,7 +94,7 @@ function NewDeliveryModal({ lookups, onClose, onSaved }) {
       onClose={onClose}
       title="New Delivery"
       subtitle="Start tracking a delivery against an acknowledged purchase order."
-      width="600px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -176,7 +176,7 @@ function UpdateStatusModal({ delivery, onClose, onSaved }) {
       onClose={onClose}
       title="Update Delivery Status"
       subtitle={`${delivery.deliveryRef} • ${refName(delivery.poId, 'poNo')}`}
-      width="480px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -205,7 +205,7 @@ function ViewDeliveryModal({ id, refreshKey, tab, onTab, canUpdate, onUpdate, on
   const { record, error, loading } = useRecord(deliveryService, id, refreshKey);
   const timeline = useFetched(() => deliveryService.timeline(id), tab === 'timeline' ? `${id}:${refreshKey}` : null);
   return (
-    <Drawer isOpen onClose={onClose} title="Delivery Details" subtitle="Shipment tracking and timeline" width="760px">
+    <Drawer isOpen onClose={onClose} title="Delivery Details" subtitle="Shipment tracking and timeline" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading delivery…</div>}
       {error && <FormError message={error} />}
       {record && (

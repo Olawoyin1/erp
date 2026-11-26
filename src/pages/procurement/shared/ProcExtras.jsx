@@ -175,7 +175,7 @@ export function AttachToRecordDialog({ api, title, recordNoun, recordLabel, list
       onClose={onClose}
       title={title}
       subtitle={`Attach supporting documents to a ${recordNoun}`}
-      width="520px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

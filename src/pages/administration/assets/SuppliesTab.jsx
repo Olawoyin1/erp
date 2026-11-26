@@ -94,7 +94,7 @@ function ItemFormModal({ record, lookups, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Supply Item' : 'Add Supply Item'}
       subtitle={editing ? undefined : 'Register a new consumable in the supplies register.'}
-      width="640px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -178,7 +178,7 @@ function RestockModal({ item, onClose, onSaved }) {
       onClose={onClose}
       title="Restock Supply Item"
       subtitle={`${item.itemCode} · ${item.itemName}`}
-      width="560px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -211,7 +211,7 @@ function RestockModal({ item, onClose, onSaved }) {
 function ViewItemModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(supplyItemService, id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="Supply Item Details" width="640px">
+    <Drawer isOpen onClose={onClose} title="Supply Item Details" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading item…</div>}
       {error && <FormError message={error} />}
       {record && (

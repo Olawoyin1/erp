@@ -145,7 +145,7 @@ function InvoiceFormModal({ invoice, canAttach, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? `Edit Invoice ${invoice.invoiceId}` : 'Create Invoice'}
       subtitle={editing ? 'Update the invoice details' : 'Create and issue a client invoice'}
-      width="640px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

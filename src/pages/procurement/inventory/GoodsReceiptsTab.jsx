@@ -99,7 +99,7 @@ function LogReceiptModal({ lookups, onClose, onSaved }) {
       onClose={onClose}
       title="Log Goods Receipt"
       subtitle="Record materials arriving against an acknowledged purchase order. The receipt starts as pending inspection."
-      width="760px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -261,7 +261,7 @@ function ViewReceiptModal({ id, refreshKey, canInspect, onInspect, onClose }) {
   const [tab, setTab] = useState('details');
   const { record, error, loading } = useRecord(goodsReceiptService, id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="Goods Receipt" subtitle="Delivery and inspection record" width="780px">
+    <Drawer isOpen onClose={onClose} title="Goods Receipt" subtitle="Delivery and inspection record" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading goods receipt…</div>}
       {error && <FormError message={error} />}
       {record && (

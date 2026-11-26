@@ -107,7 +107,7 @@ function EntryFormModal({ projectId, record, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Entry' : 'New Site Diary Entry'}
       subtitle={editing ? undefined : 'Log daily site activities and project updates'}
-      width="660px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -148,7 +148,7 @@ function ViewEntryDrawer({ id, refreshKey, actions, canUpdate, onClose }) {
   const { record, error, loading } = useRecord(siteDiaryService, id, refreshKey);
   const trail = useFetched(() => siteDiaryService.history(id), id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="" width="720px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading entry…</div>}
       {error && <FormError message={error} />}
       {record && (

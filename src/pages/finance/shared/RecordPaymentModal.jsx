@@ -69,7 +69,7 @@ export default function RecordPaymentModal({ kind, slice, api, record, canAttach
       onClose={onClose}
       title="Record Payment"
       subtitle={receipt ? 'Record a payment received from the customer' : 'Record a payment made against an outstanding supplier invoice'}
-      width="640px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

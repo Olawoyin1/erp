@@ -107,7 +107,7 @@ function RequestFormModal({ record, fixedProjectId, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Request' : 'Request Resource'}
       subtitle={editing ? undefined : 'Request equipment, tools or materials from the store for this project'}
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -189,7 +189,7 @@ function ViewRequestDrawer({ id, refreshKey, showProject, actions, canUpdate, on
   const trail = useFetched(() => resourceRequestService.history(id), id, refreshKey);
   const editable = record && ['technical_reviewing', 'store_reviewing'].includes(record.status);
   return (
-    <Drawer isOpen onClose={onClose} title="" width="720px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading request…</div>}
       {error && <FormError message={error} />}
       {record && (

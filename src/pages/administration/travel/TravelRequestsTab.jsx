@@ -148,7 +148,7 @@ function TravelFormModal({ record, lookups, me, ownOnly, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Request' : 'New Travel Request'}
       subtitle={editing ? undefined : 'Create a travel request and arrange travel logistics for an employee'}
-      width="720px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -250,7 +250,7 @@ function ViewTravelModal({ id, refreshKey, actions, canUpload, onClose }) {
   const [tab, setTab] = useState('details');
   const remaining = record && record.status === 'pending' && record.currentStep ? CHAIN.slice(CHAIN.indexOf(record.currentStep)).map((s) => STEP_LABELS[s]) : [];
   return (
-    <Drawer isOpen onClose={onClose} title="Travel Request Details" width="720px">
+    <Drawer isOpen onClose={onClose} title="Travel Request Details" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading travel request…</div>}
       {error && <FormError message={error} />}
       {record && (

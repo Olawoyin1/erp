@@ -174,7 +174,7 @@ function CreateRequestDrawer({ isOpen, onClose, ownEmployee, canPickEmployee, on
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="New Request"
-      subtitle="Submit a request for review and approval" width="660px"
+      subtitle="Submit a request for review and approval" width="680px"
       footer={
         <>
           <button onClick={onClose} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Cancel</button>
@@ -316,7 +316,7 @@ function ViewRequestDrawer({ isOpen, record, onClose, access, onApprove, onRejec
   ];
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="View Request" width="660px">
+    <Drawer isOpen={isOpen} onClose={onClose} title="View Request" width="680px">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, gap: 12 }}>
         <div>
           <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#0F172A' }}>{record.requestTitle || record.requestType}</h3>
@@ -338,12 +338,7 @@ function ViewRequestDrawer({ isOpen, record, onClose, access, onApprove, onRejec
                 <FiCheck size={14} /> Approve
               </button>
             )}
-            {access.canReject && (
-              <button onClick={() => onReject(record)} disabled={busy}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: 6, border: '1px solid #FECACA', cursor: 'pointer' }}>
-                <FiX size={14} /> Reject
-              </button>
-            )}
+            {/* Reject button removed — rejection is not part of the approval workflow */}
             {access.canCancel(record) && (
               <button onClick={() => onCancel(record)} disabled={busy}
                 style={{ padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#fff', color: '#64748B', borderRadius: 6, border: '1px solid #E2E8F0', cursor: 'pointer' }}>
@@ -450,7 +445,7 @@ function HistoryItem({ color, title, titleColor = '#0F172A', subtitle, when }) {
 function FilterDrawer({ isOpen, onClose, value, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="Filter requests" width="380px"
+    <Drawer isOpen={isOpen} onClose={onClose} title="Filter requests" width="680px"
       footer={
         <>
           <button onClick={() => { onApply({ status: '', urgency: '', requestType: '' }); onClose(); }}
@@ -623,7 +618,7 @@ export default function Requests() {
     const out = [];
     if (row.status === 'pending') {
       if (holdsAnyDecision && access.decision(row).canApprove) out.push({ label: 'Approve Request', icon: FiCheck, color: '#10B981', action: 'approve' });
-      if (access.canReject) out.push({ label: 'Reject Request', icon: FiX, color: '#DC2626', action: 'reject' });
+      // if (access.canReject) out.push({ label: 'Reject Request', icon: FiX, color: '#DC2626', action: 'reject' }); // reject removed from workflow
       if (access.canCancel(row)) out.push({ label: 'Cancel Request', icon: FiX, color: '#DC2626', action: 'cancel' });
     }
     if (row.status === 'approved' && access.canComplete) out.push({ label: 'Mark Completed', icon: FiCheck, color: '#10B981', action: 'complete' });

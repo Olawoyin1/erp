@@ -181,7 +181,7 @@ function ForwardModal({ memo, lookups, onClose, onDone }) {
       onClose={onClose}
       title="Forward Memo"
       subtitle={memo.subject}
-      width="600px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

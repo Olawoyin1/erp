@@ -38,7 +38,7 @@ export default function AssignManagerDrawer({ employee, onClose, onAssign }) {
   return (
     <Drawer isOpen onClose={onClose} title="Assign Reporting Supervisor"
       subtitle={`Set direct operational reporting manager for ${employee?.fullName || 'employee'}`}
-      width="420px" footer={footer}>
+      width="680px" footer={footer}>
       <FormField label="Reporting manager" required error={error}>
         <EmployeePicker value={selectedId} selected={selected} params={{ activeOnly: 'true' }} excludeIds={[employee?._id]} error={!!error}
           onChange={(id, emp) => { setSelectedId(id); setSelected(emp); setError(''); }} />

@@ -134,7 +134,7 @@ export default function UserFormDrawer({
       onClose={onClose}
       title={isEditing ? 'Edit User' : 'Add User'}
       subtitle={isEditing ? 'Update user account details.' : 'Create a user account and assign their department and role.'}
-      width="520px"
+      width="680px"
       footer={footer}
     >
       <form id="user-form" onSubmit={handleSubmit} noValidate>

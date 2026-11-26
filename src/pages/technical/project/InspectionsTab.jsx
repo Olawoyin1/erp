@@ -91,7 +91,7 @@ function InspectionFormModal({ projectId, record, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Inspection' : 'Add Inspection'}
       subtitle={editing ? undefined : 'Record site findings and observations for this project'}
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -126,7 +126,7 @@ function ViewInspectionDrawer({ id, refreshKey, canUpdate, onEdit, onClose }) {
   const { record, error, loading } = useRecord(siteInspectionService, id, refreshKey);
   const trail = useFetched(() => siteInspectionService.history(id), id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="" width="720px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading inspection…</div>}
       {error && <FormError message={error} />}
       {record && (

@@ -231,7 +231,7 @@ export default function FacilitiesAssets() {
       </div>
 
       {/* Add Asset Drawer */}
-      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Asset" subtitle="Add an asset to the company asset register" width="560px"
+      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Asset" subtitle="Add an asset to the company asset register" width="680px"
         footer={
           <>
             <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>

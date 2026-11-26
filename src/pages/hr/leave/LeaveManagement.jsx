@@ -44,7 +44,7 @@ function StatusPill({ status }) {
 function FilterDrawer({ onClose, value, leaveTypes, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen onClose={onClose} title="Filter leave requests" width="400px"
+    <Drawer isOpen onClose={onClose} title="Filter leave requests" width="680px"
       footer={
         <>
           <button onClick={() => { onApply({ status: '', leaveTypeId: '', from: '', to: '' }); onClose(); }} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Clear</button>

@@ -266,7 +266,7 @@ export default function EmployeeForm({ mode, employee, onClose, onSubmit, onPhot
     <Drawer isOpen onClose={onClose}
       title={editing ? 'Edit Staff Credential' : 'Register New Personnel Member'}
       subtitle={editing ? 'Modify personnel profile details and assignments' : 'Fill out official personnel profile credentials for PGSL ERP'}
-      width="560px" footer={footer}>
+      width="680px" footer={footer}>
       <form id="employee-form" onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {(formError || lookups.error) && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '10px 12px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.8rem' }}>

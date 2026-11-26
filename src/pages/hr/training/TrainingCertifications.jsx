@@ -30,30 +30,54 @@ const timeInput = { width: '100%', padding: '10px 14px', border: '1px solid #E2E
 
 function RowMenu({ options }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef(null);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => {
+      if (
+        menuRef.current && !menuRef.current.contains(e.target) &&
+        btnRef.current && !btnRef.current.contains(e.target)
+      ) setOpen(false);
+    };
+    const close = () => setOpen(false);
     document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('mousedown', h);
+      window.removeEventListener('scroll', close, true);
+    };
   }, []);
+
   if (!options?.length) return <div style={{ width: 24 }} />;
+
+  const toggle = (e) => {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, left: rect.right - 190 });
+    }
+    setOpen((v) => !v);
+  };
+
   return (
-    <div style={{ position: 'relative' }} ref={ref}>
-      <button onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="icon-btn"><FiMoreVertical size={18} /></button>
+    <>
+      <button ref={btnRef} onClick={toggle} className="icon-btn"><FiMoreVertical size={18} /></button>
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: '100%', zIndex: 50, backgroundColor: '#fff', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', borderRadius: 8, padding: 4, minWidth: 190 }}>
+        <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 1200, backgroundColor: '#fff', border: '1px solid #E2E8F0', boxShadow: '0 10px 25px rgba(0,0,0,0.12)', borderRadius: 8, padding: 4, minWidth: 190 }}>
           {options.map((opt) => {
             const Icon = opt.icon;
             return (
               <div key={opt.label} className="menu-item-hover" onClick={(e) => { e.stopPropagation(); opt.onClick(); setOpen(false); }}
-                style={{ padding: '8px 12px', fontSize: '0.8rem', color: opt.color || '#334155', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 4 }}>
+                style={{ padding: '8px 12px', fontSize: '0.875rem', color: opt.color || '#334155', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', borderRadius: 4 }}>
                 <Icon size={14} /> {opt.label}
               </div>
             );
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -121,7 +145,7 @@ function ScheduleDrawer({ editItem, onClose, onSave }) {
 
   return (
     <Drawer isOpen onClose={onClose} title={editing ? 'Edit Training' : 'Schedule Training'}
-      subtitle={editing ? 'Update the training schedule' : 'Schedule a training session and assign participants'} width="650px"
+      subtitle={editing ? 'Update the training schedule' : 'Schedule a training session and assign participants'} width="680px"
       footer={
         <>
           <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1, padding: '9px 16px' }}>Cancel</button>
@@ -218,7 +242,7 @@ function CancelModal({ training, onClose, onConfirm }) {
 function FilterDrawer({ onClose, value, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen onClose={onClose} title="Filter training" width="380px"
+    <Drawer isOpen onClose={onClose} title="Filter training" width="680px"
       footer={
         <>
           <button onClick={() => { onApply(''); onClose(); }} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Clear</button>

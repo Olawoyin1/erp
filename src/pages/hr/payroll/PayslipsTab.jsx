@@ -71,7 +71,7 @@ function CreatePayslipDrawer({ onClose, onSaved, showToast }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title="Create Payslip" subtitle="Generate a single payslip outside a payroll run" width="460px"
+    <Drawer isOpen onClose={onClose} title="Create Payslip" subtitle="Generate a single payslip outside a payroll run" width="680px"
       footer={
         <>
           <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1 }}>Cancel</button>
@@ -231,7 +231,7 @@ export default function PayslipsTab({ showToast }) {
       {list.meta?.totalPages > 1 && <Pagination currentPage={list.page} totalPages={list.meta.totalPages} onPageChange={list.setPage} />}
       {createOpen && <CreatePayslipDrawer showToast={showToast} onClose={() => setCreateOpen(false)} onSaved={() => { setCreateOpen(false); list.reload(); }} />}
       {filterOpen && (
-        <Drawer isOpen onClose={() => setFilterOpen(false)} title="Filter payslips" width="360px"
+        <Drawer isOpen onClose={() => setFilterOpen(false)} title="Filter payslips" width="680px"
           footer={<button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { list.setFilters({ periodMonth: '', periodYear: '' }); setFilterOpen(false); }}>Clear filters</button>}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <FormField label="Month"><Select value={list.filters.periodMonth} onChange={(e) => list.setFilters({ ...list.filters, periodMonth: e.target.value })} options={[{ value: '', label: 'Any month' }, ...MONTHS.map((m, i) => ({ value: String(i + 1), label: m }))]} /></FormField>

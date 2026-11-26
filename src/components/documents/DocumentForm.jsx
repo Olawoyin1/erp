@@ -153,7 +153,7 @@ function FormPanel({ mode, doc, module, config, onClose, onSaved, notify }) {
   );
 
   return (
-    <Drawer isOpen onClose={saving ? undefined : onClose} title={title} subtitle={subtitle} width="520px" footer={footer}>
+    <Drawer isOpen onClose={saving ? undefined : onClose} title={title} subtitle={subtitle} width="680px" footer={footer}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <FormField label={plain ? 'DOCUMENT NAME' : 'DOCUMENT TITLE'} required error={errors.title}>
           <Input value={form.title} onChange={(e) => set('title', e.target.value)} placeholder={config.titlePlaceholder} maxLength={200} disabled={lockedMeta} error={!!errors.title} />

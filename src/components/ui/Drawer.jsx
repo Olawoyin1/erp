@@ -12,7 +12,7 @@ export default function Drawer({
   subtitle,
   children,
   footer,
-  width = '520px',
+  width = '680px',
 }) {
   useEffect(() => {
     const handleKeyDown = (e) => {

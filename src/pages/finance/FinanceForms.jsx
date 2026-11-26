@@ -89,7 +89,7 @@ function FormModal({ form: record, canSubmit, requesterName, onClose, onSaved })
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? `Edit Form ${record.formId}` : 'Add Finance Form'} subtitle="Create a finance request that needs approval" width="700px"
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Form ${record.formId}` : 'Add Finance Form'} subtitle="Create a finance request that needs approval" width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

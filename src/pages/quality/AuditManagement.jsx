@@ -123,7 +123,7 @@ function AuditFormModal({ record, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Audit' : 'Schedule Audit'}
       subtitle={editing ? undefined : 'Create an audit schedule and assign the responsible auditor'}
-      width="660px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -212,7 +212,7 @@ function UploadReportModal({ audit, onClose, onSaved }) {
       onClose={onClose}
       title="Upload Audit Report"
       subtitle="The findings document for a completed audit"
-      width="500px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -264,7 +264,7 @@ function RescheduleModal({ audit, onClose, onSaved }) {
       onClose={onClose}
       title="Reschedule Audit"
       subtitle="Choose new dates for the overdue audit"
-      width="500px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -292,7 +292,7 @@ function ViewAuditModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(qualityAuditService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Drawer isOpen onClose={onClose} title="" width="660px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading audit…</div>}
       {error && <FormError message={error} />}
       {record && (

@@ -281,7 +281,7 @@ export default function CompanyFleet() {
       </div>
 
       {/* Add Vehicle Drawer */}
-      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Vehicle" subtitle="Add a vehicle to the company fleet register" width="620px"
+      <Drawer isOpen={addModal} onClose={() => setAddModal(false)} title="Register New Vehicle" subtitle="Add a vehicle to the company fleet register" width="680px"
         footer={
           <>
             <button className="btn btn-secondary" style={{ padding: '8px 16px' }} onClick={() => setAddModal(false)}>Cancel</button>

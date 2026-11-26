@@ -68,7 +68,7 @@ export default function LogAttendanceDrawer({ locations, onClose, onSubmit }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title="Log Attendance" subtitle="Manually record attendance for an employee" width="520px"
+    <Drawer isOpen onClose={onClose} title="Log Attendance" subtitle="Manually record attendance for an employee" width="680px"
       footer={
         <>
           <button onClick={onClose} className="btn btn-secondary" style={{ padding: '8px 20px' }}>Cancel</button>

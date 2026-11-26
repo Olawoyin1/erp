@@ -77,7 +77,7 @@ function ClientFormModal({ client, officers, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Client' : 'Add New Client'}
       subtitle={editing ? undefined : 'Register a client to track interactions and opportunities'}
-      width="640px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -127,7 +127,7 @@ function ClientDrawer({ clientId, refreshKey, canEdit, canArchive, canOpportunit
   const { record: client, error, loading } = useRecord(clientService, clientId, refreshKey);
   const canAddNote = usePermission('businessdev.client.update');
   return (
-    <Drawer isOpen onClose={onClose} title={client?.clientName || 'Client'} subtitle={client ? `${client.sector || '—'} • ${client.bdOfficerName || '—'}` : ''} width="720px">
+    <Drawer isOpen onClose={onClose} title={client?.clientName || 'Client'} subtitle={client ? `${client.sector || '—'} • ${client.bdOfficerName || '—'}` : ''} width="680px">
       <DataState loading={loading} error={error} empty={!client}>
         {client && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

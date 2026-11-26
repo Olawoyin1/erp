@@ -127,7 +127,7 @@ function TaskFormModal({ project, task, onClose, onSaved }) {
       isOpen
       onClose={onClose}
       title={editing ? 'Edit Task' : 'Assign Task'}
-      width="580px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

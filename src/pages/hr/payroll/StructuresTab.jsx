@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { FiPlus, FiEye, FiEdit2, FiCopy, FiX, FiCheck, FiDownload, FiUpload, FiFilter } from 'react-icons/fi';
 import DataTable from '../../../components/ui/DataTable';
 import Pagination from '../../../components/ui/Pagination';
-import Modal from '../../../components/ui/Modal';
 import Drawer from '../../../components/ui/Drawer';
 import { FormField, Input, Select } from '../../../components/ui/FormField';
 import { payrollService } from '../../../services/hr.service';
@@ -62,7 +61,18 @@ function StructureModal({ editItem, levels, onClose, onSaved, showToast }) {
   };
 
   return (
-    <Modal isOpen onClose={onClose} title={editing ? 'Edit Salary Definition' : 'Create Salary Definition'} maxWidth="680px">
+    <Drawer
+      isOpen
+      onClose={onClose}
+      title={editing ? 'Edit Salary Definition' : 'Create Salary Definition'}
+      width="680px"
+      footer={(
+        <>
+          <button className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+          <button onClick={submit} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving…' : editing ? 'Save Changes' : 'Save Salary Structure'}</button>
+        </>
+      )}
+    >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         <FormBanner message={formError} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -79,12 +89,8 @@ function StructureModal({ editItem, levels, onClose, onSaved, showToast }) {
             </FormField>
           ))}
         </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button onClick={submit} disabled={saving} style={{ ...primaryBtn, opacity: saving ? 0.7 : 1 }}>{saving ? 'Saving…' : editing ? 'Save Changes' : 'Save Salary Structure'}</button>
-        </div>
       </div>
-    </Modal>
+    </Drawer>
   );
 }
 
@@ -94,7 +100,7 @@ function StructureDrawer({ item, onClose }) {
     ['Utility allowance', item.utilityAllowance], ['Communication allowance', item.communicationAllowance], ['Other allowances', item.otherAllowances],
   ];
   return (
-    <Drawer isOpen onClose={onClose} title={item.jobTitle} subtitle={`${item.structureId} • Level ${item.level}`} width="620px">
+    <Drawer isOpen onClose={onClose} title={item.jobTitle} subtitle={`${item.structureId} • Level ${item.level}`} width="680px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#64748B' }}>Status: <StatusPill status={item.status} /></div>
         <div style={{ border: '1px solid #E2E8F0', borderRadius: 8 }}>
@@ -222,7 +228,7 @@ export default function StructuresTab({ showToast }) {
       )}
       {viewItem && <StructureDrawer item={viewItem} onClose={() => setViewItem(null)} />}
       {filterOpen && (
-        <Drawer isOpen onClose={() => setFilterOpen(false)} title="Filter salary structures" width="360px">
+        <Drawer isOpen onClose={() => setFilterOpen(false)} title="Filter salary structures" width="680px">
           <FormField label="Status">
             <Select value={list.filters.status} onChange={(e) => { list.setFilters({ ...list.filters, status: e.target.value }); setFilterOpen(false); }}
               options={[{ value: '', label: 'All statuses' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />

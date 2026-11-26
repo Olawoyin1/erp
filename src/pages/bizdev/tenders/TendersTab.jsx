@@ -94,7 +94,7 @@ function TenderFormModal({ tender, clients, officers, onClose, onSaved }) {
       isOpen
       onClose={onClose}
       title={editing ? `Edit Tender (${tender.tenderId})` : 'Add New Tender'}
-      width="660px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -167,7 +167,7 @@ function ConvertToProjectModal({ tender, onClose, onDone }) {
       onClose={onClose}
       title="Convert Tender to Project"
       subtitle={`${tender.tenderId} • ${tender.clientName || ''}. The client, value and tender link are carried over.`}
-      width="580px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -197,7 +197,7 @@ function TenderDrawer({ tenderId, refreshKey, perms, onClose, onEdit, onDecide, 
   const [tab, setTab] = useState('overview');
   const { record: t, error, loading } = useRecord(tenderService, tenderId, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title={t?.tenderName || 'Tender'} subtitle={t ? `${t.clientName || '—'} • ${t.tenderId}` : ''} width="620px">
+    <Drawer isOpen onClose={onClose} title={t?.tenderName || 'Tender'} subtitle={t ? `${t.clientName || '—'} • ${t.tenderId}` : ''} width="680px">
       <DataState loading={loading} error={error} empty={!t}>
         {t && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

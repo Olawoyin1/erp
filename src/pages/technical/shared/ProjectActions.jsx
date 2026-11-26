@@ -42,7 +42,7 @@ function TimelineModal({ project, onClose, onDone }) {
       onClose={onClose}
       title="Update Timeline"
       subtitle="Moving the completion date later marks the project Delayed."
-      width="480px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -95,7 +95,7 @@ function ShareModal({ project, onClose, onDone }) {
       onClose={onClose}
       title="Share Progress"
       subtitle="Email the current progress summary to the client."
-      width="480px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

@@ -127,7 +127,7 @@ export default function ProjectFormDrawer({ project, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Project' : 'Add New Project'}
       subtitle={editing ? 'Update the delivery information of this project' : 'Create a new technical project and assign the key delivery information'}
-      width="560px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

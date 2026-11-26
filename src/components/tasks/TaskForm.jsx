@@ -316,7 +316,7 @@ function TaskFormPanel({ mode, task, module, config, onClose, onSaved, notify })
 
   if (config.formStyle === 'drawer') {
     return (
-      <Drawer isOpen onClose={onClose} title={titleText} subtitle={config.formSubtitle} width="500px" footer={footer}>
+      <Drawer isOpen onClose={onClose} title={titleText} subtitle={config.formSubtitle} width="680px" footer={footer}>
         {body}
       </Drawer>
     );

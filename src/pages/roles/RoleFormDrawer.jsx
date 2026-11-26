@@ -101,7 +101,7 @@ export default function RoleFormDrawer({ role, catalogue, departmentNames, ownRo
       onClose={onClose}
       title={isEditing ? 'Edit Role' : 'Add Role'}
       subtitle={isEditing ? 'Update role details and module permissions.' : 'Define a new role and set exactly what it can see and do across the ERP'}
-      width="560px"
+      width="680px"
       footer={footer}
     >
       <form id="role-form" onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

@@ -83,7 +83,7 @@ function ItemFormModal({ item, lookups, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Inventory Item' : 'Add Inventory Item'}
       subtitle={editing ? 'The warehouse and stock level are changed through movements, receipts and stock adjustments.' : 'The same item code can exist once per warehouse.'}
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -180,7 +180,7 @@ function AdjustmentModal({ item, onClose, onSaved }) {
       onClose={onClose}
       title="Stock Adjustment"
       subtitle={`Update the available stock for ${item.itemCode}`}
-      width="560px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -215,7 +215,7 @@ function ViewItemModal({ id, refreshKey, canUpdate, onAdjust, onEdit, onClose })
   const { record, error, loading } = useRecord(inventoryItemService, id, refreshKey);
   const history = useFetched(() => inventoryItemService.history(id), tab === 'history' ? `${id}:${refreshKey}` : null);
   return (
-    <Drawer isOpen onClose={onClose} title="Inventory Item" subtitle="Stock information and movement history" width="780px">
+    <Drawer isOpen onClose={onClose} title="Inventory Item" subtitle="Stock information and movement history" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading item…</div>}
       {error && <FormError message={error} />}
       {record && (

@@ -148,7 +148,7 @@ function NewRequestModal({ me, employees, departments, moduleName, onClose, onSa
       onClose={onClose}
       title="New Request"
       subtitle="Submit a request for review and approval"
-      width="560px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -310,12 +310,7 @@ function ViewRequestDrawer({ id, refreshKey, onClose, canApproveNow, ownRequest,
                     <FiCheck size={14} /> Approve
                   </button>
                 )}
-                {record.status === 'pending' && !ownRequest(record) && (
-                  <button onClick={() => onReject(record)} disabled={busy}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#FEE2E2', color: '#DC2626', borderRadius: 6, border: '1px solid #FECACA', cursor: busy ? 'not-allowed' : 'pointer' }}>
-                    <FiX size={14} /> Reject
-                  </button>
-                )}
+                {/* Reject button removed — rejection is not part of the approval workflow */}
                 {canUpload(record) && (
                   <button onClick={() => onCancel(record)} disabled={busy}
                     style={{ padding: '6px 12px', fontSize: '0.85rem', backgroundColor: '#fff', color: '#64748B', borderRadius: 6, border: '1px solid #E2E8F0', cursor: 'pointer' }}>
@@ -497,7 +492,7 @@ export default function AdministrativeRequests({ module: moduleName = '' }) {
       items.push({ label: 'Approve Request', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => open('approve', row) });
     }
     if (canApproveNow(row) && !ownRequest(row)) {
-      items.push({ label: 'Reject Request', icon: <FiX size={14} color="#DC2626" />, color: '#DC2626', action: () => open('reject', row) });
+      // items.push({ label: 'Reject Request', icon: <FiX size={14} color="#DC2626" />, color: '#DC2626', action: () => open('reject', row) }); // reject removed from workflow
     }
     if (row.status === 'approved' && canDecide) {
       items.push({ label: 'Mark as Issued', icon: <FiPackage size={14} color="#2563EB" />, action: () => open('complete', row) });
@@ -539,9 +534,7 @@ export default function AdministrativeRequests({ module: moduleName = '' }) {
       {canApproveNow(record) && !ownRequest(record) && (
         <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => open('approve', record)}>Approve</PrimaryButton>
       )}
-      {canApproveNow(record) && !ownRequest(record) && (
-        <SecondaryButton danger icon={<FiX size={14} />} onClick={() => open('reject', record)}>Reject</SecondaryButton>
-      )}
+      {/* Reject button removed — rejection is not part of the approval workflow */}
       {record.status === 'approved' && canDecide && (
         <PrimaryButton icon={<FiPackage size={14} />} onClick={() => open('complete', record)}>Mark as Issued</PrimaryButton>
       )}

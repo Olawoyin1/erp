@@ -391,7 +391,7 @@ export function FilterDrawer({ isOpen, onClose, title, subtitle, fields, values,
       onClose={onClose}
       title={title}
       subtitle={subtitle}
-      width="420px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton style={{ flex: 1 }} onClick={() => { onApply(empty); onClose(); }}>Reset</SecondaryButton>

@@ -92,7 +92,7 @@ function AccountFormModal({ account, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? 'Edit Account' : 'Create Account'} subtitle="Create and manage general ledger accounts" width="600px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton><PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Create Account'}</PrimaryButton></>}>
+    <Drawer isOpen onClose={onClose} title={editing ? 'Edit Account' : 'Create Account'} subtitle="Create and manage general ledger accounts" width="680px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton><PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Create Account'}</PrimaryButton></>}>
       <FormBody onSubmit={submit}>
         <TwoCol>
           <Field label="Account code" required error={errors.accountCode} help={editing ? 'The code cannot be changed after creation.' : undefined}>
@@ -442,7 +442,7 @@ function JournalFormModal({ entry, canSubmit, onClose, onSaved }) {
   );
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? `Edit Journal Entry ${entry.journalId}` : 'New Journal Entry'} subtitle="Create a new journal entry for the general ledger" width="760px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>{editing ? (<PrimaryButton onClick={() => save(false)} disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>) : (<><SecondaryButton onClick={() => save(false)} disabled={busy}>Save Draft</SecondaryButton>{canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Journal Entry'}</PrimaryButton>}</>)}</>}>
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Journal Entry ${entry.journalId}` : 'New Journal Entry'} subtitle="Create a new journal entry for the general ledger" width="680px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>{editing ? (<PrimaryButton onClick={() => save(false)} disabled={busy}>{busy ? 'Saving…' : 'Save Changes'}</PrimaryButton>) : (<><SecondaryButton onClick={() => save(false)} disabled={busy}>Save Draft</SecondaryButton>{canSubmit && <PrimaryButton onClick={() => save(true)} disabled={busy}>{busy ? 'Saving…' : 'Create Journal Entry'}</PrimaryButton>}</>)}</>}>
       <FormBody onSubmit={(e) => { e.preventDefault(); save(false); }}>
         <TwoCol>
           <Field label="Journal date" required error={errors.journalDate}><DatePicker value={form.journalDate} onChange={(e) => set('journalDate', e.target.value)} error={Boolean(errors.journalDate)} /></Field>
@@ -580,7 +580,7 @@ function JournalDrawer({ entryId, perms, myId, refreshKey, onClose, onAction }) 
   const lines = entry ? entryLinesOf(entry) : [];
 
   return (
-    <Drawer isOpen onClose={onClose} title={entry ? entry.journalId : 'Journal entry'} subtitle={entry ? `${personName(entry.createdBy)} · ${formatDate(entry.journalDate)}` : undefined} width="580px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
+    <Drawer isOpen onClose={onClose} title={entry ? entry.journalId : 'Journal entry'} subtitle={entry ? `${personName(entry.createdBy)} · ${formatDate(entry.journalDate)}` : undefined} width="680px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
       <DataState loading={loading} error={error} empty={!loading && !error && !entry}>
         {entry && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

@@ -89,7 +89,7 @@ function FilterDrawer({ isOpen, onClose, value, onApply, departments, roles }) {
   );
 
   return (
-    <Drawer isOpen={isOpen} onClose={onClose} title="Filter Users" subtitle="Narrow the list by status, department or role" width="420px" footer={footer}>
+    <Drawer isOpen={isOpen} onClose={onClose} title="Filter Users" subtitle="Narrow the list by status, department or role" width="680px" footer={footer}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <FormField label="Status">
           <Select value={draft.status || ''} onChange={(e) => set('status', e.target.value)} options={STATUS_OPTIONS} />

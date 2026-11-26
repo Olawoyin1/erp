@@ -114,7 +114,7 @@ function ProgressRing({ percent = 0, size = 44, stroke = 4 }) {
 function FilterDrawer({ onClose, value, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen onClose={onClose} title="Filter onboarding" width="380px"
+    <Drawer isOpen onClose={onClose} title="Filter onboarding" width="680px"
       footer={
         <>
           <button onClick={() => { onApply(''); onClose(); }} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Clear</button>

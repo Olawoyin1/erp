@@ -83,7 +83,7 @@ export default function ConvertCandidateDrawer({ candidate, onClose, onConvert }
   const supervisor = posting?.hiringSupervisorId;
 
   return (
-    <Drawer isOpen onClose={onClose} title="Convert to Employee" subtitle={`${candidate.fullName} (${candidate.candidateId})`} width="520px"
+    <Drawer isOpen onClose={onClose} title="Convert to Employee" subtitle={`${candidate.fullName} (${candidate.candidateId})`} width="680px"
       footer={
         <>
           <button onClick={onClose} style={btnCancel}>Cancel</button>

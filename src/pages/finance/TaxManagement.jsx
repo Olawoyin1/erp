@@ -164,7 +164,7 @@ function PaymentModal({ record, canAttach, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title="Record Payment" subtitle="Record payment for this tax obligation" width="640px"
+    <Drawer isOpen onClose={onClose} title="Record Payment" subtitle="Record payment for this tax obligation" width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

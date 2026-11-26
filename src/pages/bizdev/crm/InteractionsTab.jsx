@@ -91,7 +91,7 @@ function InteractionFormModal({ interaction, parent, clients, officers, defaultC
       onClose={onClose}
       title={title}
       subtitle={followUp ? 'Schedule a follow-up interaction linked to the previous engagement' : editing ? undefined : 'Log a client interaction to track engagement and follow-ups'}
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -156,7 +156,7 @@ function InteractionDrawer({ interactionId, refreshKey, canEdit, canFollowUp, ca
   const [tab, setTab] = useState('details');
   const { record: i, error, loading } = useRecord(interactionService, interactionId, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title={i?.clientName || 'Interaction'} subtitle={i ? `${i.clientSector || '—'} • ${i.bdOfficerName || '—'}` : ''} width="720px">
+    <Drawer isOpen onClose={onClose} title={i?.clientName || 'Interaction'} subtitle={i ? `${i.clientSector || '—'} • ${i.bdOfficerName || '—'}` : ''} width="680px">
       <DataState loading={loading} error={error} empty={!i}>
         {i && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

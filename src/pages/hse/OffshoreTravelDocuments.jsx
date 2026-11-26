@@ -105,7 +105,7 @@ function DocumentFormModal({ record, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Offshore Travel Document' : 'Add Offshore Travel Document'}
       subtitle="Upload and submit offshore travel document for HSE verification"
-      width="660px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -188,7 +188,7 @@ function RenewModal({ record, onClose, onSaved }) {
       onClose={onClose}
       title="Renew Certificate"
       subtitle="The renewed certificate goes back to HSE for verification"
-      width="540px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -222,7 +222,7 @@ function ViewDocumentModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(offshoreTravelService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Drawer isOpen onClose={onClose} title="" width="660px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading document…</div>}
       {error && <FormError message={error} />}
       {record && (

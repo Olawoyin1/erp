@@ -126,7 +126,7 @@ function AssetFormModal({ record, lookups, me, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Asset' : 'Register New Asset'}
       subtitle={editing ? undefined : 'Capture a new fixed asset in the register.'}
-      width="720px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -254,7 +254,7 @@ function TransferModal({ asset, lookups, onClose, onSaved }) {
       onClose={onClose}
       title="Transfer Asset"
       subtitle={`${asset.assetTag} · ${asset.assetName}`}
-      width="640px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -336,7 +336,7 @@ function ViewAssetModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(assetService, id, refreshKey);
   const [tab, setTab] = useState('specs');
   return (
-    <Drawer isOpen onClose={onClose} title="Asset Details" width="760px">
+    <Drawer isOpen onClose={onClose} title="Asset Details" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading asset…</div>}
       {error && <FormError message={error} />}
       {record && (

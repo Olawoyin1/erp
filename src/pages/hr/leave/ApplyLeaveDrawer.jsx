@@ -108,7 +108,7 @@ export default function ApplyLeaveDrawer({ ownEmployeeId, canActOnBehalf, leaveT
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title="Apply for Leave" subtitle="Submit a new leave application" width="540px"
+    <Drawer isOpen onClose={onClose} title="Apply for Leave" subtitle="Submit a new leave application" width="680px"
       footer={
         <>
           <button onClick={onClose} className="btn btn-secondary" style={{ padding: '9px 18px' }}>Cancel</button>

@@ -71,7 +71,7 @@ function ViewerPanel({ docId, config, actions, userId, onAction, onClose, notify
       onClose={onClose}
       title={doc?.title || 'Document'}
       subtitle={doc ? `${doc.category || '—'} • ${doc.version || 'V1.0'}` : ''}
-      width="560px"
+      width="680px"
     >
       {error ? (
         <div style={{ padding: 16, borderRadius: 8, backgroundColor: '#FEF2F2', color: '#991B1B', fontSize: '0.85rem' }}>{error}</div>

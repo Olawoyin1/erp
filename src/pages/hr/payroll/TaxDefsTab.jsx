@@ -64,7 +64,7 @@ function TaxDrawer({ editItem, onClose, onSaved, showToast }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? 'Edit Tax Definition' : 'Create Tax Definition'} width="560px"
+    <Drawer isOpen onClose={onClose} title={editing ? 'Edit Tax Definition' : 'Create Tax Definition'} width="680px"
       footer={
         <>
           <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1 }}>Cancel</button>
@@ -183,7 +183,7 @@ export default function TaxDefsTab({ showToast }) {
       )}
       {drawer && <TaxDrawer editItem={drawer.item} showToast={showToast} onClose={() => setDrawer(null)} onSaved={() => { setDrawer(null); reload(); }} />}
       {filterOpen && (
-        <Drawer isOpen onClose={() => setFilterOpen(false)} title="Filter tax definitions" width="360px">
+        <Drawer isOpen onClose={() => setFilterOpen(false)} title="Filter tax definitions" width="680px">
           <FormField label="Status">
             <Select value={status} onChange={(e) => { setStatus(e.target.value); setFilterOpen(false); }}
               options={[{ value: '', label: 'All statuses' }, { value: 'active', label: 'Active' }, { value: 'inactive', label: 'Inactive' }]} />

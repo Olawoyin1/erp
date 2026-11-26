@@ -107,7 +107,7 @@ function RecordDetailModal({ record, canApprove, ownRecord, onClose, onApproveOv
 function FilterDrawer({ onClose, value, locations, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen onClose={onClose} title="Filter attendance" width="380px"
+    <Drawer isOpen onClose={onClose} title="Filter attendance" width="680px"
       footer={
         <>
           <button onClick={() => { onApply({ status: '', locationId: '' }); onClose(); }} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Clear</button>

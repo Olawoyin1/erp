@@ -31,7 +31,7 @@ const STATUS_FILTERS = [
 function FilterDrawer({ onClose, value, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen onClose={onClose} title="Filter job postings" width="380px"
+    <Drawer isOpen onClose={onClose} title="Filter job postings" width="680px"
       footer={
         <>
           <button onClick={() => { onApply(''); onClose(); }} style={{ ...btnCancel, border: 'none' }}>Clear</button>
@@ -63,7 +63,7 @@ function ViewJobDrawer({ job, onClose, onEdit, onPause, onResume, onCloseJob, ca
   ) : null;
 
   return (
-    <Drawer isOpen onClose={onClose} title="Job Details" subtitle={job.jobId} footer={footer} width="640px">
+    <Drawer isOpen onClose={onClose} title="Job Details" subtitle={job.jobId} footer={footer} width="680px">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>Status:</span>
         <StatusPill status={job.status} styles={JOB_STATUS_STYLES} />
@@ -167,7 +167,7 @@ function JobOpeningDrawer({ onClose, onSave, editJob, lookups }) {
   const typeOptions = lookups.employmentTypes.includes(form.employmentType) ? lookups.employmentTypes : [form.employmentType, ...lookups.employmentTypes];
 
   return (
-    <Drawer isOpen onClose={onClose} title={isEdit ? 'Edit Job Opening' : 'Create Job Opening'} subtitle="Set position details, requirements, and closing date" width="560px"
+    <Drawer isOpen onClose={onClose} title={isEdit ? 'Edit Job Opening' : 'Create Job Opening'} subtitle="Set position details, requirements, and closing date" width="680px"
       footer={
         <>
           <button onClick={onClose} style={btnCancel}>Cancel</button>

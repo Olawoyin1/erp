@@ -55,7 +55,7 @@ export default function MyPayslipsTab({ showToast }) {
     <>
       <DataTable columns={columns} data={state.items} keyField="_id" emptyMessage="You have no payslips yet. They appear once a payroll run covering you is generated." />
       {viewItem && (
-        <Drawer isOpen onClose={() => setViewItem(null)} title={`Payslip ${periodLabel(viewItem.periodMonth, viewItem.periodYear)}`} subtitle={viewItem.payslipId} width="760px">
+        <Drawer isOpen onClose={() => setViewItem(null)} title={`Payslip ${periodLabel(viewItem.periodMonth, viewItem.periodYear)}`} subtitle={viewItem.payslipId} width="680px">
           <PayslipDocument payslip={viewItem} />
         </Drawer>
       )}

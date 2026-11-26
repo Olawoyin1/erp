@@ -87,7 +87,7 @@ function UploadPlanModal({ onClose, onSaved }) {
       onClose={onClose}
       title="Upload Plan"
       subtitle="Upload an emergency response plan for employee access and operational readiness"
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -168,7 +168,7 @@ function ReplacePlanModal({ plan, onClose, onSaved }) {
       onClose={onClose}
       title="Replace Plan"
       subtitle="Upload a newer version of this emergency plan"
-      width="580px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -198,7 +198,7 @@ function ReplacePlanModal({ plan, onClose, onSaved }) {
 function ViewPlanDrawer({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(emergencyPlanService, id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title={record ? record.planName : 'Emergency Plan'} subtitle={record?.planId} width="520px">
+    <Drawer isOpen onClose={onClose} title={record ? record.planName : 'Emergency Plan'} subtitle={record?.planId} width="680px">
       {loading && <div style={{ color: '#64748B' }}>Loading plan…</div>}
       {error && <FormError message={error} />}
       {record && (

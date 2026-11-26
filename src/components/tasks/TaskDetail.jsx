@@ -151,7 +151,7 @@ function TaskDetailPanel({ taskId, config, onClose, onEdit, onStatusChange, noti
   if (config.viewStyle === 'modal') {
     return <Modal isOpen onClose={onClose} maxWidth="640px">{content}</Modal>;
   }
-  return <Drawer isOpen onClose={onClose} title="Task Details" subtitle={task?.taskNo} width="560px">{content}</Drawer>;
+  return <Drawer isOpen onClose={onClose} title="Task Details" subtitle={task?.taskNo} width="680px">{content}</Drawer>;
 }
 
 export default function TaskDetail({ taskId, ...rest }) {

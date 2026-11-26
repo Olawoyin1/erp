@@ -125,7 +125,7 @@ function ActivityFormDrawer({ projectId, activity, parent, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? `Edit ${noun}` : `Add ${noun}`}
       subtitle={sub && !editing ? 'Create a child activity under the selected work package' : !editing ? 'Create a new work package, activity, or milestone for this project' : undefined}
-      width="520px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

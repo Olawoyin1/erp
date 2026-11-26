@@ -102,7 +102,7 @@ function RejectModal({ run, onClose, onConfirm }) {
     if (message) setError(message);
   };
   return (
-    <Modal isOpen onClose={onClose} title="Reject Payroll Run" maxWidth="460px">
+    <Modal isOpen onClose={onClose} title="Reject Payroll Run" maxwidth="680px">
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <p style={{ margin: 0, fontSize: '0.88rem', color: '#334155' }}>Reject <strong>{run.name}</strong> ({run.runId})? Its payslips are released so the period can be generated again.</p>
         <FormField label="Reason (optional)" error={error}><Textarea rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Department budget not yet confirmed for this period" /></FormField>
@@ -284,7 +284,7 @@ export default function RunsTab({ showToast, onChanged }) {
       {viewId && <RunDrawer id={viewId} access={access} busy={busy} onClose={() => setViewId(null)} onApprove={approve} onReject={(r) => { setViewId(null); setRejectTarget(r); }} />}
       {rejectTarget && <RejectModal run={rejectTarget} onClose={() => setRejectTarget(null)} onConfirm={reject} />}
       {filterOpen && (
-        <Drawer isOpen onClose={() => setFilterOpen(false)} title="Filter payroll runs" width="360px"
+        <Drawer isOpen onClose={() => setFilterOpen(false)} title="Filter payroll runs" width="680px"
           footer={<button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { list.setFilters({ status: '', year: '' }); setFilterOpen(false); }}>Clear filters</button>}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <FormField label="Status"><Select value={list.filters.status} onChange={(e) => list.setFilters({ ...list.filters, status: e.target.value })} options={STATUS_FILTERS} /></FormField>

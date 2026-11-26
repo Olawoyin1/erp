@@ -103,7 +103,7 @@ function TimesheetFormModal({ projectId, record, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Timesheet' : 'Log Timesheet'}
       subtitle={editing ? undefined : 'Log your work hours for this project'}
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -149,7 +149,7 @@ function ViewTimesheetDrawer({ id, refreshKey, actions, canUpdate, onClose }) {
   const { record, error, loading } = useRecord(timesheetService, id, refreshKey);
   const trail = useFetched(() => timesheetService.history(id), id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="" width="700px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading timesheet…</div>}
       {error && <FormError message={error} />}
       {record && (

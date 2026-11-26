@@ -171,7 +171,7 @@ function ViewDisposalModal({ id, refreshKey, actions, canUpload, onClose }) {
   const { record, error, loading } = useRecord(disposalService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Drawer isOpen onClose={onClose} title="Disposal Details" width="720px">
+    <Drawer isOpen onClose={onClose} title="Disposal Details" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading disposal…</div>}
       {error && <FormError message={error} />}
       {record && (

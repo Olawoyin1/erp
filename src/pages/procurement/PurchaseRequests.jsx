@@ -129,7 +129,7 @@ function RequisitionFormModal({ record, lookups, myEmployeeId, onClose, onSaved 
       onClose={onClose}
       title={editing ? 'Edit Requisition' : 'New Requisition'}
       subtitle={editing ? 'Only a draft can be edited.' : 'Submit a new procurement request for review and approval'}
-      width="720px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -203,7 +203,7 @@ function RequisitionFormModal({ record, lookups, myEmployeeId, onClose, onSaved 
 function ViewRequisitionModal({ id, refreshKey, actions, canDecide, ownRequest, canUpload, onClose }) {
   const { record, error, loading } = useRecord(purchaseRequisitionService, id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="Requisition Details" subtitle="Purchase requisition record" width="760px">
+    <Drawer isOpen onClose={onClose} title="Requisition Details" subtitle="Purchase requisition record" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading requisition…</div>}
       {error && <FormError message={error} />}
       {record && (

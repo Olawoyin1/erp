@@ -39,7 +39,7 @@ function FilterDrawer({ onClose, value, onApply, departments }) {
     </>
   );
   return (
-    <Drawer isOpen onClose={onClose} title="Filter Roles" subtitle="Narrow the list by department" width="420px" footer={footer}>
+    <Drawer isOpen onClose={onClose} title="Filter Roles" subtitle="Narrow the list by department" width="680px" footer={footer}>
       <FormField label="Department">
         <Select
           value={department}

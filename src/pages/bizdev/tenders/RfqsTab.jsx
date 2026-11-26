@@ -168,7 +168,7 @@ function RfqDrawer({ rfqId, refreshKey, perms, onClose, onEdit, onAction }) {
   const { record: r, error, loading } = useRecord(rfqService, rfqId, refreshKey);
   const next = r ? nextStage(r.stage) : null;
   return (
-    <Drawer isOpen onClose={onClose} title={r?.rfqTitle || 'RFQ'} subtitle={r ? `${r.clientName || '—'} • ${r.rfqId}` : ''} width="620px">
+    <Drawer isOpen onClose={onClose} title={r?.rfqTitle || 'RFQ'} subtitle={r ? `${r.clientName || '—'} • ${r.rfqId}` : ''} width="680px">
       <DataState loading={loading} error={error} empty={!r}>
         {r && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

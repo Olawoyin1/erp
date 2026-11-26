@@ -65,7 +65,7 @@ function VersionDrawer({ source, onClose, onSaved, showToast }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title="New Statutory Configuration Version" subtitle="Every change creates a new version; history is never rewritten" width="640px"
+    <Drawer isOpen onClose={onClose} title="New Statutory Configuration Version" subtitle="Every change creates a new version; history is never rewritten" width="680px"
       footer={
         <>
           <button className="btn btn-secondary" onClick={onClose} style={{ flex: 1 }}>Cancel</button>

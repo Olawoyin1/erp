@@ -98,7 +98,7 @@ function OpportunityFormModal({ opportunity, clientId, clients, officers, onClos
       onClose={onClose}
       title={editing ? 'Edit Opportunity' : 'Add Opportunity'}
       subtitle={editing ? undefined : 'Create a new sales opportunity linked to a client'}
-      width="660px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -185,7 +185,7 @@ function CreateTenderModal({ opportunity, officers, onClose, onDone }) {
       isOpen
       onClose={onClose}
       title="Create Tender for this Opportunity"
-      width="660px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -227,7 +227,7 @@ function OpportunityDrawer({ opportunityId, refreshKey, perms, onClose, onAdvanc
   const { record: o, error, loading } = useRecord(opportunityService, opportunityId, refreshKey);
   const next = o ? nextStage(o.stage) : null;
   return (
-    <Drawer isOpen onClose={onClose} title={o?.clientName || 'Opportunity'} subtitle={o ? `${o.clientSector || '—'} • ${o.bdOfficerName || '—'}` : ''} width="720px">
+    <Drawer isOpen onClose={onClose} title={o?.clientName || 'Opportunity'} subtitle={o ? `${o.clientSector || '—'} • ${o.bdOfficerName || '—'}` : ''} width="680px">
       <DataState loading={loading} error={error} empty={!o}>
         {o && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

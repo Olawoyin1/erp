@@ -17,7 +17,7 @@ import { ITEM_EXPORT, MOVEMENT_EXPORT, RECEIPT_EXPORT } from './inventory/invent
 
 function HandoverNote({ onClose }) {
   return (
-    <Drawer isOpen onClose={onClose} title="QHSE Handover Info" subtitle="How goods receipts, inspections and inventory updates work" width="560px" footer={<PrimaryButton onClick={onClose}>Close</PrimaryButton>}>
+    <Drawer isOpen onClose={onClose} title="QHSE Handover Info" subtitle="How goods receipts, inspections and inventory updates work" width="680px" footer={<PrimaryButton onClick={onClose}>Close</PrimaryButton>}>
       <div style={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.6, display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div>
           <strong>Materials received and QHSE inspection</strong>

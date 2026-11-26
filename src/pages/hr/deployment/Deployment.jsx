@@ -110,7 +110,7 @@ function ViewDeploymentDrawer({ deployment, onClose, onEdit, onStatusChange, onD
   const dept = deployment.employeeId?.departmentId;
 
   return (
-    <Drawer isOpen onClose={onClose} title={fullName(deployment.employeeId)} subtitle={`${deployment.deploymentId} · ${siteName(deployment.siteId)}`} width="660px">
+    <Drawer isOpen onClose={onClose} title={fullName(deployment.employeeId)} subtitle={`${deployment.deploymentId} · ${siteName(deployment.siteId)}`} width="680px">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>Status:</span>
@@ -239,7 +239,7 @@ function DeployDrawer({ editDeployment, presetEmployeeId, lookups, onClose, onSa
 
   return (
     <Drawer isOpen onClose={onClose} title={isEdit ? 'Edit Deployment' : 'Deploy Employee for Project'}
-      subtitle={isEdit ? 'Update deployment record details' : 'Assign an employee to a project or site'} width="520px"
+      subtitle={isEdit ? 'Update deployment record details' : 'Assign an employee to a project or site'} width="680px"
       footer={
         <>
           <button onClick={onClose} className="btn btn-secondary" style={{ flex: 1, padding: '9px 16px' }}>Cancel</button>
@@ -312,7 +312,7 @@ function DeployDrawer({ editDeployment, presetEmployeeId, lookups, onClose, onSa
 function FilterDrawer({ onClose, value, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen onClose={onClose} title="Filter deployments" width="380px"
+    <Drawer isOpen onClose={onClose} title="Filter deployments" width="680px"
       footer={
         <>
           <button onClick={() => { onApply(''); onClose(); }} style={{ padding: '8px 16px', border: 'none', background: 'none', color: '#64748B', fontWeight: 500, cursor: 'pointer' }}>Clear</button>

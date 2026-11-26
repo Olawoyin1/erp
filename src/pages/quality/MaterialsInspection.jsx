@@ -90,7 +90,7 @@ function UpdateInspectionModal({ receipt, onClose, onSaved }) {
       onClose={onClose}
       title="Update Inspection Status"
       subtitle={`Current status: ${statusLabel(receipt.status)}`}
-      width="660px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -165,7 +165,7 @@ function ViewReceiptModal({ id, refreshKey, canUpdate, onUpdate, onClose }) {
   const { record, error, loading } = useRecord(qualityInspectionService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Drawer isOpen onClose={onClose} title="" width="660px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading goods receipt…</div>}
       {error && <FormError message={error} />}
       {record && (

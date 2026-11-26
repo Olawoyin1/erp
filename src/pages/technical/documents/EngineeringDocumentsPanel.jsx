@@ -108,7 +108,7 @@ function DocumentFormModal({ record, fixedProjectId, onClose, onSaved }) {
       onClose={onClose}
       title={replacing ? 'Replace Document' : 'Upload Engineering Document'}
       subtitle={replacing ? 'Upload a new version of this document' : 'Create or upload a project document'}
-      width="720px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -165,7 +165,7 @@ function ViewDocumentDrawer({ id, refreshKey, showProject, actions, onClose }) {
   const { record, error, loading } = useRecord(engineeringDocumentService, id, refreshKey);
   const trail = useFetched(() => engineeringDocumentService.history(id), id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="" width="720px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading document…</div>}
       {error && <FormError message={error} />}
       {record && (

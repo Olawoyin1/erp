@@ -112,7 +112,7 @@ function LogCalibrationModal({ instrument, onClose, onSaved }) {
       onClose={onClose}
       title="Schedule Calibration"
       subtitle="Record a completed calibration with its certificate"
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -227,7 +227,7 @@ function ViewInstrumentModal({ id, refreshKey, canLog, onLog, onClose }) {
   const { record, error, loading } = useRecord(qualityCalibrationService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Drawer isOpen onClose={onClose} title="" width="660px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading instrument…</div>}
       {error && <FormError message={error} />}
       {record && (

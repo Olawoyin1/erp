@@ -89,7 +89,7 @@ function ContactFormModal({ record, lookups, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Contact' : 'Add Contact'}
       subtitle={editing ? undefined : 'Add an emergency contact for quick access during incidents and emergency response'}
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -136,7 +136,7 @@ function ContactFormModal({ record, lookups, onClose, onSaved }) {
 function ViewContactDrawer({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(emergencyContactService, id, refreshKey);
   return (
-    <Drawer isOpen onClose={onClose} title="Emergency Contact" width="640px">
+    <Drawer isOpen onClose={onClose} title="Emergency Contact" width="680px">
       {loading && <div style={{ color: '#64748B' }}>Loading contact…</div>}
       {error && <FormError message={error} />}
       {record && (

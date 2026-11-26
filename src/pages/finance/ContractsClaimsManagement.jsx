@@ -121,7 +121,7 @@ function ContractFormModal({ contract, canSubmit, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? `Edit Contract ${contract.contractId}` : 'Create Contract'} subtitle="Create a new project contract" width="700px"
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Contract ${contract.contractId}` : 'Create Contract'} subtitle="Create a new project contract" width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -374,7 +374,7 @@ function VariationFormModal({ variation, canSubmit, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? `Edit Variation ${variation.variationId}` : 'Create Variation'} subtitle="Create a variation to update contract scope, cost, or schedule" width="700px"
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Variation ${variation.variationId}` : 'Create Variation'} subtitle="Create a variation to update contract scope, cost, or schedule" width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -606,7 +606,7 @@ function ClaimFormModal({ claim, canSubmit, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? `Edit Claim ${claim.claimId}` : 'Raise Claim'} subtitle="Raise a contract claim for additional cost, time, or scope adjustments" width="700px"
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Claim ${claim.claimId}` : 'Raise Claim'} subtitle="Raise a contract claim for additional cost, time, or scope adjustments" width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

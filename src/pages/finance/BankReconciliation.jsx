@@ -137,7 +137,7 @@ function StatementFormModal({ record, onClose, onSaved }) {
     <Drawer isOpen onClose={onClose}
       title={editing ? `Edit Statement ${record.reconciliationId}` : 'Import Bank Statement'}
       subtitle={editing ? 'Changing the account or period clears the matches made so far' : 'Import a bank statement to begin reconciliation'}
-      width="640px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

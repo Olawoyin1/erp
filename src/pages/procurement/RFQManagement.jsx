@@ -187,7 +187,7 @@ function ViewRfqModal({ id, refreshKey, tab, onTab, canDecide, canUpdate, canOrd
   const awardedId = record ? refId((record.vendorResponses || []).find((r) => r.awarded)?.vendorId) : '';
 
   return (
-    <Drawer isOpen onClose={onClose} title="RFQ / RFP Details" subtitle="Sourcing request, quotations and evaluation" width="780px">
+    <Drawer isOpen onClose={onClose} title="RFQ / RFP Details" subtitle="Sourcing request, quotations and evaluation" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading RFQ…</div>}
       {error && <FormError message={error} />}
       {record && (

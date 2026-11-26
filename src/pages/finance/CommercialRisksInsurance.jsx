@@ -90,7 +90,7 @@ function RiskFormModal({ risk, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? `Edit Risk ${risk.riskId}` : 'Log Risk'} subtitle="Record a commercial risk and its potential business impact" width="700px"
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Risk ${risk.riskId}` : 'Log Risk'} subtitle="Record a commercial risk and its potential business impact" width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -321,7 +321,7 @@ function PolicyFormModal({ policy, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? `Edit Policy / Bond ${policy.policyNo}` : 'Register Policy / Bond'} subtitle="Register a new insurance policy or performance bond" width="700px"
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Policy / Bond ${policy.policyNo}` : 'Register Policy / Bond'} subtitle="Register a new insurance policy or performance bond" width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -400,7 +400,7 @@ function RenewModal({ policy, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title="Renew Policy / Bond" subtitle="Extend this policy or bond; the same record keeps its history" width="640px"
+    <Drawer isOpen onClose={onClose} title="Renew Policy / Bond" subtitle="Extend this policy or bond; the same record keeps its history" width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>

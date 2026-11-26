@@ -62,7 +62,7 @@ function FilterDrawer({ onClose, value, departments, departmentsError, onApply }
   );
   return (
     <Drawer isOpen onClose={onClose} title="Filter Records"
-      subtitle="Refine employee directory view by status and department" width="420px" footer={footer}>
+      subtitle="Refine employee directory view by status and department" width="680px" footer={footer}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         <FormField label="Status">
           <Select value={draft.status} onChange={(e) => setDraft((d) => ({ ...d, status: e.target.value }))} options={STATUS_FILTERS} />

@@ -35,7 +35,7 @@ const STAGE_FILTERS = [
 function FilterDrawer({ onClose, value, onApply }) {
   const [draft, setDraft] = useState(value);
   return (
-    <Drawer isOpen onClose={onClose} title="Filter candidates" width="380px"
+    <Drawer isOpen onClose={onClose} title="Filter candidates" width="680px"
       footer={
         <>
           <button onClick={() => { onApply(''); onClose(); }} style={{ ...btnCancel, border: 'none' }}>Clear</button>
@@ -97,7 +97,7 @@ function AddCandidateDrawer({ onClose, onSave }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title="Add Candidate" subtitle="Record an applicant against an open job posting" width="520px"
+    <Drawer isOpen onClose={onClose} title="Add Candidate" subtitle="Record an applicant against an open job posting" width="680px"
       footer={
         <>
           <button onClick={onClose} style={btnCancel}>Cancel</button>
@@ -202,7 +202,7 @@ function ViewCandidateDrawer({ candidateId, listRow, onClose, perms, onAdvance, 
   ) : null;
 
   return (
-    <Drawer isOpen onClose={onClose} title={candidate.fullName} subtitle={candidate.candidateId} footer={footer} width="660px">
+    <Drawer isOpen onClose={onClose} title={candidate.fullName} subtitle={candidate.candidateId} footer={footer} width="680px">
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>Stage:</span>
         <StatusPill status={stage} styles={STAGE_STYLES} />

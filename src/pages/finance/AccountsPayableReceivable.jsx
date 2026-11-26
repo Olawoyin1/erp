@@ -126,7 +126,7 @@ function PayableFormModal({ payable, perms, onClose, onSaved }) {
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={editing ? `Edit Payable ${payable.payableId}` : 'Record Payable'} subtitle="Record a supplier invoice for payment processing" width="720px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton><PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Record Payable'}</PrimaryButton></>}>
+    <Drawer isOpen onClose={onClose} title={editing ? `Edit Payable ${payable.payableId}` : 'Record Payable'} subtitle="Record a supplier invoice for payment processing" width="680px" footer={<><SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton><PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : editing ? 'Save Changes' : 'Record Payable'}</PrimaryButton></>}>
       <FormBody onSubmit={submit}>
         {locked && <Note tone="amber">A payment has been made on this payable, so its amounts are locked.</Note>}
         {!editing && <Note>A second person must approve a new vendor invoice before it can be paid (you cannot approve your own).</Note>}
@@ -207,7 +207,7 @@ function PayableDrawer({ payableId, perms, myId, refreshKey, onClose, onAction }
   };
 
   return (
-    <Drawer isOpen onClose={onClose} title={p ? populatedName(p.vendor) : 'Payable'} subtitle={p?.payableId} width="700px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
+    <Drawer isOpen onClose={onClose} title={p ? populatedName(p.vendor) : 'Payable'} subtitle={p?.payableId} width="680px" footer={<SecondaryButton style={{ width: '100%', justifyContent: 'center' }} onClick={onClose}>Close</SecondaryButton>}>
       <DataState loading={loading} error={error} empty={!loading && !error && !p}>
         {p && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>

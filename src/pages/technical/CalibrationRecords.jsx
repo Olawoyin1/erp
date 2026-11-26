@@ -117,7 +117,7 @@ function InstrumentFormModal({ record, onClose, onSaved }) {
       onClose={onClose}
       title={editing ? 'Edit Calibration' : 'Schedule Calibration'}
       subtitle={editing ? undefined : 'Record calibration details for an instrument and upload its calibration certificate'}
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -214,7 +214,7 @@ function LogCalibrationModal({ record, onClose, onSaved }) {
       isOpen
       onClose={onClose}
       title={`Log Calibration — ${record.instrumentId} ${record.instrumentName}`}
-      width="540px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -297,7 +297,7 @@ function ViewInstrumentDrawer({ id, refreshKey, canUpdate, actions, onError, onL
   const { record, error, loading } = useRecord(calibrationRecordService, id, refreshKey);
   const latest = record?.latestCalibration;
   return (
-    <Drawer isOpen onClose={onClose} title="" width="620px">
+    <Drawer isOpen onClose={onClose} title="" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading instrument…</div>}
       {error && <FormError message={error} />}
       {record && (

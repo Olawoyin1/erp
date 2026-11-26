@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { FiPlus, FiEye, FiEdit, FiPlay, FiCheck, FiX, FiTool } from 'react-icons/fi';
+import { FiPlus, FiEye, FiEdit, FiCheck, FiX, FiTool } from 'react-icons/fi';
 import Drawer from '../../components/ui/Drawer';
 import RowMenu from '../../components/ui/RowMenu';
 import { DatePicker, Input, Textarea } from '../../components/ui/FormField';
@@ -107,7 +107,7 @@ function ScheduleFormModal({ record, onClose, onSaved }) {
       onClose={onClose}
       title="Schedule Maintenance"
       subtitle={editing ? 'Update the maintenance schedule details' : 'Schedule maintenance for review and execution'}
-      width="620px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
@@ -158,7 +158,7 @@ function ViewMaintenanceModal({ id, refreshKey, actions, onClose }) {
   const { record, error, loading } = useRecord(facilityMaintenanceService, id, refreshKey);
   const [tab, setTab] = useState('details');
   return (
-    <Drawer isOpen onClose={onClose} title="View Maintenance" width="620px">
+    <Drawer isOpen onClose={onClose} title="View Maintenance" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B' }}>Loading job…</div>}
       {error && <FormError message={error} />}
       {record && (
@@ -233,10 +233,9 @@ export default function FacilityMaintenance() {
   const menuItems = (row) => {
     const items = [];
     if (!canUpdate) return items;
-    if (row.status === 'scheduled' || row.status === 'overdue') items.push({ label: 'Edit Schedule', icon: <FiEdit size={14} color="#64748B" />, action: () => setFormFor(row) });
-    if (row.status === 'scheduled') items.push({ label: 'Start Work', icon: <FiPlay size={14} color="#2563EB" />, action: () => doAction('start', [row._id], 'Maintenance started') });
-    if (row.status === 'in_progress' || row.status === 'overdue') items.push({ label: 'Mark Complete', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => open('complete', row) });
-    if (row.status === 'scheduled' || row.status === 'overdue') items.push({ label: 'Cancel Schedule', icon: <FiX size={14} color="#DC2626" />, color: '#DC2626', action: () => open('cancel', row) });
+    if (row.status === 'scheduled' || row.status === 'in_progress' || row.status === 'overdue') items.push({ label: 'Edit Schedule', icon: <FiEdit size={14} color="#64748B" />, action: () => setFormFor(row) });
+    if (row.status === 'scheduled' || row.status === 'in_progress' || row.status === 'overdue') items.push({ label: 'Mark Complete', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => open('complete', row) });
+    if (row.status === 'scheduled' || row.status === 'in_progress' || row.status === 'overdue') items.push({ label: 'Cancel Schedule', icon: <FiX size={14} color="#DC2626" />, color: '#DC2626', action: () => open('cancel', row) });
     return items;
   };
 
@@ -268,10 +267,9 @@ export default function FacilityMaintenance() {
 
   const viewActions = (record) => (
     <>
-      {canUpdate && record.status === 'scheduled' && <PrimaryButton icon={<FiPlay size={14} />} onClick={() => doAction('start', [record._id], 'Maintenance started')}>Start Work</PrimaryButton>}
-      {canUpdate && (record.status === 'in_progress' || record.status === 'overdue') && <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => open('complete', record)}>Mark Complete</PrimaryButton>}
-      {canUpdate && (record.status === 'scheduled' || record.status === 'overdue') && <SecondaryButton icon={<FiEdit size={14} />} onClick={() => setFormFor(record)}>Edit Schedule</SecondaryButton>}
-      {canUpdate && (record.status === 'scheduled' || record.status === 'overdue') && <SecondaryButton danger icon={<FiX size={14} />} onClick={() => open('cancel', record)}>Cancel</SecondaryButton>}
+      {canUpdate && (record.status === 'scheduled' || record.status === 'in_progress' || record.status === 'overdue') && <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => open('complete', record)}>Mark Complete</PrimaryButton>}
+      {canUpdate && (record.status === 'scheduled' || record.status === 'in_progress' || record.status === 'overdue') && <SecondaryButton icon={<FiEdit size={14} />} onClick={() => setFormFor(record)}>Edit Schedule</SecondaryButton>}
+      {canUpdate && (record.status === 'scheduled' || record.status === 'in_progress' || record.status === 'overdue') && <SecondaryButton danger icon={<FiX size={14} />} onClick={() => open('cancel', record)}>Cancel</SecondaryButton>}
     </>
   );
 

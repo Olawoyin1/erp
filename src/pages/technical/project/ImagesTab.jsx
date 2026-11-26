@@ -47,7 +47,7 @@ function UploadPhotoModal({ projectId, onClose, onSaved }) {
       onClose={onClose}
       title="Upload Field Photo"
       subtitle="Store site photos for audit tracking"
-      width="500px"
+      width="680px"
       footer={(
         <>
           <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
