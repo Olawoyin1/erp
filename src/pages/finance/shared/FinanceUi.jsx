@@ -278,7 +278,7 @@ export function Panel({ title, children }) {
 /** Status line plus the action buttons of a View drawer. */
 export function DrawerStatusBar({ status, children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#F8FAFC', margin: '-24px -24px 16px', padding: '12px 24px', borderBottom: '1px solid #E2E8F0' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', background: '#F8FAFC', padding: '14px 24px' }}>
       <span style={{ fontSize: '0.78rem', color: '#64748B' }}>Status:</span>
       {status}
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>{children}</div>

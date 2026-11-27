@@ -51,7 +51,7 @@ export const INTERACTION_TONES = { Meeting: 'blue', Call: 'green', Email: 'amber
 
 export const RELATIONSHIPS = ['Hot', 'Warm', 'Strategic', 'Cold'];
 export const INTERACTION_TYPES = ['Meeting', 'Call', 'Email', 'Site Visit', 'Presentation'];
-export const OPPORTUNITY_TYPES = ['Tender', 'Maintenance', 'Engineering Services', 'Consultancy', 'Equipment Supply', 'Material Supply', 'Construction'];
+export const OPPORTUNITY_TYPES = ['Maintenance', 'Engineering Services', 'Consultancy', 'Equipment Supply', 'Material Supply', 'Construction', 'Inspection & Testing', 'Technical Services', 'Other'];
 export const RFQ_TYPES = ['Goods', 'Materials', 'Equipment', 'Services', 'Works', 'Other'];
 export const CURRENCIES = ['NGN', 'USD', 'EUR', 'GBP'];
 

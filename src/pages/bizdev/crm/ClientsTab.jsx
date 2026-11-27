@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FiUsers, FiUserPlus, FiCheckCircle, FiAlertTriangle, FiEye, FiEdit, FiArchive, FiPlus, FiRotateCcw } from 'react-icons/fi';
+import { LuBriefcaseBusiness } from 'react-icons/lu';
 import Drawer from '../../../components/ui/Drawer';
 import RowMenu from '../../../components/ui/RowMenu';
 import { Input, Textarea } from '../../../components/ui/FormField';
@@ -127,7 +128,24 @@ function ClientDrawer({ clientId, refreshKey, canEdit, canArchive, canOpportunit
   const { record: client, error, loading } = useRecord(clientService, clientId, refreshKey);
   const canAddNote = usePermission('businessdev.client.update');
   return (
-    <Drawer isOpen onClose={onClose} title={client?.clientName || 'Client'} subtitle={client ? `${client.sector || '—'} • ${client.bdOfficerName || '—'}` : ''} width="680px">
+    <Drawer
+      isOpen
+      onClose={onClose}
+      title={(
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+          <LuBriefcaseBusiness size={28} color="#1E3A8A" style={{ flexShrink: 0 }} />
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0F172A', lineHeight: 1.2 }}>{client?.clientName || 'Client'}</span>
+            {client && (
+              <span style={{ fontSize: '0.8rem', color: '#64748B', fontWeight: 400 }}>
+                {client.sector || '—'} • {client.primaryContact || '—'}
+              </span>
+            )}
+          </span>
+        </span>
+      )}
+      width="680px"
+    >
       <DataState loading={loading} error={error} empty={!client}>
         {client && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -144,22 +162,24 @@ function ClientDrawer({ clientId, refreshKey, canEdit, canArchive, canOpportunit
                 {canArchive && client.status === 'archived' && <SecondaryButton icon={<FiRotateCcw size={14} />} onClick={() => onRestore(client)}>Restore</SecondaryButton>}
               </span>
             </Strip>
-            <TabBar tabs={[{ id: 'profile', label: 'Profile' }, { id: 'tenders', label: 'Tenders' }, { id: 'interactions', label: 'Interactions' }, { id: 'notes', label: 'Notes' }]} active={tab} onChange={setTab} />
-            {tab === 'profile' && (
-              <>
-                <DetailGrid items={[
-                  ['Company', client.clientName], ['Sector', client.sector], ['Primary contact', client.primaryContact], ['Email', client.email],
-                  ['Phone number', client.phone], ['Company address', client.companyAddress], ['Active tenders', client.activeTenders], ['Active projects', client.activeProjects],
-                  ['Last interaction', client.lastInteractionAt ? formatDate(client.lastInteractionAt) : 'No interaction yet'], ['BD officer', client.bdOfficerName],
-                  client.status === 'archived' ? ['Archive reason', client.archiveReason] : null,
-                ]}
-                />
-                {client.relationshipHistory && <Panel title="Relationship history">{client.relationshipHistory}</Panel>}
-              </>
-            )}
-            {tab === 'tenders' && <ClientTenders clientId={client._id} />}
-            {tab === 'interactions' && <ClientInteractions clientId={client._id} />}
-            {tab === 'notes' && <NotesPanel api={clientService} id={client._id} canAdd={canAddNote && client.status === 'active'} />}
+            <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <TabBar tabs={[{ id: 'profile', label: 'Profile' }, { id: 'tenders', label: 'Tenders' }, { id: 'interactions', label: 'Interactions' }, { id: 'notes', label: 'Notes' }]} active={tab} onChange={setTab} />
+              {tab === 'profile' && (
+                <>
+                  <DetailGrid items={[
+                    ['Company', client.clientName], ['Sector', client.sector], ['Primary contact', client.primaryContact], ['Email', client.email],
+                    ['Phone number', client.phone], ['Company address', client.companyAddress], ['Active tenders', client.activeTenders], ['Active projects', client.activeProjects],
+                    ['Last interaction', client.lastInteractionAt ? formatDate(client.lastInteractionAt) : 'No interaction yet'], ['BD officer', client.bdOfficerName],
+                    client.status === 'archived' ? ['Archive reason', client.archiveReason] : null,
+                  ]}
+                  />
+                  {client.relationshipHistory && <Panel title="Relationship history">{client.relationshipHistory}</Panel>}
+                </>
+              )}
+              {tab === 'tenders' && <ClientTenders clientId={client._id} />}
+              {tab === 'interactions' && <ClientInteractions clientId={client._id} />}
+              {tab === 'notes' && <NotesPanel api={clientService} id={client._id} canAdd={canAddNote && client.status === 'active'} />}
+            </div>
           </div>
         )}
       </DataState>

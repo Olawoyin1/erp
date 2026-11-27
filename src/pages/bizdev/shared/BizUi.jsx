@@ -246,7 +246,7 @@ function AddNoteModal({ api, id, onClose, onSaved }) {
 /** A small "label: value" stack used in the grey summary strips under the drawer title. */
 export function Strip({ children }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'space-between', background: '#F8FAFC', padding: '10px 14px', borderRadius: 8 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'space-between', background: '#F8FAFC', padding: '14px 24px' }}>
       {children}
     </div>
   );

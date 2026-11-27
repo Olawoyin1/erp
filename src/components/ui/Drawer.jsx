@@ -66,7 +66,6 @@ export default function Drawer({
         <div
           style={{
             padding: '20px 24px',
-            borderBottom: '1px solid #E2E8F0',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -75,7 +74,7 @@ export default function Drawer({
           }}
         >
           <div>
-            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>{title}</h2>
+            <h2 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0F172A', margin: 0, lineHeight: 1 }}>{title}</h2>
             {subtitle && (
               <p style={{ fontSize: '0.875rem', color: '#64748B', margin: '4px 0 0 0' }}>{subtitle}</p>
             )}
@@ -110,7 +109,7 @@ export default function Drawer({
         </div>
 
         {/* Drawer Scrollable Body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>{children}</div>
+        <div style={{ flex: 1, overflowY: 'auto' }}>{children}</div>
 
         {/* Drawer Footer */}
         {footer && (

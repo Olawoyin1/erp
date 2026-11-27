@@ -40,18 +40,20 @@ export default function RecordDrawer({ api, id, refreshKey = 0, onClose, describ
               {view.actions}
               {view.pdfName && api.pdf && <SecondaryButton icon={<FiDownload size={13} />} onClick={exportPdf} disabled={exporting}>{exporting ? 'Exporting…' : view.exportLabel || 'Export PDF'}</SecondaryButton>}
             </DrawerStatusBar>
-            {exportError && <FormError message={exportError} />}
-            {(view.notes || []).filter(Boolean).map((n) => <Note key={n.text} tone={n.tone || 'amber'}>{n.text}</Note>)}
-            <TabBar tabs={tabs} active={tab} onChange={setTab} />
-            {tab === 'details' && (
-              <>
-                <DetailGrid items={view.items} />
-                {(view.panels || []).filter(Boolean).map((p) => <Panel key={p.title} title={p.title}>{p.text || p.empty || '—'}</Panel>)}
-                <DocumentUploads key={record._id} api={api} id={record._id} canEdit={Boolean(view.canEditDocs)} />
-              </>
-            )}
-            {extra && extra.render(record)}
-            {tab === 'history' && <HistoryList key={record._id + refreshKey} api={api} id={record._id} />}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '16px 24px 24px' }}>
+              {exportError && <FormError message={exportError} />}
+              {(view.notes || []).filter(Boolean).map((n) => <Note key={n.text} tone={n.tone || 'amber'}>{n.text}</Note>)}
+              <TabBar tabs={tabs} active={tab} onChange={setTab} />
+              {tab === 'details' && (
+                <>
+                  <DetailGrid items={view.items} />
+                  {(view.panels || []).filter(Boolean).map((p) => <Panel key={p.title} title={p.title}>{p.text || p.empty || '—'}</Panel>)}
+                  <DocumentUploads key={record._id} api={api} id={record._id} canEdit={Boolean(view.canEditDocs)} />
+                </>
+              )}
+              {extra && extra.render(record)}
+              {tab === 'history' && <HistoryList key={record._id + refreshKey} api={api} id={record._id} />}
+            </div>
           </div>
         )}
       </DataState>

@@ -245,7 +245,7 @@ export function TwoCol({ children, min = 220 }) {
 
 export function FormBody({ children, onSubmit }) {
   return (
-    <form onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <form onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '24px' }}>
       {children}
     </form>
   );
@@ -438,7 +438,7 @@ export function FilterDrawer({ isOpen, onClose, title, subtitle, fields, values,
         </>
       )}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '24px' }}>
         {fields.map((field) => (
           <FormField key={field.key} label={field.label}>
             {field.type === 'date' ? (

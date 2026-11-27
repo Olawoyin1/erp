@@ -242,24 +242,26 @@ function OpportunityDrawer({ opportunityId, refreshKey, perms, onClose, onAdvanc
                 {o.stage === 'converted_to_tender' && perms.interactions && <SecondaryButton icon={<FiEye size={14} />} onClick={() => onViewInteractions(o.clientId)}>View Client Interactions</SecondaryButton>}
               </span>
             </Strip>
-            <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'documents', label: 'Documents' }, { id: 'activity', label: 'Activity Log' }]} active={tab} onChange={setTab} />
-            {tab === 'details' && (
-              <>
-                <DetailGrid items={[
-                  ['Title', o.title], ['Client', o.clientName], ['Sector', o.clientSector], ['Opportunity type', o.opportunityType],
-                  ['Estimated value', money(o.estimatedValue)], ['Weighted value', money(o.weightedValue)], ['Probability (%)', `${o.probability}%`], ['Priority', o.priority],
-                  ['BD officer', o.bdOfficerName], ['Expected close date', formatDate(o.expectedCloseDate)], ['Created date', formatDate(o.createdAt)],
-                  o.stage === 'lost' ? ['Reason for loss', o.reasonForLoss] : null,
-                ]}
-                />
-                {o.description && <Panel title="Description">{o.description}</Panel>}
-                {o.relatedTender && (
-                  <DetailGrid items={[['Related tender', o.relatedTender.clientTenderRef || o.relatedTender.tenderId], ['Status', stageLabel('tender', o.relatedTender.stage)], ['Interactions', o.interactionsCount]]} />
-                )}
-              </>
-            )}
-            {tab === 'documents' && <DocumentTable api={opportunityService} id={o._id} canUpload={perms.update || perms.create} canRemove={perms.update} />}
-            {tab === 'activity' && <HistoryList api={opportunityService} id={o._id} refreshKey={refreshKey} />}
+            <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'documents', label: 'Documents' }, { id: 'activity', label: 'Activity Log' }]} active={tab} onChange={setTab} />
+              {tab === 'details' && (
+                <>
+                  <DetailGrid items={[
+                    ['Title', o.title], ['Client', o.clientName], ['Sector', o.clientSector], ['Opportunity type', o.opportunityType],
+                    ['Estimated value', money(o.estimatedValue)], ['Weighted value', money(o.weightedValue)], ['Probability (%)', `${o.probability}%`], ['Priority', o.priority],
+                    ['BD officer', o.bdOfficerName], ['Expected close date', formatDate(o.expectedCloseDate)], ['Created date', formatDate(o.createdAt)],
+                    o.stage === 'lost' ? ['Reason for loss', o.reasonForLoss] : null,
+                  ]}
+                  />
+                  {o.description && <Panel title="Description">{o.description}</Panel>}
+                  {o.relatedTender && (
+                    <DetailGrid items={[['Related tender', o.relatedTender.clientTenderRef || o.relatedTender.tenderId], ['Status', stageLabel('tender', o.relatedTender.stage)], ['Interactions', o.interactionsCount]]} />
+                  )}
+                </>
+              )}
+              {tab === 'documents' && <DocumentTable api={opportunityService} id={o._id} canUpload={perms.update || perms.create} canRemove={perms.update} />}
+              {tab === 'activity' && <HistoryList api={opportunityService} id={o._id} refreshKey={refreshKey} />}
+            </div>
           </div>
         )}
       </DataState>
@@ -503,7 +505,7 @@ export default function OpportunitiesTab({ notify, initialNewForClient = '', onV
           onClose={() => setViewId(null)}
           onAdvance={advance}
           onEdit={(o) => { setViewId(null); setForm({ opportunity: o }); }}
-          onTenderModal={setTenderFor}
+          onTenderModal={(o) => { setViewId(null); setTenderFor(o); }}
           onLost={(o) => { setLostError(''); setLostFor(o); }}
           onViewTender={(id) => navigate(`/bizdev/tenders?open=${id}`)}
           onViewInteractions={onViewInteractions}
