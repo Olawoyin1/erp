@@ -31,8 +31,8 @@ export default function RowMenu({ items = [] }) {
     if (open && ref.current) {
       const rect = ref.current.getBoundingClientRect();
       setPos({
-        top: rect.bottom + window.scrollY,
-        right: window.innerWidth - rect.right - window.scrollX,
+        top: rect.top + window.scrollY,
+        right: window.innerWidth - rect.left - window.scrollX + 6,
       });
     }
   }, [open]);

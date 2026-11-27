@@ -89,10 +89,11 @@ function RowMenu({ items, row, onAction }) {
     };
   }, []);
 
-  const toggle = () => {
+  const toggle = (e) => {
+    e.stopPropagation();
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.right - 180 });
+      setPos({ top: rect.top + 4, left: rect.left - 190 });
     }
     setOpen((v) => !v);
   };

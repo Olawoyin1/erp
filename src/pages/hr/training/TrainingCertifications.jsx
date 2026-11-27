@@ -56,7 +56,7 @@ function RowMenu({ options }) {
     e.stopPropagation();
     if (!open && btnRef.current) {
       const rect = btnRef.current.getBoundingClientRect();
-      setPos({ top: rect.bottom + 4, left: rect.right - 190 });
+      setPos({ top: rect.top + 4, left: rect.left - 190 });
     }
     setOpen((v) => !v);
   };

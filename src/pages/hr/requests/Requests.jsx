@@ -474,20 +474,34 @@ function FilterDrawer({ isOpen, onClose, value, onApply }) {
 // ─── Row menu ─────────────────────────────────────────────────────────────────
 function RowMenu({ items, onAction, row }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef();
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef();
+  const menuRef = useRef();
   useEffect(() => {
-    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const h = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target) &&
+          btnRef.current && !btnRef.current.contains(e.target)) setOpen(false);
+    };
+    const close = () => setOpen(false);
     document.addEventListener('mousedown', h);
-    return () => document.removeEventListener('mousedown', h);
+    window.addEventListener('scroll', close, true);
+    return () => { document.removeEventListener('mousedown', h); window.removeEventListener('scroll', close, true); };
   }, []);
   if (!items.length) return <div style={{ width: 24 }} />;
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({ top: rect.top + 4, left: rect.left - 190 });
+    }
+    setOpen((v) => !v);
+  };
   return (
-    <div style={{ position: 'relative' }} ref={ref}>
-      <button className="icon-btn" onClick={() => setOpen((v) => !v)}><FiMoreVertical size={16} /></button>
+    <>
+      <button ref={btnRef} className="icon-btn" onClick={toggle}><FiMoreVertical size={16} /></button>
       {open && (
-        <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, backgroundColor: '#fff',
+        <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left, backgroundColor: '#fff',
           borderRadius: 8, boxShadow: '0 10px 25px rgba(0,0,0,0.12)', border: '1px solid #E2E8F0',
-          padding: '6px 0', zIndex: 50, width: 190 }}>
+          padding: '6px 0', zIndex: 1200, width: 190 }}>
           {items.map((item) => {
             const Icon = item.icon;
             return (
@@ -501,7 +515,7 @@ function RowMenu({ items, onAction, row }) {
           })}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
