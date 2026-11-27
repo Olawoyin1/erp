@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { FiEye, FiPlus, FiTrash2 } from 'react-icons/fi';
-import Modal from '../../../components/ui/Modal';
 import { Textarea } from '../../../components/ui/FormField';
 import { apiError } from '../../../services/apiHelpers';
 import { formatDate, formatDateTime, uploadStagedFiles } from '../../procurement/shared/procUtils';
@@ -183,63 +182,56 @@ export function HistoryList({ api, id, refreshKey = 0 }) {
 export function NotesPanel({ api, id, canAdd = false }) {
   const [refresh, setRefresh] = useState(0);
   const [adding, setAdding] = useState(false);
-  const { data, error, loading } = useFetched(() => api.notes(id), id, refresh);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {canAdd && (
-        <div>
-          <SecondaryButton icon={<FiPlus size={14} />} onClick={() => setAdding(true)}>Add Note</SecondaryButton>
-        </div>
-      )}
-      <DataState loading={loading} error={error} empty={!data.length} emptyText="No notes yet.">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {data.map((note) => (
-            <div key={note._id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '12px 14px' }}>
-              <div style={{ fontSize: '0.85rem', color: '#0F172A', whiteSpace: 'pre-wrap' }}>{note.note}</div>
-              <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: 6 }}>{formatDate(note.createdAt)} • {note.authorName || '—'}</div>
-            </div>
-          ))}
-        </div>
-      </DataState>
-      {adding && <AddNoteModal api={api} id={id} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); setRefresh((n) => n + 1); }} />}
-    </div>
-  );
-}
-
-function AddNoteModal({ api, id, onClose, onSaved }) {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const { data, error: loadError, loading } = useFetched(() => api.notes(id), id, refresh);
+
   const submit = async () => {
     if (!note.trim()) { setError('Write the note first.'); return; }
     setBusy(true);
     setError('');
     try {
       await api.addNote(id, note.trim());
-      onSaved();
+      setNote('');
+      setAdding(false);
+      setRefresh((n) => n + 1);
     } catch (err) {
       setError(apiError(err, 'The note could not be saved'));
       setBusy(false);
     }
   };
+
+  const cancel = () => { setAdding(false); setNote(''); setError(''); };
+
   return (
-    <Modal
-      isOpen
-      onClose={onClose}
-      title="Add Note"
-      maxWidth="460px"
-      footer={(
-        <>
-          <SecondaryButton onClick={onClose} disabled={busy}>Cancel</SecondaryButton>
-          <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : 'Save Note'}</PrimaryButton>
-        </>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {canAdd && !adding && (
+        <div>
+          <SecondaryButton icon={<FiPlus size={14} />} onClick={() => setAdding(true)}>Add Note</SecondaryButton>
+        </div>
       )}
-    >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <Textarea rows={4} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Write a note…" />
-        <FormError message={error} />
-      </div>
-    </Modal>
+      {adding && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: 14 }}>
+          <Textarea rows={3} value={note} onChange={(e) => { setNote(e.target.value); setError(''); }} placeholder="Write a note…" autoFocus />
+          {error && <div style={{ fontSize: '0.8rem', color: '#DC2626' }}>{error}</div>}
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <SecondaryButton onClick={cancel} disabled={busy}>Cancel</SecondaryButton>
+            <PrimaryButton onClick={submit} disabled={busy}>{busy ? 'Saving…' : 'Save Note'}</PrimaryButton>
+          </div>
+        </div>
+      )}
+      <DataState loading={loading} error={loadError} empty={!data.length} emptyText="No notes yet.">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {data.map((n) => (
+            <div key={n._id} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '12px 14px' }}>
+              <div style={{ fontSize: '0.85rem', color: '#0F172A', whiteSpace: 'pre-wrap' }}>{n.note}</div>
+              <div style={{ fontSize: '0.75rem', color: '#94A3B8', marginTop: 6 }}>{formatDate(n.createdAt)} • {n.authorName || '—'}</div>
+            </div>
+          ))}
+        </div>
+      </DataState>
+    </div>
   );
 }
 
