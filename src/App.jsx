@@ -59,9 +59,9 @@ import TravelsLogistics from './pages/administration/TravelsLogistics';
 import WasteDisposal from './pages/administration/WasteDisposal';
 
 import ClientPipeline from './pages/bizdev/ClientPipeline';
-import RFQsTenders from './pages/bizdev/RFQsTenders';
-import Proposals from './pages/bizdev/Proposals';
-import CRMContacts from './pages/bizdev/CRMContacts';
+import TendersPage from './pages/bizdev/TendersPage';
+import RFQsPage from './pages/bizdev/RFQsPage';
+import BizDevTasks from './pages/bizdev/BizDevTasks';
 import BizDevReports from './pages/bizdev/BizDevReports';
 import PurchaseRequests from './pages/procurement/PurchaseRequests';
 import RFQManagement from './pages/procurement/RFQManagement';
@@ -194,10 +194,10 @@ export default function App() {
         <Route path="bizdev">
           <Route index element={<SectionIndex base="/bizdev" />} />
           <Route path="pipeline" element={<ClientPipeline />} />
-          <Route path="tenders" element={<RFQsTenders />} />
-          <Route path="proposals" element={<Proposals />} />
-          <Route path="crm" element={<CRMContacts />} />
+          <Route path="tenders" element={<TendersPage />} />
+          <Route path="rfqs" element={<RFQsPage />} />
           <Route path="requests" element={<AdministrativeRequests module="business development" />} />
+          <Route path="tasks" element={<BizDevTasks />} />
           <Route path="reports" element={<BizDevReports />} />
         </Route>
 

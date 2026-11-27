@@ -139,10 +139,10 @@ export const NAV = [
         path: '/bizdev',
         children: [
           { label: 'Client Pipeline', path: '/bizdev/pipeline', permission: 'businessdev.client.view' },
-          { label: 'RFQs & Tenders', path: '/bizdev/tenders', anyOf: ['businessdev.tender.view', 'businessdev.rfq.view'] },
-          { label: 'Proposals', path: '/bizdev/proposals', permission: 'businessdev.opportunity.view' },
-          { label: 'CRM Contacts', path: '/bizdev/crm', permission: 'businessdev.interaction.view' },
+          { label: 'Tenders', path: '/bizdev/tenders', permission: 'businessdev.tender.view' },
+          { label: 'RFQs', path: '/bizdev/rfqs', permission: 'businessdev.rfq.view' },
           { label: 'Requests', path: '/bizdev/requests', permission: 'administration.adminrequest.view', shared: true },
+          { label: 'Tasks', path: '/bizdev/tasks', permission: 'core.task.view', shared: true },
           { label: 'Reports', path: '/bizdev/reports', permission: 'businessdev.reports.view' },
         ],
       },
