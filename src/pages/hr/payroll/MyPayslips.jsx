@@ -11,7 +11,7 @@ export default function MyPayslips() {
         <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>My Payslips</h1>
         <p style={{ color: '#64748B', fontSize: '0.85rem', margin: '4px 0 0 0' }}>View and download your own payslips</p>
       </div>
-      <div className="card" style={{ padding: 16 }}>
+      <div className="card" style={{ padding: 0 }}>
         <MyPayslipsTab showToast={showToast} />
       </div>
     </div>

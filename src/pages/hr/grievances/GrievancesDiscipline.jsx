@@ -467,7 +467,7 @@ function ViewCaseDrawer({ caseId, onClose, perms, onAction, refreshToken }) {
       )}
       {record && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '10px 12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', backgroundColor: '#F8FAFC', padding: '14px 24px', margin: '-24px -24px 0' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#64748B' }}>
               Severity: <SeverityPill value={record.severity} />
             </div>
@@ -485,75 +485,77 @@ function ViewCaseDrawer({ caseId, onClose, perms, onAction, refreshToken }) {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
-            {[
-              ['Employee', fullName(record.employeeId)],
-              ['Employee ID', employee?.employeeId || '—'],
-              ['Department', record.departmentId?.name || '—'],
-              ['Position', employee?.position || '—'],
-              ['Category', titleCase(record.category)],
-              ['Case type', record.caseType],
-              ['Severity level', titleCase(record.severity)],
-              ['Incident date', formatDate(record.incidentDate)],
-              ['Date reported', formatDate(record.createdAt)],
-              ['Case title', record.caseTitle],
-              ['Status', <Badge key="s" status={titleCase(record.status)} />],
-              ['Assigned officer', record.assignedOfficerId ? fullName(record.assignedOfficerId) : 'Not assigned yet'],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
-                <div style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{value}</div>
-              </div>
-            ))}
-          </div>
-
-          <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Description</div>
-            <div style={{ fontSize: '0.875rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{record.description || 'No description provided.'}</div>
-          </div>
-
-          <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase' }}>Document uploads</div>
-              {perms.update && record.status !== 'closed' && (
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: '#1D4ED8', cursor: uploading ? 'wait' : 'pointer' }}>
-                  <FiUpload size={13} /> {uploading ? 'Uploading…' : 'Upload'}
-                  <input type="file" style={{ display: 'none' }} disabled={uploading} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
-                </label>
-              )}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+              {[
+                ['Employee', fullName(record.employeeId)],
+                ['Employee ID', employee?.employeeId || '—'],
+                ['Department', record.departmentId?.name || '—'],
+                ['Position', employee?.position || '—'],
+                ['Category', titleCase(record.category)],
+                ['Case type', record.caseType],
+                ['Severity level', titleCase(record.severity)],
+                ['Incident date', formatDate(record.incidentDate)],
+                ['Date reported', formatDate(record.createdAt)],
+                ['Case title', record.caseTitle],
+                ['Status', <Badge key="s" status={titleCase(record.status)} />],
+                ['Assigned officer', record.assignedOfficerId ? fullName(record.assignedOfficerId) : 'Not assigned yet'],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{value}</div>
+                </div>
+              ))}
             </div>
-            {state.files.length === 0 ? (
-              <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>No documents attached.</div>
-            ) : state.files.map((f) => (
-              <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: '#0F172A' }}><FiPaperclip size={14} /> {f.fileName}</span>
-                <button onClick={() => download(f)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 'none', background: 'none', color: '#1D4ED8', cursor: 'pointer', fontSize: '0.8rem' }}>
-                  <FiDownload size={13} /> Download
+
+            <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Description</div>
+              <div style={{ fontSize: '0.875rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{record.description || 'No description provided.'}</div>
+            </div>
+
+            <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase' }}>Document uploads</div>
+                {perms.update && record.status !== 'closed' && (
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: '0.8rem', color: '#1D4ED8', cursor: uploading ? 'wait' : 'pointer' }}>
+                    <FiUpload size={13} /> {uploading ? 'Uploading…' : 'Upload'}
+                    <input type="file" style={{ display: 'none' }} disabled={uploading} onChange={(e) => { upload(e.target.files?.[0]); e.target.value = ''; }} />
+                  </label>
+                )}
+              </div>
+              {state.files.length === 0 ? (
+                <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>No documents attached.</div>
+              ) : state.files.map((f) => (
+                <div key={f.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #F1F5F9' }}>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: '#0F172A' }}><FiPaperclip size={14} /> {f.fileName}</span>
+                  <button onClick={() => download(f)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: 'none', background: 'none', color: '#1D4ED8', cursor: 'pointer', fontSize: '0.8rem' }}>
+                    <FiDownload size={13} /> Download
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {Array.isArray(record.internalNotes) && (
+            <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+              <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Internal notes</div>
+              {(record.internalNotes || []).length === 0 ? (
+                <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>No notes yet.</div>
+              ) : record.internalNotes.map((n, i) => (
+                <div key={i} style={{ padding: '8px 0', borderBottom: i === record.internalNotes.length - 1 ? 'none' : '1px solid #E2E8F0' }}>
+                  <div style={{ fontSize: '0.875rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{n.note}</div>
+                  <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: 4 }}>{fullName(n.addedBy)} · {formatDate(n.addedAt)}</div>
+                </div>
+              ))}
+            </div>
+            )}
+            {perms.update && Array.isArray(record.internalNotes) && (
+              <div>
+                <button onClick={() => onAction('addNote', record)} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <FiPlus size={14} /> Add Note
                 </button>
               </div>
-            ))}
+            )}
           </div>
-
-          {Array.isArray(record.internalNotes) && (
-          <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
-            <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Internal notes</div>
-            {(record.internalNotes || []).length === 0 ? (
-              <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>No notes yet.</div>
-            ) : record.internalNotes.map((n, i) => (
-              <div key={i} style={{ padding: '8px 0', borderBottom: i === record.internalNotes.length - 1 ? 'none' : '1px solid #E2E8F0' }}>
-                <div style={{ fontSize: '0.875rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{n.note}</div>
-                <div style={{ fontSize: '0.7rem', color: '#94A3B8', marginTop: 4 }}>{fullName(n.addedBy)} · {formatDate(n.addedAt)}</div>
-              </div>
-            ))}
-          </div>
-          )}
-          {perms.update && Array.isArray(record.internalNotes) && (
-            <div>
-              <button onClick={() => onAction('addNote', record)} className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                <FiPlus size={14} /> Add Note
-              </button>
-            </div>
-          )}
         </div>
       )}
     </Drawer>
@@ -763,7 +765,7 @@ export default function GrievancesDiscipline() {
         })}
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={search} onChange={(e) => handleSearch(e.target.value)}

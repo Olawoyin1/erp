@@ -162,7 +162,7 @@ function ClientDrawer({ clientId, refreshKey, canEdit, canArchive, canOpportunit
                 {canArchive && client.status === 'archived' && <SecondaryButton icon={<FiRotateCcw size={14} />} onClick={() => onRestore(client)}>Restore</SecondaryButton>}
               </span>
             </Strip>
-            <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <TabBar tabs={[{ id: 'profile', label: 'Profile' }, { id: 'tenders', label: 'Tenders' }, { id: 'interactions', label: 'Interactions' }, { id: 'notes', label: 'Notes' }]} active={tab} onChange={setTab} />
               {tab === 'profile' && (
                 <>

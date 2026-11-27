@@ -285,21 +285,13 @@ function ViewRequestDrawer({ id, refreshKey, onClose, canApproveNow, ownRequest,
   return (
     <Drawer isOpen onClose={onClose} title="View Request" width="680px">
       {loading && <div style={{ padding: 24, color: '#64748B', fontSize: '0.875rem' }}>Loading request…</div>}
-      {error && <div style={{ padding: '10px 14px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, color: '#991B1B', fontSize: '0.82rem', margin: '0 0 16px' }}>{error}</div>}
+      {error && <div style={{ padding: '10px 24px', backgroundColor: '#FEF2F2', color: '#991B1B', fontSize: '0.82rem' }}>{error}</div>}
 
       {record && (
         <>
-          {/* Header */}
-          <div style={{ marginBottom: 20 }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#0F172A' }}>{record.requestTitle || record.requestType}</h3>
-            <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748B' }}>
-              {refName(record.requestedBy, 'fullName')} &bull; {record.requestId}
-            </p>
-          </div>
-
           {/* Action bar — pending */}
           {record.status === 'pending' && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '10px 12px', marginBottom: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', backgroundColor: '#F8FAFC', padding: '14px 24px', margin: '-24px -24px 0' }}>
               <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
                 Waiting on <strong style={{ color: '#0F172A' }}>{STEP_LABELS[record.currentStep] || 'review'}</strong>
               </div>
@@ -324,107 +316,117 @@ function ViewRequestDrawer({ id, refreshKey, onClose, canApproveNow, ownRequest,
             </div>
           )}
 
-          {/* Action bar — approved */}
-          {record.status === 'approved' && (
-            <div style={{ marginBottom: 20 }}>
-              <button onClick={() => onComplete(record)} disabled={busy}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', fontSize: '0.85rem', backgroundColor: '#10B981', color: '#fff', borderRadius: 6, border: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.7 : 1 }}>
-                <FiCheck size={14} /> Mark as Issued
-              </button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Header */}
+            <div style={{ paddingTop: 20 }}>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#0F172A' }}>{record.requestTitle || record.requestType}</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.85rem', color: '#64748B' }}>
+                {refName(record.requestedBy, 'fullName')} &bull; {record.requestId}
+              </p>
             </div>
-          )}
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginBottom: 20 }}>
-            {[['details', 'Details'], ['history', 'Approval History']].map(([key, label]) => (
-              <button key={key} onClick={() => setTab(key)}
-                style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid #1D4ED8' : '2px solid transparent', color: tab === key ? '#1D4ED8' : '#64748B', fontWeight: tab === key ? 600 : 400, cursor: 'pointer', fontSize: '0.9rem' }}>
-                {label}
-              </button>
-            ))}
+            {/* Action bar — approved */}
+            {record.status === 'approved' && (
+              <div>
+                <button onClick={() => onComplete(record)} disabled={busy}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', fontSize: '0.85rem', backgroundColor: '#10B981', color: '#fff', borderRadius: 6, border: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.7 : 1 }}>
+                  <FiCheck size={14} /> Mark as Issued
+                </button>
+              </div>
+            )}
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0' }}>
+              {[['details', 'Details'], ['history', 'Approval History']].map(([key, label]) => (
+                <button key={key} onClick={() => setTab(key)}
+                  style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid #1D4ED8' : '2px solid transparent', color: tab === key ? '#1D4ED8' : '#64748B', fontWeight: tab === key ? 600 : 400, cursor: 'pointer', fontSize: '0.9rem' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Details tab */}
+            {tab === 'details' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                  {detailRows.map(([label, value]) => (
+                    <div key={label}>
+                      <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
+                      <div style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {record.description && (
+                  <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Purpose</div>
+                    <div style={{ fontSize: '0.875rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{record.description}</div>
+                  </div>
+                )}
+
+                {record.status === 'rejected' && record.rejectionReason && (
+                  <div style={{ backgroundColor: '#FEF2F2', padding: 16, borderRadius: 8, border: '1px solid #FECACA' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#991B1B', textTransform: 'uppercase', marginBottom: 8 }}>Rejection reason</div>
+                    <div style={{ fontSize: '0.875rem', color: '#991B1B' }}>{record.rejectionReason}</div>
+                  </div>
+                )}
+
+                {record.status === 'cancelled' && (
+                  <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Cancellation</div>
+                    <div style={{ fontSize: '0.875rem', color: '#334155' }}>{record.cancelReason || 'The request was withdrawn.'}</div>
+                  </div>
+                )}
+
+                <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: 12 }}>
+                  <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Attached documents</div>
+                  {filesLoading ? (
+                    <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Loading…</div>
+                  ) : files.length === 0 ? (
+                    <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>No documents attached.</div>
+                  ) : files.map((f) => (
+                    <div key={f._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: 6, marginBottom: 6 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: '#0F172A' }}>
+                        <FiPaperclip size={14} /> {f.originalName}
+                      </span>
+                      <button className="icon-btn" title="Open" onClick={() => openFile(f)}><FiDownload size={15} /></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* History tab */}
+            {tab === 'history' && (
+              <div style={{ position: 'relative', borderLeft: '2px solid #E2E8F0', paddingLeft: 16, marginLeft: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
+                <HistoryItem color="#1E3A8A" title="Request submitted" subtitle={`Submitted by ${refName(record.requestedBy, 'fullName')}`} when={record.submittedAt} />
+                {(record.approvals || []).map((approval, i) => (
+                  <HistoryItem key={`${approval.step}-${i}`} color="#10B981"
+                    title={STEP_LABELS[approval.step] || statusLabel(approval.step)}
+                    subtitle={`Approved by ${refName(approval.by, 'fullName')}`}
+                    when={approval.at} />
+                ))}
+                {record.status === 'pending' && record.currentStep && (
+                  <HistoryItem color="#F59E0B" title={STEP_LABELS[record.currentStep]} subtitle="Waiting for reviewer" />
+                )}
+                {remaining.slice(1).map((step) => (
+                  <HistoryItem key={step} color="#E2E8F0" title={step} subtitle="Pending" />
+                ))}
+                {record.status === 'rejected' && (
+                  <HistoryItem color="#EF4444" titleColor="#DC2626" title="Rejected" subtitle={record.rejectionReason || ''} />
+                )}
+                {record.status === 'cancelled' && (
+                  <HistoryItem color="#94A3B8" title="Cancelled" subtitle={record.cancelReason || ''} when={record.cancelledAt} />
+                )}
+                {record.status === 'approved' && (
+                  <HistoryItem color="#10B981" title="Fully approved" subtitle="Ready to be marked as issued" />
+                )}
+                {record.status === 'completed' && (
+                  <HistoryItem color="#10B981" title="Issued" subtitle="Items issued to requester" />
+                )}
+              </div>
+            )}
           </div>
-
-          {/* Details tab */}
-          {tab === 'details' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
-                {detailRows.map(([label, value]) => (
-                  <div key={label}>
-                    <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 }}>{label}</div>
-                    <div style={{ fontSize: '0.875rem', color: '#0F172A', fontWeight: 500 }}>{value}</div>
-                  </div>
-                ))}
-              </div>
-
-              {record.description && (
-                <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Purpose</div>
-                  <div style={{ fontSize: '0.875rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{record.description}</div>
-                </div>
-              )}
-
-              {record.status === 'rejected' && record.rejectionReason && (
-                <div style={{ backgroundColor: '#FEF2F2', padding: 16, borderRadius: 8, border: '1px solid #FECACA' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#991B1B', textTransform: 'uppercase', marginBottom: 8 }}>Rejection reason</div>
-                  <div style={{ fontSize: '0.875rem', color: '#991B1B' }}>{record.rejectionReason}</div>
-                </div>
-              )}
-
-              {record.status === 'cancelled' && (
-                <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, border: '1px solid #E2E8F0' }}>
-                  <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Cancellation</div>
-                  <div style={{ fontSize: '0.875rem', color: '#334155' }}>{record.cancelReason || 'The request was withdrawn.'}</div>
-                </div>
-              )}
-
-              <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: 12 }}>
-                <div style={{ fontSize: '0.75rem', color: '#64748B', textTransform: 'uppercase', marginBottom: 8 }}>Attached documents</div>
-                {filesLoading ? (
-                  <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>Loading…</div>
-                ) : files.length === 0 ? (
-                  <div style={{ fontSize: '0.8rem', color: '#94A3B8' }}>No documents attached.</div>
-                ) : files.map((f) => (
-                  <div key={f._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 10px', backgroundColor: '#F8FAFC', borderRadius: 6, marginBottom: 6 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', color: '#0F172A' }}>
-                      <FiPaperclip size={14} /> {f.originalName}
-                    </span>
-                    <button className="icon-btn" title="Open" onClick={() => openFile(f)}><FiDownload size={15} /></button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* History tab */}
-          {tab === 'history' && (
-            <div style={{ position: 'relative', borderLeft: '2px solid #E2E8F0', paddingLeft: 16, marginLeft: 8, display: 'flex', flexDirection: 'column', gap: 24 }}>
-              <HistoryItem color="#1E3A8A" title="Request submitted" subtitle={`Submitted by ${refName(record.requestedBy, 'fullName')}`} when={record.submittedAt} />
-              {(record.approvals || []).map((approval, i) => (
-                <HistoryItem key={`${approval.step}-${i}`} color="#10B981"
-                  title={STEP_LABELS[approval.step] || statusLabel(approval.step)}
-                  subtitle={`Approved by ${refName(approval.by, 'fullName')}`}
-                  when={approval.at} />
-              ))}
-              {record.status === 'pending' && record.currentStep && (
-                <HistoryItem color="#F59E0B" title={STEP_LABELS[record.currentStep]} subtitle="Waiting for reviewer" />
-              )}
-              {remaining.slice(1).map((step) => (
-                <HistoryItem key={step} color="#E2E8F0" title={step} subtitle="Pending" />
-              ))}
-              {record.status === 'rejected' && (
-                <HistoryItem color="#EF4444" titleColor="#DC2626" title="Rejected" subtitle={record.rejectionReason || ''} />
-              )}
-              {record.status === 'cancelled' && (
-                <HistoryItem color="#94A3B8" title="Cancelled" subtitle={record.cancelReason || ''} when={record.cancelledAt} />
-              )}
-              {record.status === 'approved' && (
-                <HistoryItem color="#10B981" title="Fully approved" subtitle="Ready to be marked as issued" />
-              )}
-              {record.status === 'completed' && (
-                <HistoryItem color="#10B981" title="Issued" subtitle="Items issued to requester" />
-              )}
-            </div>
-          )}
         </>
       )}
     </Drawer>

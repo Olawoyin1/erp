@@ -109,7 +109,7 @@ export default function Drawer({
         </div>
 
         {/* Drawer Scrollable Body */}
-        <div style={{ flex: 1, overflowY: 'auto' }}>{children}</div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }}>{children}</div>
 
         {/* Drawer Footer */}
         {footer && (

@@ -396,8 +396,8 @@ export default function AttendanceTimesheets() {
         ))}
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, padding: '14px 16px', borderBottom: '1px solid #E2E8F0' }}>
           <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#334155' }}>Site Attendance &middot; {fmtDay(`${dateFilter}T12:00:00+01:00`)}</div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ width: 160 }}>

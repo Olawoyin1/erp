@@ -76,8 +76,8 @@ export default function PayrollInputs() {
         </>
       )}
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', gap: 8, overflowX: 'auto' }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', gap: 8, overflowX: 'auto', padding: '0 16px' }}>
           {tabs.map((tab) => {
             const on = active === tab.key;
             return (

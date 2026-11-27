@@ -62,6 +62,7 @@ import ClientPipeline from './pages/bizdev/ClientPipeline';
 import TendersPage from './pages/bizdev/TendersPage';
 import RFQsPage from './pages/bizdev/RFQsPage';
 import BizDevTasks from './pages/bizdev/BizDevTasks';
+import BizDevDocuments from './pages/bizdev/BizDevDocuments';
 import BizDevReports from './pages/bizdev/BizDevReports';
 import PurchaseRequests from './pages/procurement/PurchaseRequests';
 import RFQManagement from './pages/procurement/RFQManagement';
@@ -198,6 +199,7 @@ export default function App() {
           <Route path="rfqs" element={<RFQsPage />} />
           <Route path="requests" element={<AdministrativeRequests module="business development" />} />
           <Route path="tasks" element={<BizDevTasks />} />
+          <Route path="documents" element={<BizDevDocuments />} />
           <Route path="reports" element={<BizDevReports />} />
         </Route>
 

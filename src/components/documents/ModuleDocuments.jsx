@@ -329,7 +329,7 @@ export default function ModuleDocuments({ module, title, subtitle, config: pageC
         </div>
       )}
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={search} onChange={(e) => onSearch(e.target.value)} placeholder={config.searchPlaceholder} style={{ paddingLeft: 36, width: '100%' }} />

@@ -189,7 +189,7 @@ export function ListCard({ toolbar, list, columns, emptyText, keyField = '_id', 
   return (
     <div className="card" style={{ padding: 0, overflow: 'visible', backgroundColor: '#FFFFFF', borderRadius: 12 }}>
       {toolbar}
-      <div style={{ padding: '0 24px 16px' }}>
+      <div style={{ padding: '0' }}>
         <DataState loading={list.loading} error={list.error} empty={!list.items.length} emptyText={emptyText} onRetry={list.reload}>
           <DataTable
             columns={columns}
@@ -204,7 +204,9 @@ export function ListCard({ toolbar, list, columns, emptyText, keyField = '_id', 
           />
         </DataState>
         {!list.loading && !list.error && list.meta && list.meta.totalPages > 1 && (
-          <Pagination currentPage={list.page} totalPages={list.meta.totalPages} onPageChange={list.setPage} />
+          <div style={{ padding: '0 8px 8px' }}>
+            <Pagination currentPage={list.page} totalPages={list.meta.totalPages} onPageChange={list.setPage} />
+          </div>
         )}
       </div>
     </div>
@@ -245,7 +247,7 @@ export function TwoCol({ children, min = 220 }) {
 
 export function FormBody({ children, onSubmit }) {
   return (
-    <form onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14, padding: '24px' }}>
+    <form onSubmit={onSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {children}
     </form>
   );
@@ -438,7 +440,7 @@ export function FilterDrawer({ isOpen, onClose, title, subtitle, fields, values,
         </>
       )}
     >
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 20, padding: '24px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
         {fields.map((field) => (
           <FormField key={field.key} label={field.label}>
             {field.type === 'date' ? (

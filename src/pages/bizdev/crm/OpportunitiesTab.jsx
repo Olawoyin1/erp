@@ -242,7 +242,7 @@ function OpportunityDrawer({ opportunityId, refreshKey, perms, onClose, onAdvanc
                 {o.stage === 'converted_to_tender' && perms.interactions && <SecondaryButton icon={<FiEye size={14} />} onClick={() => onViewInteractions(o.clientId)}>View Client Interactions</SecondaryButton>}
               </span>
             </Strip>
-            <div style={{ padding: '0 24px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'documents', label: 'Documents' }, { id: 'activity', label: 'Activity Log' }]} active={tab} onChange={setTab} />
               {tab === 'details' && (
                 <>

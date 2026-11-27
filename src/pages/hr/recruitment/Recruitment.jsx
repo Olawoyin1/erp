@@ -27,7 +27,7 @@ export default function Recruitment() {
         </p>
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', gap: 8 }}>
           {tabs.map((tab) => {
             const isActive = activeTab === tab.key;

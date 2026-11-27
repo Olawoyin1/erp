@@ -111,7 +111,7 @@ function ViewDeploymentDrawer({ deployment, onClose, onEdit, onStatusChange, onD
 
   return (
     <Drawer isOpen onClose={onClose} title={fullName(deployment.employeeId)} subtitle={`${deployment.deploymentId} · ${siteName(deployment.siteId)}`} width="680px">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0', flexWrap: 'wrap', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', backgroundColor: '#F8FAFC', margin: '-24px -24px 0', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: '0.78rem', color: '#64748B', fontWeight: 500 }}>Status:</span>
           <StatusPill status={status} />
@@ -145,27 +145,29 @@ function ViewDeploymentDrawer({ deployment, onClose, onEdit, onStatusChange, onD
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-        <InfoItem label="EMPLOYEE" value={fullName(deployment.employeeId)} />
-        <InfoItem label="EMPLOYEE ID" value={deployment.employeeId?.employeeId} />
-        <InfoItem label="DEPLOYMENT ID" value={deployment.deploymentId} />
-        <InfoItem label="DEPARTMENT" value={dept && typeof dept === 'object' ? dept.name : ''} />
-        <InfoItem label="PROJECT" value={deployment.projectRef} />
-        <InfoItem label="ROLE" value={deployment.role} />
-        <InfoItem label="SITE" value={siteName(deployment.siteId)} />
-        <InfoItem label="DEPLOYMENT TYPE" value={DEPLOYMENT_TYPES.find((t) => t.value === deployment.deploymentType)?.label} />
-        <InfoItem label="START DATE" value={formatDate(deployment.startDate)} />
-        <InfoItem label="EXPECTED END" value={formatDate(deployment.expectedEndDate)} />
-        <InfoItem label="SUPERVISOR" value={deployment.supervisorRef} />
-        <InfoItem label="STATUS" value={STATUS_STYLES[status]?.label} />
-      </div>
-
-      {deployment.notes && (
-        <div style={{ marginTop: 20, padding: 14, backgroundColor: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
-          <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>DEPLOYMENT NOTES</div>
-          <p style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{deployment.notes}</p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+          <InfoItem label="EMPLOYEE" value={fullName(deployment.employeeId)} />
+          <InfoItem label="EMPLOYEE ID" value={deployment.employeeId?.employeeId} />
+          <InfoItem label="DEPLOYMENT ID" value={deployment.deploymentId} />
+          <InfoItem label="DEPARTMENT" value={dept && typeof dept === 'object' ? dept.name : ''} />
+          <InfoItem label="PROJECT" value={deployment.projectRef} />
+          <InfoItem label="ROLE" value={deployment.role} />
+          <InfoItem label="SITE" value={siteName(deployment.siteId)} />
+          <InfoItem label="DEPLOYMENT TYPE" value={DEPLOYMENT_TYPES.find((t) => t.value === deployment.deploymentType)?.label} />
+          <InfoItem label="START DATE" value={formatDate(deployment.startDate)} />
+          <InfoItem label="EXPECTED END" value={formatDate(deployment.expectedEndDate)} />
+          <InfoItem label="SUPERVISOR" value={deployment.supervisorRef} />
+          <InfoItem label="STATUS" value={STATUS_STYLES[status]?.label} />
         </div>
-      )}
+
+        {deployment.notes && (
+          <div style={{ padding: 14, backgroundColor: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>
+            <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>DEPLOYMENT NOTES</div>
+            <p style={{ fontSize: '0.84rem', color: '#475569', lineHeight: 1.6, margin: 0, whiteSpace: 'pre-wrap' }}>{deployment.notes}</p>
+          </div>
+        )}
+      </div>
     </Drawer>
   );
 }
@@ -497,7 +499,7 @@ export default function Deployment() {
         <StatCard label="Utilisation rate" value={statsLoading && !stats.length ? '…' : `${statMap.utilisation_rate ?? 0}%`} sub="Percentage of workforce actively deployed" icon={FiBarChart2} iconBg="#F5F3FF" iconColor="#7C3AED" />
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={search} onChange={(e) => handleSearch(e.target.value)} placeholder="Search deployment id, name, project…" style={{ paddingLeft: 36, width: '100%' }} />

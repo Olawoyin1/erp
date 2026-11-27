@@ -48,7 +48,7 @@ export default function DataTable({
                   padding: '12px 14px',
                   color: '#64748B',
                   fontWeight: 600,
-                  fontSize: '0.72rem',
+                  fontSize: '0.75rem',
                   textTransform: 'uppercase',
                   letterSpacing: '0.5px',
                   textAlign: col.align || 'left',

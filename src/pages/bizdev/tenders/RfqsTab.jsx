@@ -7,7 +7,7 @@ import { usePermission } from '../../../hooks/usePermission';
 import { apiError } from '../../../services/apiHelpers';
 import { rfqService } from '../../../services/bizdev.service';
 import { rfqsSlice } from '../../../store/bizdev/slices';
-import { Choice, ConfirmModal, DataState, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, MoneyInput, Panel, PrimaryButton, SecondaryButton, StatTiles, TabBar, TwoCol } from '../../procurement/shared/ProcUi';
+import { Choice, ConfirmModal, DataState, DetailGrid, Field, FilterDrawer, FormBody, FormError, ListCard, ListToolbar, MoneyInput, Panel, PrimaryButton, SecondaryButton, StatTiles, TwoCol } from '../../procurement/shared/ProcUi';
 import { AttachField } from '../../procurement/shared/ProcExtras';
 import { useBizList, useBizLookups, useExport, useRecord, useRunAction, useSelection } from '../shared/bizHooks';
 import { DocumentTable, HistoryList, PriorityBadge, SortLabel, StageBadge, Strip, TwoLine } from '../shared/BizUi';
@@ -164,7 +164,6 @@ function RfqFormModal({ rfq, clients, officers, opportunities, tenders, onClose,
 }
 
 function RfqDrawer({ rfqId, refreshKey, perms, onClose, onEdit, onAction }) {
-  const [tab, setTab] = useState('details');
   const { record: r, error, loading } = useRecord(rfqService, rfqId, refreshKey);
   const next = r ? nextStage(r.stage) : null;
   return (
@@ -185,22 +184,18 @@ function RfqDrawer({ rfqId, refreshKey, perms, onClose, onEdit, onAction }) {
                 {perms.decide && isDecided(r) && !r.archivedAt && <SecondaryButton icon={<FiArchive size={14} />} onClick={() => onAction('archive', r)}>Archive</SecondaryButton>}
               </span>
             </Strip>
-            <TabBar tabs={[{ id: 'details', label: 'Details' }, { id: 'documents', label: 'Documents' }, { id: 'activity', label: 'Activity Log' }]} active={tab} onChange={setTab} />
-            {tab === 'details' && (
-              <>
-                <DetailGrid items={[
-                  ['RFQ title', r.rfqTitle], ['RFQ ID', r.rfqId], ['Client', r.clientName], ['Client RFQ ref', r.clientRfqRef],
-                  ['Client requesting officer', r.clientRequestingOfficer], ['Linked opportunity', r.linkedOpportunity ? `${r.linkedOpportunity.opportunityId} ${r.linkedOpportunity.title}` : '—'],
-                  ['Linked tender', r.linkedTender ? `${r.linkedTender.tenderId} ${r.linkedTender.tenderName}` : '—'], ['Estimated value', money(r.estimatedValue, r.currency)],
-                  ['Currency', r.currency], ['RFQ type', r.rfqType], ['Assigned officer', r.assignedOfficerName], ['Issue date', r.issueDate ? formatDate(r.issueDate) : '—'],
-                  ['Deadline', r.deadline ? formatDate(r.deadline) : '—'], ['Current stage', stageLabel('rfq', r.stage)], ['Priority', r.priority],
-                ]}
-                />
-                {r.rfqDescription && <Panel title="RFQ description">{r.rfqDescription}</Panel>}
-              </>
-            )}
-            {tab === 'documents' && <DocumentTable api={rfqService} id={r._id} canUpload={perms.update && !r.archivedAt} canRemove={perms.update && !r.archivedAt} />}
-            {tab === 'activity' && <HistoryList api={rfqService} id={r._id} refreshKey={refreshKey} />}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              <DetailGrid items={[
+                ['RFQ title', r.rfqTitle], ['RFQ ID', r.rfqId], ['Client', r.clientName], ['Client RFQ ref', r.clientRfqRef],
+                ['Client requesting officer', r.clientRequestingOfficer], ['Linked opportunity', r.linkedOpportunity ? `${r.linkedOpportunity.opportunityId} ${r.linkedOpportunity.title}` : '—'],
+                ['Linked tender', r.linkedTender ? `${r.linkedTender.tenderId} ${r.linkedTender.tenderName}` : '—'], ['Estimated value', money(r.estimatedValue, r.currency)],
+                ['Currency', r.currency], ['RFQ type', r.rfqType], ['Assigned officer', r.assignedOfficerName], ['Issue date', r.issueDate ? formatDate(r.issueDate) : '—'],
+                ['Deadline', r.deadline ? formatDate(r.deadline) : '—'], ['Current stage', stageLabel('rfq', r.stage)], ['Priority', r.priority],
+              ]}
+              />
+              {r.rfqDescription && <Panel title="RFQ description">{r.rfqDescription}</Panel>}
+              <DocumentTable api={rfqService} id={r._id} canUpload={false} canRemove={false} />
+            </div>
           </div>
         )}
       </DataState>

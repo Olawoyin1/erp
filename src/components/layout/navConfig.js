@@ -1,15 +1,16 @@
 import {
   FiGrid,
-  FiTrendingUp,
-  FiUsers,
   FiSettings,
-  FiDollarSign,
   FiTool,
-  FiCheckCircle,
   FiAlertTriangle,
   FiShoppingCart,
   FiLock,
 } from 'react-icons/fi';
+import { HiOutlineUsers } from 'react-icons/hi';
+import { HiOutlineBriefcase } from 'react-icons/hi2';
+import { BsBank } from 'react-icons/bs';
+import { GoShieldCheck } from 'react-icons/go';
+import { PiUsersFour } from 'react-icons/pi';
 
 /**
  * Single source of truth for the sidebar, the route gate and the post-login landing page.
@@ -83,7 +84,7 @@ export const NAV = [
       },
       {
         label: 'Human Resources',
-        icon: FiUsers,
+        icon: HiOutlineUsers,
         path: '/hr',
         children: [
           { label: 'Employees', path: '/hr/employees', permission: 'hr.employee.view' },
@@ -104,7 +105,7 @@ export const NAV = [
       },
       {
         label: 'Accounts & Finance',
-        icon: FiDollarSign,
+        icon: BsBank,
         path: '/finance',
         children: [
           {
@@ -113,10 +114,12 @@ export const NAV = [
             anyOf: ['finance.account.view', 'finance.journalentry.view', 'finance.ledger.view'],
           },
           { label: 'Budgeting & Forecasting', path: '/finance/budget', permission: 'finance.budget.view' },
-          { label: 'Payables & Receivables', path: '/finance/ap-ar', anyOf: ['finance.payable.view', 'finance.invoice.view'] },
-          { label: 'Invoicing & Billing', path: '/finance/invoicing', permission: 'finance.invoice.view' },
+          { label: 'Invoicing', path: '/finance/invoicing', permission: 'finance.invoice.view' },
+          { label: 'Accounts Payable & Receivable', path: '/finance/ap-ar', anyOf: ['finance.payable.view', 'finance.invoice.view'] },
+          { label: 'Bank Reconciliation', path: '/finance/bank-reconciliation', permission: 'finance.bankreconciliation.view' },
+          { label: 'Tax Management', path: '/finance/tax', permission: 'finance.taxrecord.view' },
           {
-            label: 'Contracts & Claims',
+            label: 'Contract & Claims Management',
             path: '/finance/contracts-claims',
             anyOf: ['finance.contract.view', 'finance.contractvariation.view', 'finance.contractclaim.view'],
           },
@@ -125,17 +128,15 @@ export const NAV = [
             path: '/finance/risks-insurance',
             anyOf: ['finance.commercialrisk.view', 'finance.insurancepolicy.view'],
           },
-          { label: 'Bank Reconciliation', path: '/finance/bank-reconciliation', permission: 'finance.bankreconciliation.view' },
-          { label: 'Tax Management', path: '/finance/tax', permission: 'finance.taxrecord.view' },
-          { label: 'Finance Requests & Forms', path: '/finance/forms', permission: 'finance.financeform.view' },
           { label: 'Requests', path: '/finance/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/finance/tasks', permission: 'core.task.view', shared: true },
-          { label: 'Financial Reports', path: '/finance/reports', permission: 'finance.reports.view' },
+          { label: 'Finance Forms', path: '/finance/forms', permission: 'finance.financeform.view' },
+          { label: 'Reports', path: '/finance/reports', permission: 'finance.reports.view' },
         ],
       },
       {
         label: 'Business Development',
-        icon: FiTrendingUp,
+        icon: HiOutlineBriefcase,
         path: '/bizdev',
         children: [
           { label: 'Client Pipeline', path: '/bizdev/pipeline', permission: 'businessdev.client.view' },
@@ -143,6 +144,7 @@ export const NAV = [
           { label: 'RFQs', path: '/bizdev/rfqs', permission: 'businessdev.rfq.view' },
           { label: 'Requests', path: '/bizdev/requests', permission: 'administration.adminrequest.view', shared: true },
           { label: 'Tasks', path: '/bizdev/tasks', permission: 'core.task.view', shared: true },
+          { label: 'BD Documents', path: '/bizdev/documents', permission: 'core.document.view', shared: true },
           { label: 'Reports', path: '/bizdev/reports', permission: 'businessdev.reports.view' },
         ],
       },
@@ -167,7 +169,7 @@ export const NAV = [
     items: [
       {
         label: 'Quality System',
-        icon: FiCheckCircle,
+        icon: GoShieldCheck,
         path: '/quality',
         children: [
           { label: 'Audit Management', path: '/quality/audits', permission: 'quality.audit.view' },
@@ -219,7 +221,7 @@ export const NAV = [
   {
     section: 'User Management',
     items: [
-      { label: 'Users', icon: FiUsers, path: '/users', permission: 'core.user.view' },
+      { label: 'Users', icon: PiUsersFour, path: '/users', permission: 'core.user.view' },
       { label: 'Roles & Permissions', icon: FiLock, path: '/roles', permission: 'core.role.view' },
     ],
   },

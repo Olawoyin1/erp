@@ -194,7 +194,7 @@ function OnboardingDrawer({ record, onClose, onAdvance, onConvert, onVerifyDoc, 
         </div>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: 8, gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', backgroundColor: '#F8FAFC', margin: '-24px -24px 0', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: '0.813rem', color: '#64748B' }}>Status:</span>
           <StatusPill status={caseStatus} />
@@ -213,25 +213,26 @@ function OnboardingDrawer({ record, onClose, onAdvance, onConvert, onVerifyDoc, 
         )}
       </div>
 
-      {canConvert && !canConvertPerm && (
-        <div style={{ marginBottom: 20, padding: '10px 14px', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, fontSize: '0.8rem', color: '#1E3A8A' }}>
-          Onboarding is complete. Someone with permission to convert candidates must finish the conversion.
-        </div>
-      )}
-      {caseStatus === 'converted' && person?.kind === 'employee' && (
-        <div style={{ marginBottom: 20, padding: '10px 14px', backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, fontSize: '0.8rem', color: '#166534' }}>
-          Converted to employee <Link to={`/hr/employees/${person.id}`} style={{ color: '#166534', fontWeight: 700 }}>{person.code}</Link>. The onboarding documents are now in the employee&apos;s documents.
-        </div>
-      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        {canConvert && !canConvertPerm && (
+          <div style={{ padding: '10px 14px', backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 8, fontSize: '0.8rem', color: '#1E3A8A' }}>
+            Onboarding is complete. Someone with permission to convert candidates must finish the conversion.
+          </div>
+        )}
+        {caseStatus === 'converted' && person?.kind === 'employee' && (
+          <div style={{ padding: '10px 14px', backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 8, fontSize: '0.8rem', color: '#166534' }}>
+            Converted to employee <Link to={`/hr/employees/${person.id}`} style={{ color: '#166534', fontWeight: 700 }}>{person.code}</Link>. The onboarding documents are now in the employee&apos;s documents.
+          </div>
+        )}
 
-      <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginBottom: 24 }}>
-        {[{ key: 'checklist', label: 'Onboarding Checklist' }, { key: 'documents', label: 'Documents Registry' }, { key: 'safety', label: 'Safety Check' }].map((tab) => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-            style={{ padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', borderBottom: activeTab === tab.key ? '2px solid #1D4ED8' : '2px solid transparent', color: activeTab === tab.key ? '#1D4ED8' : '#64748B', fontWeight: activeTab === tab.key ? 600 : 400, fontSize: '0.875rem', whiteSpace: 'nowrap', fontFamily: 'var(--font)' }}>
-            {tab.label}
-          </button>
-        ))}
-      </div>
+        <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0' }}>
+          {[{ key: 'checklist', label: 'Onboarding Checklist' }, { key: 'documents', label: 'Documents Registry' }, { key: 'safety', label: 'Safety Check' }].map((tab) => (
+            <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+              style={{ padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer', borderBottom: activeTab === tab.key ? '2px solid #1D4ED8' : '2px solid transparent', color: activeTab === tab.key ? '#1D4ED8' : '#64748B', fontWeight: activeTab === tab.key ? 600 : 400, fontSize: '0.875rem', whiteSpace: 'nowrap', fontFamily: 'var(--font)' }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
       {activeTab === 'checklist' && (
         <div>
@@ -343,6 +344,7 @@ function OnboardingDrawer({ record, onClose, onAdvance, onConvert, onVerifyDoc, 
           )}
         </div>
       )}
+      </div>
     </Drawer>
   );
 }
@@ -502,7 +504,7 @@ export default function Onboarding() {
         ))}
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={search} onChange={(e) => handleSearch(e.target.value)} placeholder="Search ID, name, position…" style={{ paddingLeft: 36, width: '100%' }} />

@@ -218,6 +218,7 @@ export default function Invoicing() {
   const [payFor, setPayFor] = useState(null);
   const [cancelFor, setCancelFor] = useState(null);
   const [remindFor, setRemindFor] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
   const [viewId, setViewId] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -365,7 +366,7 @@ export default function Invoicing() {
       </PageHeader>
       <StatTiles tiles={tiles} loading={statsLoading && stats.length === 0} error={Boolean(statsError)} />
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
         <ListToolbar
           search={searchText}
           onSearch={(v) => { setSearchText(v); setPage(1); }}
@@ -379,7 +380,16 @@ export default function Invoicing() {
         </ListToolbar>
 
         <DataState loading={loading && items.length === 0} error={error} empty={!loading && items.length === 0} emptyText="No invoices found." onRetry={reload}>
-          <DataTable columns={columns} data={items} keyField="_id" emptyMessage="No invoices found." />
+          <DataTable
+            columns={columns}
+            data={items}
+            keyField="_id"
+            emptyMessage="No invoices found."
+            selectable
+            selectedIds={selectedIds}
+            onSelectRow={(id) => setSelectedIds((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id])}
+            onSelectAll={() => setSelectedIds(selectedIds.length === items.length ? [] : items.map((i) => i._id))}
+          />
         </DataState>
         <Pagination currentPage={meta?.page || page} totalPages={meta?.totalPages || 1} onPageChange={setPage} />
       </div>

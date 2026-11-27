@@ -286,7 +286,7 @@ export default function LeaveManagement() {
         ))}
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={search} onChange={(e) => handleSearch(e.target.value)} placeholder="Search employee, type, status…" style={{ paddingLeft: 36, width: '100%' }} />

@@ -279,7 +279,7 @@ function AccountsTab({ perms, onChanged, showToast, refreshKey }) {
   ];
 
   return (
-    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+    <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
       <ListToolbar search={list.searchText} onSearch={list.onSearch} placeholder="Search account code, name, category…" onFilter={() => setFilterOpen(true)} filterCount={countFilters(list.filters)} onExport={exportList} exporting={exporting}>
         {perms.accountCreate && <SecondaryButton icon={<FiUpload size={14} />} onClick={() => setImportOpen(true)}>Import</SecondaryButton>}
         {perms.accountCreate && <PrimaryButton icon={<FiPlus size={14} />} onClick={() => setFormFor('new')}>New Account</PrimaryButton>}
@@ -743,7 +743,7 @@ function JournalsTab({ perms, onChanged, showToast, refreshKey }) {
   ];
 
   return (
-    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+    <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
       <ListToolbar search={list.searchText} onSearch={list.onSearch} placeholder="Search journal ID, narration, entity…" onFilter={() => setFilterOpen(true)} filterCount={countFilters(list.filters)} onExport={exportList} exporting={exporting}>
         {perms.create && <PrimaryButton icon={<FiPlus size={14} />} onClick={() => setFormFor('new')}>New Journal Entry</PrimaryButton>}
       </ListToolbar>
@@ -842,8 +842,8 @@ function LedgerTab({ showToast }) {
   };
 
   return (
-    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12, alignItems: 'end' }}>
+    <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12, alignItems: 'end', padding: '14px 16px', borderBottom: '1px solid #E2E8F0' }}>
         <Field label="Account"><Choice value={filters.account} onChange={(v) => setFilter('account', v)} options={[{ value: '', label: 'All accounts' }, ...accounts.options]} searchable placeholder="All accounts" /></Field>
         <Field label="Period (YYYY-MM)"><Input value={filters.periodKey} onChange={(e) => setFilter('periodKey', /^\d{4}-\d{2}$/.test(e.target.value) || e.target.value === '' ? e.target.value : filters.periodKey)} placeholder="2026-10" /></Field>
         <Field label="From"><DatePicker value={filters.from} onChange={(e) => setFilter('from', e.target.value)} /></Field>
@@ -906,8 +906,8 @@ function PeriodsTab({ canClose, onChanged, showToast }) {
   };
 
   return (
-    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+    <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '14px 16px', borderBottom: '1px solid #E2E8F0' }}>
         <div style={{ width: 160 }}><Choice value={String(year)} onChange={(v) => setYear(Number(v))} options={[thisYear - 2, thisYear - 1, thisYear, thisYear + 1].map((y) => ({ value: String(y), label: String(y) }))} /></div>
         <span style={{ fontSize: '0.8rem', color: '#64748B' }}>Closing a period stops postings, reversals and system postings into that month.</span>
       </div>

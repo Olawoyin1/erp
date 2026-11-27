@@ -454,7 +454,7 @@ export default function BankReconciliation() {
       <PageHeader title="Bank Reconciliation" subtitle="Match bank statements with recorded transactions to ensure financial accuracy" />
       <StatTiles tiles={tiles} loading={list.statsLoading && list.stats.length === 0} error={Boolean(list.statsError)} />
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
         <ListToolbar search={list.searchText} onSearch={list.onSearch} placeholder="Search reconciliation ID, bank account, period…" onFilter={() => setFilterOpen(true)} filterCount={countFilters(list.filters)} onExport={exportList} exporting={exporting}>
           {canCreate && <PrimaryButton icon={<FiPlus size={14} />} onClick={() => setFormFor('new')}>Import Bank Statement</PrimaryButton>}
         </ListToolbar>

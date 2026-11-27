@@ -153,7 +153,7 @@ function OutcomeDrawer({ training, participant, canEvaluate, onClose, onReEvalua
   const settled = participant.outcomeStatus === 'value_created' || participant.outcomeStatus === 'value_not_yet_observed';
   return (
     <Drawer isOpen onClose={onClose} title={emp.fullName || 'Participant'} subtitle={`${training.title} • ${emp.employeeId || ''}`} width="680px">
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', backgroundColor: '#F8FAFC', borderRadius: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 24px', backgroundColor: '#F8FAFC', margin: '-24px -24px 0', flexWrap: 'wrap', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#64748B' }}>Status: <OutcomePill value={participant.outcomeStatus} /></div>
         {canEvaluate && settled && (
           <button onClick={() => onReEvaluate(participant)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 6, border: 'none', backgroundColor: '#1D4ED8', color: '#fff', fontWeight: 600, fontSize: '0.8rem', cursor: 'pointer' }}>
@@ -161,39 +161,41 @@ function OutcomeDrawer({ training, participant, canEvaluate, onClose, onReEvalua
           </button>
         )}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, border: '1px solid #E2E8F0', borderRadius: 8, padding: 18 }}>
-        {[
-          ['EMPLOYEE', emp.fullName], ['EMPLOYEE ID', emp.employeeId],
-          ['DEPARTMENT', emp.departmentId?.name], ['POSITION', emp.position],
-          ['PROVIDER', training.providerName], ['COURSE / TRAINING', training.title],
-          ['COMPLETION DATE', formatDate(participant.completionDate)], ['EXPIRY DATE', participant.expiryDate ? formatDate(participant.expiryDate) : 'No expiry'],
-          ['VALIDITY PERIOD', training.validityPeriod || 'No expiry'], ['ATTENDED', participant.attended ? 'Yes' : 'No'],
-          ['EVALUATED BY', fullName(participant.evaluatedBy)], ['DATE EVALUATED', formatDate(participant.evaluatedAt)],
-        ].map(([label, value]) => (
-          <div key={label}>
-            <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, marginBottom: 3 }}>{label}</div>
-            <div style={{ fontSize: '0.85rem', color: '#1E293B', fontWeight: 500 }}>{value || '—'}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8, marginTop: 16 }}>
-        <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, marginBottom: 6 }}>NOTES / OPERATIONAL FEEDBACK</div>
-        <div style={{ fontSize: '0.85rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{participant.operationalFeedback || 'No feedback recorded.'}</div>
-        {participant.reEvaluationReason && (
-          <>
-            <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, margin: '12px 0 6px' }}>REASON FOR RE-EVALUATION</div>
-            <div style={{ fontSize: '0.85rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{participant.reEvaluationReason}</div>
-          </>
-        )}
-      </div>
-      <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: 16, marginTop: 16 }}>
-        <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, marginBottom: 8 }}>CERTIFICATE</div>
-        {participant.certificateFileName ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}><FiFileText size={14} /> {participant.certificateFileName}</span>
-            <button onClick={download} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: '#1D4ED8', cursor: 'pointer', fontSize: '0.8rem' }}><FiDownload size={13} /> Download</button>
-          </div>
-        ) : <div style={{ fontSize: '0.82rem', color: '#94A3B8' }}>No certificate uploaded.</div>}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, border: '1px solid #E2E8F0', borderRadius: 8, padding: 18 }}>
+          {[
+            ['EMPLOYEE', emp.fullName], ['EMPLOYEE ID', emp.employeeId],
+            ['DEPARTMENT', emp.departmentId?.name], ['POSITION', emp.position],
+            ['PROVIDER', training.providerName], ['COURSE / TRAINING', training.title],
+            ['COMPLETION DATE', formatDate(participant.completionDate)], ['EXPIRY DATE', participant.expiryDate ? formatDate(participant.expiryDate) : 'No expiry'],
+            ['VALIDITY PERIOD', training.validityPeriod || 'No expiry'], ['ATTENDED', participant.attended ? 'Yes' : 'No'],
+            ['EVALUATED BY', fullName(participant.evaluatedBy)], ['DATE EVALUATED', formatDate(participant.evaluatedAt)],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: '0.85rem', color: '#1E293B', fontWeight: 500 }}>{value || '—'}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ backgroundColor: '#F8FAFC', padding: 16, borderRadius: 8 }}>
+          <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, marginBottom: 6 }}>NOTES / OPERATIONAL FEEDBACK</div>
+          <div style={{ fontSize: '0.85rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{participant.operationalFeedback || 'No feedback recorded.'}</div>
+          {participant.reEvaluationReason && (
+            <>
+              <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, margin: '12px 0 6px' }}>REASON FOR RE-EVALUATION</div>
+              <div style={{ fontSize: '0.85rem', color: '#334155', whiteSpace: 'pre-wrap' }}>{participant.reEvaluationReason}</div>
+            </>
+          )}
+        </div>
+        <div style={{ border: '1px solid #E2E8F0', borderRadius: 8, padding: 16 }}>
+          <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 600, marginBottom: 8 }}>CERTIFICATE</div>
+          {participant.certificateFileName ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}><FiFileText size={14} /> {participant.certificateFileName}</span>
+              <button onClick={download} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', color: '#1D4ED8', cursor: 'pointer', fontSize: '0.8rem' }}><FiDownload size={13} /> Download</button>
+            </div>
+          ) : <div style={{ fontSize: '0.82rem', color: '#94A3B8' }}>No certificate uploaded.</div>}
+        </div>
       </div>
     </Drawer>
   );
@@ -297,9 +299,9 @@ export default function TrainingParticipants({ training, onBack, showToast, onCh
         )}
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ position: 'relative', maxWidth: 380 }}>
-          <FiSearch size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ position: 'relative', maxWidth: 380, padding: '14px 16px 14px', borderBottom: '1px solid #E2E8F0' }}>
+          <FiSearch size={15} style={{ position: 'absolute', left: 28, top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
           <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search employee, id, department…" style={{ paddingLeft: 36 }} />
         </div>
         {state.error ? (

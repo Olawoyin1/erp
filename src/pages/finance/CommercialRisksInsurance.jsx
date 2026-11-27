@@ -241,7 +241,7 @@ function RisksTab({ perms, onChanged, showToast }) {
 
   const d = dlg.dialog;
   return (
-    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+    <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
       <ListToolbar search={list.searchText} onSearch={list.onSearch} placeholder="Search risk ID, category, owner, project…" onFilter={() => setFilterOpen(true)} filterCount={countFilters(list.filters)} onExport={exportList} exporting={exporting}>
         {perms.create && <PrimaryButton icon={<FiPlus size={14} />} onClick={() => setFormFor('new')}>Log Risk</PrimaryButton>}
       </ListToolbar>
@@ -524,7 +524,7 @@ function PoliciesTab({ perms, onChanged, showToast }) {
   });
 
   return (
-    <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+    <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
       <ListToolbar search={list.searchText} onSearch={list.onSearch} placeholder="Search policy no, provider, project…" onFilter={() => setFilterOpen(true)} filterCount={countFilters(list.filters)} onExport={exportList} exporting={exporting}>
         {perms.pCreate && <PrimaryButton icon={<FiPlus size={14} />} onClick={() => setFormFor('new')}>Register Policy / Bond</PrimaryButton>}
       </ListToolbar>

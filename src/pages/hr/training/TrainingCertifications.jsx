@@ -426,7 +426,7 @@ export default function TrainingCertifications() {
         </p>
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16, overflow: 'hidden' }}>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={search} onChange={(e) => handleSearch(e.target.value)} placeholder="Search training, id, provider…" style={{ paddingLeft: 36, width: '100%' }} />
@@ -527,8 +527,8 @@ export default function TrainingCertifications() {
 
 
       {!canViewAll && (
-        <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div>
+        <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #E2E8F0' }}>
             <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>My Certifications</h2>
             <p style={{ color: '#64748B', fontSize: '0.8rem', margin: '2px 0 0 0' }}>Certificates from the training you completed, and any HR has filed for you</p>
           </div>

@@ -317,17 +317,8 @@ function ViewRequestDrawer({ isOpen, record, onClose, access, onApprove, onRejec
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title="View Request" width="680px">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, gap: 12 }}>
-        <div>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#0F172A' }}>{record.requestTitle || record.requestType}</h3>
-          <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748B' }}>
-            {fullName(record.requestedBy)} &bull; {record.requestId}
-          </p>
-        </div>
-      </div>
-
       {record.status === 'pending' && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 8, padding: '10px 12px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap', backgroundColor: '#F8FAFC', padding: '14px 24px', margin: '-24px -24px 0' }}>
           <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
             Waiting on <strong style={{ color: '#0F172A' }}>{STEP_LABELS[record.currentStep] || 'review'}</strong>
           </div>
@@ -351,26 +342,35 @@ function ViewRequestDrawer({ isOpen, record, onClose, access, onApprove, onRejec
           )}
         </div>
       )}
-      {record.status === 'approved' && access.canComplete && (
-        <div style={{ marginBottom: 20 }}>
-          <button onClick={() => onComplete(record)} disabled={busy}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', fontSize: '0.85rem', backgroundColor: '#10B981', color: '#fff', borderRadius: 6, border: 'none', cursor: 'pointer' }}>
-            <FiCheck size={14} /> Mark completed
-          </button>
-        </div>
-      )}
 
-      <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginBottom: 20 }}>
-        {['details', 'history'].map((tab) => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none',
-              borderBottom: activeTab === tab ? '2px solid #1D4ED8' : '2px solid transparent',
-              color: activeTab === tab ? '#1D4ED8' : '#64748B', fontWeight: activeTab === tab ? 600 : 400,
-              cursor: 'pointer', fontSize: '0.9rem' }}>
-            {tab === 'details' ? 'Details' : 'Approval History'}
-          </button>
-        ))}
-      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ paddingTop: 20 }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, color: '#0F172A' }}>{record.requestTitle || record.requestType}</h3>
+          <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem', color: '#64748B' }}>
+            {fullName(record.requestedBy)} &bull; {record.requestId}
+          </p>
+        </div>
+
+        {record.status === 'approved' && access.canComplete && (
+          <div>
+            <button onClick={() => onComplete(record)} disabled={busy}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '8px 14px', fontSize: '0.85rem', backgroundColor: '#10B981', color: '#fff', borderRadius: 6, border: 'none', cursor: 'pointer' }}>
+              <FiCheck size={14} /> Mark completed
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0' }}>
+          {['details', 'history'].map((tab) => (
+            <button key={tab} onClick={() => setActiveTab(tab)}
+              style={{ flex: 1, padding: '10px 0', background: 'none', border: 'none',
+                borderBottom: activeTab === tab ? '2px solid #1D4ED8' : '2px solid transparent',
+                color: activeTab === tab ? '#1D4ED8' : '#64748B', fontWeight: activeTab === tab ? 600 : 400,
+                cursor: 'pointer', fontSize: '0.9rem' }}>
+              {tab === 'details' ? 'Details' : 'Approval History'}
+            </button>
+          ))}
+        </div>
 
       {activeTab === 'details' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
@@ -426,6 +426,7 @@ function ViewRequestDrawer({ isOpen, record, onClose, access, onApprove, onRejec
           {record.status === 'approved' && <HistoryItem color="#10B981" title="Fully approved" subtitle="Ready to be marked completed" />}
         </div>
       )}
+      </div>
     </Drawer>
   );
 }
@@ -680,7 +681,7 @@ export default function Requests() {
         )}
       </div>
 
-      <div className="card" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', gap: 16 }}>
         <div className="table-toolbar">
           <div className="table-toolbar-search">
             <Input value={search} onChange={(e) => list.setSearch(e.target.value)}
