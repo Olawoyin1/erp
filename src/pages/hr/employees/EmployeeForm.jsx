@@ -338,17 +338,17 @@ export default function EmployeeForm({ mode, employee, onClose, onSubmit, onPhot
         </div>
 
         <div style={row}>
-          {form.contractType !== 'permanent' ? (
-            <FormField label="Contract end date" error={errors.contractEndDate} helpText="Drives the contract-expiry reminder">
-              <DatePicker value={form.contractEndDate} min={form.hireDate || undefined} error={!!errors.contractEndDate} onChange={(e) => set('contractEndDate', e.target.value)} />
-            </FormField>
-          ) : <div />}
           {showSalary && (
             <FormField label="Official base salary (₦)" error={errors.baseSalary} helpText={salaryLocked ? 'Changing salary needs payroll authority' : undefined}>
               <Input type="number" min="0" step="0.01" value={form.baseSalary} disabled={salaryLocked} error={!!errors.baseSalary}
                 onChange={(e) => set('baseSalary', e.target.value)} placeholder="e.g. 850000" />
             </FormField>
           )}
+          {form.contractType !== 'permanent' ? (
+            <FormField label="Contract end date" error={errors.contractEndDate} helpText="Drives the contract-expiry reminder">
+              <DatePicker value={form.contractEndDate} min={form.hireDate || undefined} error={!!errors.contractEndDate} onChange={(e) => set('contractEndDate', e.target.value)} />
+            </FormField>
+          ) : <div />}
         </div>
 
         <FormField label="Status">

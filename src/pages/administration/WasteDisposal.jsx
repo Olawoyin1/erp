@@ -255,7 +255,7 @@ export default function WasteDisposal() {
   const menuItems = (row) => {
     const items = [];
     if (row.status === 'pending' && canUpdate) {
-      items.push({ label: 'Edit Log', icon: <FiEdit size={14} color="#64748B" />, action: () => setFormFor(row) });
+      items.push({ label: 'Edit Log', icon: <FiEdit size={14} color="#64748B" />, action: () => { setViewId(null); setFormFor(row); } });
       items.push({ label: 'Mark as Completed', icon: <FiCheck size={14} color="#16A34A" />, color: '#16A34A', action: () => open(row) });
     }
     return items;
@@ -290,7 +290,7 @@ export default function WasteDisposal() {
 
   const viewActions = (record) => (
     <>
-      {record.status === 'pending' && canUpdate && <SecondaryButton icon={<FiEdit size={14} />} onClick={() => setFormFor(record)}>Edit Log</SecondaryButton>}
+      {record.status === 'pending' && canUpdate && <SecondaryButton icon={<FiEdit size={14} />} onClick={() => { setViewId(null); setFormFor(record); }}>Edit Log</SecondaryButton>}
       {record.status === 'pending' && canUpdate && <PrimaryButton style={{ backgroundColor: '#16A34A' }} icon={<FiCheck size={14} />} onClick={() => open(record)}>Mark as Completed</PrimaryButton>}
     </>
   );
@@ -366,7 +366,7 @@ export default function WasteDisposal() {
           lookups={lookups}
           me={lookups.me}
           onClose={() => setFormFor(null)}
-          onSaved={(message) => { setFormFor(null); showToast(message, 'success'); refresh(); }}
+          onSaved={(message) => { const editedId = formFor?._id || null; setFormFor(null); if (editedId) setViewId(editedId); showToast(message, 'success'); refresh(); }}
         />
       )}
 
